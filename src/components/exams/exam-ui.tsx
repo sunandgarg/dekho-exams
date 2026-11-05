@@ -24,7 +24,6 @@ export function Crumbs({ items }: { items: [label: string, to?: ReactNode][] }) 
   );
 }
 
-const pill = "inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm font-medium hover:bg-accent";
 
 function ExamCard({ exam }: { exam: Exam }) {
   const n = questionsFor(exam.slug).length;
