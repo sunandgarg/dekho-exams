@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { EXAMS, QUESTIONS, examBySlug, scoreAttempt } from "./question-bank";
+import { EXAMS, QUESTIONS, examBySlug, scoreAttempt } from "../src/lib/question-bank";
 
 test("JEE Main practice marking: +4 correct, -1 wrong option, 0 skipped", () => {
   const m = examBySlug("jee-main")!.marking;
