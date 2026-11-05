@@ -76,3 +76,8 @@ The latest local HTTP suite passed 20 tests across all 2,338 catalog routes, che
 - Only 29 original practice questions exist (single-correct and numerical, with solutions). None are past-paper questions, so year/shift are null and the year filter stays disabled. Solutions are not academically reviewed. Every page is noindex.
 - Chapter filters (year, difficulty, type, status), show/hide solutions, bookmarks and attempt progress (this browser only), and a short timed practice set with practice marking. This is not a full mock test and nothing is saved server-side.
 - Remaining: rights-cleared past papers with year/shift, many more questions per chapter, academic review, account-synced progress, and exams ExamSide lists that are not added here yet.
+
+## Exam directory (2026-11-05)
+- Home page `/` and `/questions` now show the ExamSide-style exam directory: 7 groups (JEE, Medical, GATE, Civil Services, Defence, SSC, CBSE), 29 exams, Chapter-wise / Paper-wise per exam.
+- Chapter-wise (`/questions/$exam`) groups chapters by subject and unit. Paper-wise (`/questions/$exam/papers`) lists verified past papers (none yet) and original practice sets; each set has a printable paper view with answer key.
+- Exam badges are Dekhoexams initials, not official exam-body logos. Only 29 original questions exist; no past papers.
