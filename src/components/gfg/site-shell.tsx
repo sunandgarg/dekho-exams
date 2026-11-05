@@ -117,6 +117,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
     return <div className="min-h-screen bg-background text-foreground">{children}</div>;
   const libraryTopics = [
     ["Classes 1–12", "classes"],
+    ["Question Bank", "questions"],
     ["NCERT", "ncert"],
     ["CBSE", "cbse"],
     ["CISCE", "cisce"],
@@ -216,6 +217,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
                   <LocalLink href="my-study" className="block py-4 text-sm font-bold">
                     Your saved reading
                   </LocalLink>
+                  <a href="/questions" className="block py-3 text-sm font-bold">
+                    Question Bank
+                  </a>
                   <a href="/about" className="block py-3 text-sm font-bold">
                     About Pencil2Pen
                   </a>

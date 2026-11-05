@@ -6,6 +6,8 @@ import { readFileSync } from "node:fs";
 // Node's type stripping keeps these checks on the real source, without a test framework.
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (specifier.startsWith("@/") && specifier.endsWith(".json"))
+      return nextResolve(new URL(`../src/${specifier.slice(2)}`, import.meta.url).href, context);
     if (
       specifier.startsWith("./") &&
       !/\.[a-z]+$/.test(specifier) &&
@@ -13,6 +15,16 @@ registerHooks({
     )
       return nextResolve(`${specifier}.ts`, context);
     return nextResolve(specifier, context);
+  },
+  // App code imports JSON through Vite without an import attribute; Node needs one.
+  load(url, context, nextLoad) {
+    if (url.endsWith(".json") && context.importAttributes?.type !== "json")
+      return {
+        format: "module",
+        source: `export default ${readFileSync(new URL(url), "utf8")};`,
+        shortCircuit: true,
+      };
+    return nextLoad(url, context);
   },
 });
 const catalog = await import("../src/lib/education-catalog.ts");

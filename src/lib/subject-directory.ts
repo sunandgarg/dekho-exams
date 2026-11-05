@@ -1,4 +1,4 @@
-import reference from "../data/khan-course-reference.json" with { type: "json" };
+import reference from "@/data/khan-course-reference.json";
 
 export type DirectoryIcon =
   "maths" | "science" | "english" | "computing" | "economics" | "boards" | "explore" | "teachers";
