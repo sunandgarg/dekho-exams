@@ -80,4 +80,4 @@ The latest local HTTP suite passed 20 tests across all 2,338 catalog routes, che
 ## Exam directory (2026-11-05)
 - Home page `/` and `/questions` now show the ExamSide-style exam directory: 7 groups (JEE, Medical, GATE, Civil Services, Defence, SSC, CBSE), 29 exams, Chapter-wise / Paper-wise per exam.
 - Chapter-wise (`/questions/$exam`) groups chapters by subject and unit. Paper-wise (`/questions/$exam/papers`) lists verified past papers (none yet) and original practice sets; each set has a printable paper view with answer key.
-- Exam badges are Dekhoexams initials, not official exam-body logos. Only 29 original questions exist; no past papers.
+- Exam badges are Dekhoexams initials, not official exam-body logos. 99 original practice questions across all 29 exams (each has a printable practice set); no past papers yet. Dekhoexams eye-and-tick icon and share image added.
