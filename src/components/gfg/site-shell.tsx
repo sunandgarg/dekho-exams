@@ -116,19 +116,14 @@ export function SiteShell({ children }: { children: ReactNode }) {
   if (pathname.startsWith("/admin"))
     return <div className="min-h-screen bg-background text-foreground">{children}</div>;
   const libraryTopics = [
-    ["Classes 1–12", "classes"],
-    ["Question Bank", "questions"],
-    ["NCERT", "ncert"],
-    ["CBSE", "cbse"],
-    ["CISCE", "cisce"],
-    ["Class 10", "class-10"],
-    ["Class 12", "class-12"],
-    ["JEE", "jee"],
-    ["NEET", "neet"],
-    ["CUET", "cuet"],
-    ["State Books", "state-boards"],
-    ["Languages", "languages"],
-    ["All subjects", "subjects"],
+    ["JEE", "/#jee"],
+    ["Medical", "/#medical"],
+    ["GATE", "/#gate"],
+    ["Civil Services", "/#civil-services"],
+    ["Defence", "/#defence"],
+    ["SSC", "/#ssc"],
+    ["CBSE", "/#cbse"],
+    ["Bookmarks", "/questions/bookmarks"],
   ];
   return (
     <div
@@ -148,7 +143,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
         <div className="ozi-header-top">
           <Link to="/" className="ozi-brand-link">
             <Brand />
-            <span className="brand-caption">Learn. Practice. Grow.</span>
+            <span className="brand-caption">Questions with solutions</span>
           </Link>
           <form
             action="/search"
@@ -160,7 +155,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
             <label className="sr-only" htmlFor="global-search">
               Search resources
             </label>
-            <Input id="global-search" name="q" placeholder="Search lessons and subjects…" />
+            <Input id="global-search" name="q" placeholder="Search exams, chapters and lessons…" />
             <button type="submit">
               Search <span aria-hidden="true">→</span>
             </button>
@@ -254,29 +249,17 @@ export function SiteShell({ children }: { children: ReactNode }) {
         <nav aria-label="Popular topics" className="ozi-topic-nav">
           <div>
             {libraryTopics.map(([label, path], index) => (
-              <LocalLink
+              <a
                 key={path}
-                href={path!}
+                href={path}
                 className={`ozi-topic-link category-${index % 5}`}
-                aria-current={
-                  pathname === "/" + path ||
-                  pathname.startsWith(`/${path}/`) ||
-                  (path === "classes" && /^\/class-\d+/.test(pathname))
-                    ? "page"
-                    : undefined
-                }
+                aria-current={pathname === path ? "page" : undefined}
               >
                 <span className="ozi-topic-image">
-                  {label === "All subjects" ? (
-                    <BookOpen className="size-6" />
-                  ) : path!.startsWith("class") ? (
-                    <GraduationCap className="size-6" />
-                  ) : (
-                    <BookOpen className="size-6" />
-                  )}
+                  {label === "Bookmarks" ? <Bookmark className="size-6" /> : <GraduationCap className="size-6" />}
                 </span>
                 <span>{label}</span>
-              </LocalLink>
+              </a>
             ))}
           </div>
         </nav>
@@ -289,8 +272,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <nav aria-label="Mobile navigation" className="ozi-bottom-nav">
         {[
           ["Home", "", Home],
-          ["Classes", "classes", GraduationCap],
-          ["Exams", "exams", BookOpen],
+          ["Exams", "questions", GraduationCap],
+          ["Bookmarks", "questions/bookmarks", BookOpen],
           ["Saved", "my-study", Bookmark],
         ].map(([label, path, Icon]) => {
           const href = String(path);
@@ -354,8 +337,8 @@ function Footer() {
           <div>
             <Brand />
             <p className="mt-3 max-w-md text-sm leading-6 text-footer-muted">
-              Classes 1–12, books, boards and entrance exam directories. Original lessons with
-              worked examples and practice.
+              Chapter-wise and paper-wise questions for JEE, NEET, GATE, UPSC, NDA, SSC and CBSE,
+              with solutions and timed practice.
             </p>
           </div>
           <div className="grid gap-3 text-sm">

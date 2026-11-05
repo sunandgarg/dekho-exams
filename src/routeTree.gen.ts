@@ -25,6 +25,8 @@ import { Route as StudySearchRouteImport } from './routes/study.search'
 import { Route as QuestionsExamIndexRouteImport } from './routes/questions.$exam.index'
 import { Route as QuestionsExamPracticeRouteImport } from './routes/questions.$exam.practice'
 import { Route as QuestionsExamSubjectChapterRouteImport } from './routes/questions.$exam.$subject.$chapter'
+import { Route as QuestionsExamPapersIndexRouteImport } from './routes/questions.$exam.papers.index'
+import { Route as QuestionsExamPapersPaperRouteImport } from './routes/questions.$exam.papers.$paper'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -107,6 +109,18 @@ const QuestionsExamSubjectChapterRoute =
     path: '/questions/$exam/$subject/$chapter',
     getParentRoute: () => rootRouteImport,
   } as any)
+const QuestionsExamPapersIndexRoute =
+  QuestionsExamPapersIndexRouteImport.update({
+    id: '/questions/$exam/papers/',
+    path: '/questions/$exam/papers/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const QuestionsExamPapersPaperRoute =
+  QuestionsExamPapersPaperRouteImport.update({
+    id: '/questions/$exam/papers/$paper',
+    path: '/questions/$exam/papers/$paper',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -125,6 +139,8 @@ export interface FileRoutesByFullPath {
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
   '/questions/$exam/': typeof QuestionsExamIndexRoute
   '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
+  '/questions/$exam/papers/$paper': typeof QuestionsExamPapersPaperRoute
+  '/questions/$exam/papers/': typeof QuestionsExamPapersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -142,6 +158,8 @@ export interface FileRoutesByTo {
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
   '/questions/$exam': typeof QuestionsExamIndexRoute
   '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
+  '/questions/$exam/papers/$paper': typeof QuestionsExamPapersPaperRoute
+  '/questions/$exam/papers': typeof QuestionsExamPapersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,6 +179,8 @@ export interface FileRoutesById {
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
   '/questions/$exam/': typeof QuestionsExamIndexRoute
   '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
+  '/questions/$exam/papers/$paper': typeof QuestionsExamPapersPaperRoute
+  '/questions/$exam/papers/': typeof QuestionsExamPapersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -181,6 +201,8 @@ export interface FileRouteTypes {
     | '/questions/$exam/practice'
     | '/questions/$exam/'
     | '/questions/$exam/$subject/$chapter'
+    | '/questions/$exam/papers/$paper'
+    | '/questions/$exam/papers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -198,6 +220,8 @@ export interface FileRouteTypes {
     | '/questions/$exam/practice'
     | '/questions/$exam'
     | '/questions/$exam/$subject/$chapter'
+    | '/questions/$exam/papers/$paper'
+    | '/questions/$exam/papers'
   id:
     | '__root__'
     | '/'
@@ -216,6 +240,8 @@ export interface FileRouteTypes {
     | '/questions/$exam/practice'
     | '/questions/$exam/'
     | '/questions/$exam/$subject/$chapter'
+    | '/questions/$exam/papers/$paper'
+    | '/questions/$exam/papers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -232,6 +258,8 @@ export interface RootRouteChildren {
   QuestionsExamPracticeRoute: typeof QuestionsExamPracticeRoute
   QuestionsExamIndexRoute: typeof QuestionsExamIndexRoute
   QuestionsExamSubjectChapterRoute: typeof QuestionsExamSubjectChapterRoute
+  QuestionsExamPapersPaperRoute: typeof QuestionsExamPapersPaperRoute
+  QuestionsExamPapersIndexRoute: typeof QuestionsExamPapersIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -348,6 +376,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuestionsExamSubjectChapterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/questions/$exam/papers/': {
+      id: '/questions/$exam/papers/'
+      path: '/questions/$exam/papers'
+      fullPath: '/questions/$exam/papers/'
+      preLoaderRoute: typeof QuestionsExamPapersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/questions/$exam/papers/$paper': {
+      id: '/questions/$exam/papers/$paper'
+      path: '/questions/$exam/papers/$paper'
+      fullPath: '/questions/$exam/papers/$paper'
+      preLoaderRoute: typeof QuestionsExamPapersPaperRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -379,6 +421,8 @@ const rootRouteChildren: RootRouteChildren = {
   QuestionsExamPracticeRoute: QuestionsExamPracticeRoute,
   QuestionsExamIndexRoute: QuestionsExamIndexRoute,
   QuestionsExamSubjectChapterRoute: QuestionsExamSubjectChapterRoute,
+  QuestionsExamPapersPaperRoute: QuestionsExamPapersPaperRoute,
+  QuestionsExamPapersIndexRoute: QuestionsExamPapersIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
