@@ -6,6 +6,11 @@ import { readFileSync } from "node:fs";
 // Node's type stripping keeps these checks on the real source, without a test framework.
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (specifier.startsWith("@/") && specifier.endsWith(".json"))
+      return nextResolve(new URL(`../src/${specifier.slice(2)}`, import.meta.url).href, {
+        ...context,
+        importAttributes: { type: "json" },
+      });
     if (
       specifier.startsWith("./") &&
       !/\.[a-z]+$/.test(specifier) &&
