@@ -18,8 +18,12 @@ registerHooks({
   },
   // App code imports JSON through Vite without an import attribute; Node needs one.
   load(url, context, nextLoad) {
-    if (url.endsWith(".json"))
-      return nextLoad(url, { ...context, importAttributes: { type: "json" } });
+    if (url.endsWith(".json") && context.importAttributes?.type !== "json")
+      return {
+        format: "module",
+        source: `export default ${readFileSync(new URL(url), "utf8")};`,
+        shortCircuit: true,
+      };
     return nextLoad(url, context);
   },
 });
