@@ -31,7 +31,7 @@ export function Home() {
       <section className="pen-hero" aria-labelledby="home-heading">
         <div className="pen-hero-inner">
           <div className="pen-hero-intro">
-            <h1 id="home-heading">Pencil2Pen<span>.</span></h1>
+            <h1 id="home-heading">Dekhoexams<span>.</span></h1>
             <p className="pen-hero-lead">What are you studying today?</p>
             <p className="pen-hero-copy">Find your class, open a chapter, or check an exam update.</p>
             <div className="pen-hero-actions">
@@ -73,7 +73,7 @@ export function Home() {
       </section>
       <section aria-labelledby="collections-heading" className="pen-explore">
         <div className="pen-section-heading">
-          <h2 id="collections-heading">Explore Pencil2Pen</h2>
+          <h2 id="collections-heading">Explore Dekhoexams</h2>
           <a href="/site-map">All collections <ArrowRight aria-hidden="true" /></a>
         </div>
         <div className="pen-shortcuts">

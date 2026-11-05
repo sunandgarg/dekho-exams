@@ -14,7 +14,7 @@ export const Route = createFileRoute("/questions/$exam/$subject/$chapter")({
     return { exam: exam.slug, examName: exam.name, subject: sub.slug, subjectName: sub.name, chapter: params.chapter, chapterName: chap };
   },
   head: ({ loaderData: d }) => seoHead({
-    title: d ? `${d.chapterName} — ${d.examName} ${d.subjectName} Questions | Pencil2Pen` : "Chapter not found | Pencil2Pen",
+    title: d ? `${d.chapterName} — ${d.examName} ${d.subjectName} Questions | Dekhoexams` : "Chapter not found | Dekhoexams",
     description: d ? `Practise ${d.chapterName} questions for ${d.examName} ${d.subjectName} with step-by-step solutions.` : "This chapter is not in the question bank.",
     path: d ? `questions/${d.exam}/${d.subject}/${d.chapter}` : "questions",
     noindex: true,

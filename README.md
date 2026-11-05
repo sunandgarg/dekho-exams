@@ -1,6 +1,6 @@
-# Pencil2Pen learning platform
+# Dekhoexams learning platform
 
-Pencil2Pen is a new Class 1–12 student experience built on this TanStack Start codebase. The local starter has 14 original lessons, plus board, book, exam and language directories. The inherited computing library is preserved. [SITE-ARCHITECTURE.md](SITE-ARCHITECTURE.md) is the routing/content contract; [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md) records what is complete and every remaining production workstream.
+Dekhoexams is a new Class 1–12 student experience built on this TanStack Start codebase. The local starter has 14 original lessons, plus board, book, exam and language directories. The inherited computing library is preserved. [SITE-ARCHITECTURE.md](SITE-ARCHITECTURE.md) is the routing/content contract; [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md) records what is complete and every remaining production workstream.
 
 ## Local preview
 
@@ -11,11 +11,11 @@ npm run dev -- --host 127.0.0.1
 
 Open the URL reported by Vite (currently `http://127.0.0.1:3001/`). Leave `WORDPRESS_URL` unset for the local content fixtures. The school lessons are in `src/lib/school-content.ts`; `/classes` is the class hub and `/study` redirects permanently. All new education routes are registered in `src/lib/education-catalog.ts`. Preview mode stays `noindex` until the content, domain and legal pages are reviewed for launch. Canonicals use `https://pencil2pen.com`.
 
-Use Node 22.18+ (or a current Node LTS). `npm run test:education` runs before every production build. With the preview running, `PENPENCIL_TEST_URL=http://127.0.0.1:3001 npm run test:education` also checks every catalog URL over HTTP, all legacy redirects, preview sitemaps and unknown-route 404s. Never deploy to the inherited AITrove Cloudflare project for a Pencil2Pen launch.
+Use Node 22.18+ (or a current Node LTS). `npm run test:education` runs before every production build. With the preview running, `PENPENCIL_TEST_URL=http://127.0.0.1:3001 npm run test:education` also checks every catalog URL over HTTP, all legacy redirects, preview sitemaps and unknown-route 404s. Never deploy to the inherited AITrove Cloudflare project for a Dekhoexams launch.
 
 ## Legacy AITrove integration
 
-The sections below document the inherited computing CMS and deployment configuration. They are not a Pencil2Pen production launch guide. Review the WordPress plugin, content, legal copy and Cloudflare project settings before migrating them to the new site.
+The sections below document the inherited computing CMS and deployment configuration. They are not a Dekhoexams production launch guide. Review the WordPress plugin, content, legal copy and Cloudflare project settings before migrating them to the new site.
 
 ## Cloudflare Pages preview
 

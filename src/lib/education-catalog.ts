@@ -169,7 +169,7 @@ const CBSE_CURRICULUM = {
   path: "https://cbseacademic.nic.in/curriculum_2027.html",
 };
 const CISCE = { title: "CISCE official website", path: "https://cisce.org/" };
-const pending = "No reviewed Pencil2Pen material is published in this collection yet.";
+const pending = "No reviewed Dekhoexams material is published in this collection yet.";
 const ncertKinds = RESOURCE_TYPES.filter(([slug]) => slug.startsWith("ncert"));
 const ncertClassPath = (grade: number) => `/ncert/class-${grade}`;
 const ncertMaterialPath = (grade: number, kind: string) =>
@@ -208,7 +208,7 @@ function add(
     title,
     family,
     parent,
-    description: `${title} on Pencil2Pen.`,
+    description: `${title} on Dekhoexams.`,
     children: [],
     resourceIds: [],
     sources: [],
@@ -318,7 +318,7 @@ for (const grade of GRADES) {
       },
     ],
     notice:
-      "Subject links currently lead to original Pencil2Pen topics, not verified NCERT chapter mappings. Books, solutions and exam papers are awaiting editorial review.",
+      "Subject links currently lead to original Dekhoexams topics, not verified NCERT chapter mappings. Books, solutions and exam papers are awaiting editorial review.",
     sources: [NCERT],
   });
   addSubjectPages(ncertClassPath(grade), grade, "books", [NCERT]);
@@ -372,7 +372,7 @@ for (const [slug, title, code] of LANGUAGES) {
     notice:
       code === "en"
         ? "Original English lessons are available below. They are not NCERT textbook solutions."
-        : `Pencil2Pen ${title} lessons and translations are not published yet. This directory does not claim that NCERT publishes every book in ${title}.`,
+        : `Dekhoexams ${title} lessons and translations are not published yet. This directory does not claim that NCERT publishes every book in ${title}.`,
     resourceIds: resourceIds((r) => r.language === code),
     sources: [NCERT],
   });
@@ -399,7 +399,7 @@ for (const [slug, title, code] of LANGUAGES) {
             empty: `Verified ${title} chapter listings are not published yet.`,
           },
           {
-            title: "Original Pencil2Pen lessons",
+            title: "Original Dekhoexams lessons",
             paths: code === "en" ? classPracticePaths(grade) : [],
             empty: `No reviewed ${title} lessons are available yet.`,
           },
@@ -461,7 +461,7 @@ for (const [slug, title, grades, sources] of [
     const parent = `/${slug}/class-${grade}`;
     add(`/${slug}/class-${grade}`, `${title} Class ${grade}`, "boards", `/${slug}`, {
       notice:
-        "Board-specific book editions and chapter mappings are awaiting review. Original Pencil2Pen lessons are not a complete board course.",
+        "Board-specific book editions and chapter mappings are awaiting review. Original Dekhoexams lessons are not a complete board course.",
       children: subjectPaths(parent, grade),
       sections: [
         {
@@ -504,7 +504,7 @@ for (const [slug, title] of STATES)
       {
         description: `Class ${grade} study directory for the ${title} state board.`,
         notice:
-          "State textbook editions, chapters and papers have not yet been verified or published. General Pencil2Pen lessons below are not state-board solutions.",
+          "State textbook editions, chapters and papers have not yet been verified or published. General Dekhoexams lessons below are not state-board solutions.",
         children: subjectPaths(parent, grade),
         sections: [
           {
@@ -541,7 +541,7 @@ for (const [slug, title] of [
 ])
   add(`/textbook-solutions/${slug}`, `${title} Solutions`, "books", "/textbook-solutions", {
     notice:
-      "Edition-specific original solutions are not published yet. Pencil2Pen is independent of this publisher; no copyrighted books are reproduced.",
+      "Edition-specific original solutions are not published yet. Dekhoexams is independent of this publisher; no copyrighted books are reproduced.",
   });
 add("/exams", "Entrance & Competitive Exams", "exams", "/", {
   children: EXAMS.map(([s]) => `/${s}`),
@@ -550,13 +550,13 @@ add("/exam-updates", "Exam Date Sheets, Answer Keys and Results", "exams", "/exa
   description:
     "Find official CBSE date sheets and results, NTA answer keys, and CBSE sample papers and marking schemes. Check the publishing authority for the latest release.",
   children: EXAM_GUIDES.map((guide) => guide.path),
-  notice: "Pencil2Pen is independent of CBSE and NTA. Availability changes by exam year and session; always confirm the newest official notice.",
+  notice: "Dekhoexams is independent of CBSE and NTA. Availability changes by exam year and session; always confirm the newest official notice.",
 });
 for (const guide of EXAM_GUIDES) {
   add(guide.path, guide.title, "exams", "/exam-updates", {
     description: guide.description,
     sources: [...new Map(guide.sections.flatMap((section) => section.links).map((link) => [link.path, link])).values()],
-    notice: "Official portals control release dates and downloads. Pencil2Pen does not host exam files or collect exam credentials.",
+    notice: "Official portals control release dates and downloads. Dekhoexams does not host exam files or collect exam credentials.",
   });
 }
 for (const [slug, title, description] of EXAMS)
@@ -591,7 +591,7 @@ add("/scholarships", "Scholarships & Awards", "resources", "/", {
 add("/resources", "Study Resources", "resources", "/", {
   children: [...RESOURCE_TYPES.map(([s]) => `/${s}`), "/scholarships"],
 });
-add("/search", "Search Pencil2Pen", "utility");
+add("/search", "Search Dekhoexams", "utility");
 add("/my-study", "My Study", "utility");
 add("/site-map", "All Collections", "utility", "/", {
   children: [
@@ -612,7 +612,7 @@ for (const group of SUBJECT_DIRECTORY) {
   if (!pages.has(group.path))
     add(group.path, group.title, "resources", group.parent, {
       notice:
-        "Pencil2Pen course material for this collection is not published yet. Individual options include a clearly labelled external learning reference.",
+        "Dekhoexams course material for this collection is not published yet. Individual options include a clearly labelled external learning reference.",
     });
   const parent = pages.get(group.parent);
   if (parent && !parent.children.includes(group.path)) parent.children.push(group.path);

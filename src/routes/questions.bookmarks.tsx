@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/questions/bookmarks")({
   head: () => seoHead({
-    title: "Bookmarked Questions | Pencil2Pen",
-    description: "Questions you bookmarked in the Pencil2Pen question bank, saved in this browser.",
+    title: "Bookmarked Questions | Dekhoexams",
+    description: "Questions you bookmarked in the Dekhoexams question bank, saved in this browser.",
     path: "questions/bookmarks",
     noindex: true,
   }),

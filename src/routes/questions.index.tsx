@@ -6,7 +6,7 @@ import { useQuestionProgress } from "@/lib/question-progress";
 
 export const Route = createFileRoute("/questions/")({
   head: () => seoHead({
-    title: "Question Bank — JEE, NEET, GATE & Board Practice | Pencil2Pen",
+    title: "Question Bank — JEE, NEET, GATE & Board Practice | Dekhoexams",
     description: "Practise chapter-wise questions for JEE Main, JEE Advanced, NEET, GATE and school boards with solutions, bookmarks and timed practice.",
     path: "questions",
     noindex: true,

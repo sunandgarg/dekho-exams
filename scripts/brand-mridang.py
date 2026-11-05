@@ -1,4 +1,4 @@
-"""Create a separate Pencil2Pen reading copy without changing NCERT page artwork."""
+"""Create a separate Dekhoexams reading copy without changing NCERT page artwork."""
 
 from io import BytesIO
 from pathlib import Path
@@ -13,7 +13,7 @@ from reportlab.pdfgen import canvas
 
 SOURCE_FILES = ["aemr1ps.pdf", *(f"aemr1{number:02}.pdf" for number in range(1, 10))]
 MARGIN = 30
-FONT = "Pencil2PenNunito"
+FONT = "DekhoexamsNunito"
 
 
 def draw_wordmark(page: canvas.Canvas, x: float, y: float, size: int, right: bool = False) -> None:
@@ -58,9 +58,9 @@ def main(source_dir: Path, output: Path) -> None:
             count += 1
 
     writer.add_metadata({
-        "/Title": "Mridang - Class 1 English (Pencil2Pen reading copy)",
+        "/Title": "Mridang - Class 1 English (Dekhoexams reading copy)",
         "/Author": "NCERT",
-        "/Subject": "Original NCERT textbook pages with Pencil2Pen marks in added margins",
+        "/Subject": "Original NCERT textbook pages with Dekhoexams marks in added margins",
     })
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("wb") as stream:
