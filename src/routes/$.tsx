@@ -211,7 +211,7 @@ export const Route = createFileRoute("/$")({
     <div className="mx-auto max-w-lg px-5 py-20 text-center">
       <h1 className="font-display text-2xl font-bold">This page didn't load</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        {error.message || "Please try again in a moment."}
+        {(error instanceof Error && error.message) || "Please try again in a moment."}
       </p>
     </div>
   ),
