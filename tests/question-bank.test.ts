@@ -22,3 +22,12 @@ test("every question points to a real exam/subject/chapter and has no unverified
   }
   expect(new Set(QUESTIONS.map((q) => q.id)).size).toBe(QUESTIONS.length);
 });
+
+import { CATEGORIES, EXAMS as ALL_EXAMS, papersFor } from "../src/lib/question-bank";
+test("every exam belongs to one of the seven exam groups", () => {
+  for (const e of ALL_EXAMS) expect(CATEGORIES.map((c) => c.slug)).toContain(e.category);
+  expect(CATEGORIES.map((c) => c.short)).toEqual(["JEE", "Medical", "GATE", "Civil Services", "Defence", "SSC", "CBSE"]);
+});
+test("no paper is presented as a past paper until verified", () => {
+  for (const e of ALL_EXAMS) for (const p of papersFor(e.slug)) { expect(p.kind).toBe("practice"); expect(p.year).toBeNull(); }
+});

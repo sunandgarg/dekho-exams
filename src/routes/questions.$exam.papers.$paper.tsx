@@ -7,7 +7,7 @@ import { Crumbs } from "@/components/exams/exam-ui";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/questions/$exam/papers/$paper")({
-  validateSearch: (s: Record<string, unknown>): { print?: number } => (s.print ? { print: 1 } : {}),
+  validateSearch: (s: Record<string, unknown>): { print?: number } => (s["print"] ? { print: 1 } : {}),
   loader: ({ params }) => {
     const exam = examBySlug(params.exam);
     const paper = exam && paperById(exam.slug, params.paper);
