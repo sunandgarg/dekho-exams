@@ -177,7 +177,7 @@ export const Route = createFileRoute("/$")({
       params._splat?.split("/").filter(Boolean).at(-1)?.replace(/[-_]/g, " ") ??
       "Learning resource";
     let title = fallback;
-    let description = "Explore this learning resource on Pencil2Pen.";
+    let description = "Explore this learning resource on Dekhoexams.";
     if (loaderData?.entry) {
       title = loaderData.entry.title;
       description = loaderData.entry.summary || description;

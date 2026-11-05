@@ -221,7 +221,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
                     Question Bank
                   </a>
                   <a href="/about" className="block py-3 text-sm font-bold">
-                    About Pencil2Pen
+                    About Dekhoexams
                   </a>
                 </nav>
               </SheetContent>
@@ -341,7 +341,7 @@ function Brand() {
   return (
     <span className="trove-brand">
       <span className="trove-brand-wordmark">
-        pencil<span className="pencil2pen-digit">2</span>pen
+        dekho<span className="pencil2pen-digit">exams</span>
       </span>
     </span>
   );
@@ -367,7 +367,7 @@ function Footer() {
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-4">
           {[
             {
-              title: "Pencil2Pen",
+              title: "Dekhoexams",
               links: [
                 ["About", "about"],
                 ["Privacy", "privacy"],
@@ -397,7 +397,7 @@ function Footer() {
         </div>
       </div>
       <div className="border-t border-footer-border px-5 py-4 text-center text-xs text-footer-muted">
-        © 2026 Pencil2Pen
+        © 2026 Dekhoexams
       </div>
     </footer>
   );

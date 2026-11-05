@@ -411,7 +411,7 @@ if (process.env.PENPENCIL_TEST_URL) {
         assert.equal(response.status, 200, item.href);
         const html = await response.text();
         assert.ok(
-          html.includes("Pencil2Pen lessons for this specific course are not published yet."),
+          html.includes("Dekhoexams lessons for this specific course are not published yet."),
           item.href,
         );
         assert.ok(html.includes(`href="${item.referenceUrl}"`), item.href);

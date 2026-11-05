@@ -50,7 +50,7 @@ export const EXAM_GUIDES: ExamGuide[] = [
     path: "/exam-updates/results",
     title: "CBSE, JEE Main and NEET Results",
     description:
-      "Go to official CBSE and NTA result portals for Class 10, Class 12, JEE Main and NEET. Pencil2Pen does not collect roll numbers, dates of birth or login credentials.",
+      "Go to official CBSE and NTA result portals for Class 10, Class 12, JEE Main and NEET. Dekhoexams does not collect roll numbers, dates of birth or login credentials.",
     sections: [
       {
         heading: "CBSE Class 10 and Class 12 results",

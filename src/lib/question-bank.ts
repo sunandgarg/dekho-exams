@@ -1,6 +1,6 @@
-// Pencil2Pen question bank. Exam/subject/chapter structure follows the public
+// Dekhoexams question bank. Exam/subject/chapter structure follows the public
 // syllabus layout of each exam. Every question here is an ORIGINAL practice
-// question written for Pencil2Pen — none are copied past-paper questions, so
+// question written for Dekhoexams — none are copied past-paper questions, so
 // `year` and `shift` stay null until a verified, rights-cleared paper is added.
 
 export type Difficulty = "easy" | "medium" | "hard";

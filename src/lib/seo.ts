@@ -76,7 +76,7 @@ export function schemaForEntry(entry: SeoMetadata): Record<string, unknown>[] {
   const publisher = {
     "@type": "Organization",
     "@id": `${SITE_ORIGIN}/#organization`,
-    name: "Pencil2Pen",
+    name: "Dekhoexams",
     url: SITE_ORIGIN,
     logo: { "@type": "ImageObject", url: SITE_LOGO },
   };
@@ -103,7 +103,7 @@ export function schemaForEntry(entry: SeoMetadata): Record<string, unknown>[] {
     page["mainEntityOfPage"] = url;
     page["author"] = {
       "@type": "Organization",
-      name: "Pencil2Pen Editorial",
+      name: "Dekhoexams Editorial",
     };
     const published = validDate(entry.published_at);
     const modified = validDate(entry.updated_at);
@@ -157,16 +157,16 @@ export function seoHead({
   const excluded = IS_PREVIEW || noindex || isUtilityPath(path);
   return {
     meta: [
-      { title: `${title} — Pencil2Pen` },
+      { title: `${title} — Dekhoexams` },
       { name: "description", content: description },
       { name: "robots", content: excluded ? "noindex,follow" : "index,follow" },
-      { property: "og:title", content: `${title} — Pencil2Pen` },
+      { property: "og:title", content: `${title} — Dekhoexams` },
       { property: "og:description", content: description },
       { property: "og:url", content: canonical },
       { property: "og:image", content: SITE_IMAGE },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
-      { property: "og:image:alt", content: "Pencil2Pen learning platform" },
+      { property: "og:image:alt", content: "Dekhoexams learning platform" },
       {
         property: "og:type",
         content: schema.some((item) => item["@type"] === "Article") ? "article" : "website",
@@ -188,7 +188,7 @@ export function homeSchema(): Record<string, unknown>[] {
       "@context": "https://schema.org",
       "@type": "Organization",
       "@id": `${SITE_ORIGIN}/#organization`,
-      name: "Pencil2Pen",
+      name: "Dekhoexams",
       url: SITE_ORIGIN,
       logo: SITE_LOGO,
     },
@@ -196,7 +196,7 @@ export function homeSchema(): Record<string, unknown>[] {
       "@context": "https://schema.org",
       "@type": "WebSite",
       "@id": `${SITE_ORIGIN}/#website`,
-      name: "Pencil2Pen",
+      name: "Dekhoexams",
       url: SITE_ORIGIN,
       inLanguage: "en",
       publisher: { "@id": `${SITE_ORIGIN}/#organization` },

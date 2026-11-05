@@ -3,8 +3,8 @@ import { seoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/privacy")({
   head: () => seoHead({
-    title: "Privacy at Pencil2Pen",
-    description: "How the Pencil2Pen preview uses browser storage and optional external media.",
+    title: "Privacy at Dekhoexams",
+    description: "How the Dekhoexams preview uses browser storage and optional external media.",
     path: "privacy",
   }),
   component: PrivacyPage,
@@ -13,8 +13,8 @@ export const Route = createFileRoute("/privacy")({
 function PrivacyPage() {
   return (
     <div className="study-home study-lesson">
-      <h1>Privacy at Pencil2Pen</h1>
-      <p className="study-intro">This page describes the current Pencil2Pen preview. It should be reviewed before public launch.</p>
+      <h1>Privacy at Dekhoexams</h1>
+      <p className="study-intro">This page describes the current Dekhoexams preview. It should be reviewed before public launch.</p>
       <section>
         <h2>Browser storage</h2>
         <p>The preview uses your browser to remember theme and privacy choices. Existing library features may also save bookmarks, learning progress and drafts in this browser. You can clear saved learning data using the control at the bottom of the site or through your browser settings.</p>

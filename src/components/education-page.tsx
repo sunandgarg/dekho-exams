@@ -394,17 +394,17 @@ function Collection({
       {selected && (
         <section className="directory-selection" id="selected-course">
           <h2>{selected.label}</h2>
-          <p>Pencil2Pen lessons for this specific course are not published yet.</p>
+          <p>Dekhoexams lessons for this specific course are not published yet.</p>
           <a href={selected.referenceUrl} target="_blank" rel="noopener noreferrer">
             Study on Khan Academy <span aria-label="external site, opens in a new tab">↗</span>
           </a>
           <p className="study-intro">
-            External resource. Pencil2Pen is independent of Khan Academy.
+            External resource. Dekhoexams is independent of Khan Academy.
           </p>
           <a href={page.path}>Back to {group!.title}</a>
         </section>
       )}
-      {page.description !== `${page.title} on Pencil2Pen.` && (
+      {page.description !== `${page.title} on Dekhoexams.` && (
         <p className="study-intro">{page.description}</p>
       )}
       {page.notice && <p className="study-intro">{page.notice}</p>}
@@ -788,7 +788,7 @@ function Lesson({ resource }: { resource: LearningResource }) {
       </div>
       {notice && <p role="status">{notice}</p>}
       <p className="study-intro">
-        Original Pencil2Pen lesson ·{" "}
+        Original Dekhoexams lesson ·{" "}
         {resource.status === "preview" ? "Academic review pending" : "Reviewed lesson"}
       </p>
       <section id="key-idea">

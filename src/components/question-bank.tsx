@@ -10,7 +10,7 @@ import { toast } from "sonner";
 export function PracticeNotice() {
   return (
     <p className="rounded-lg border bg-muted px-4 py-3 text-sm text-muted-foreground">
-      These are original Pencil2Pen practice questions in each exam's style. They are not past-paper
+      These are original Dekhoexams practice questions in each exam's style. They are not past-paper
       questions, so they have no year or shift yet. Solutions have not been academically reviewed.
     </p>
   );

@@ -1,12 +1,12 @@
-# Pencil2Pen Architecture Contract
+# Dekhoexams Architecture Contract
 
-Canonical origin: https://pencil2pen.com. Public name: Pencil2Pen. This contract governs subsequent education additions. The inherited shell and typography remain. The user-approved October 1 visual refresh replaces pastel colors with saturated accents, condenses discovery into six shortcuts and adds an 18-group subject directory. Content changes must not become an unsolicited redesign.
+Canonical origin: https://pencil2pen.com. Public name: Dekhoexams. This contract governs subsequent education additions. The inherited shell and typography remain. The user-approved October 1 visual refresh replaces pastel colors with saturated accents, condenses discovery into six shortcuts and adds an 18-group subject directory. Content changes must not become an unsolicited redesign.
 
 Current map (October 17, 2026): 2,338 registered education routes, 88 legacy aliases and 14 original English lesson drafts. Class pages lead to board/book choices and subjects; board/class and subject pages lead to available chapters. These are mostly route shells, not a complete published curriculum. No education page is reviewed or indexable. The state-board list has 22 entries (including Jammu & Kashmir) and is not all Indian states and union territories. The 13 language hubs do not contain translated lessons.
 
 ## Subject Directory
 
-`src/lib/subject-directory.ts` maps the 18 reference groups to explicit registered collection routes. `src/data/khan-course-reference.json` records 302 public menu names and reference URLs captured from Khan Academy on October 1, 2026, not course content. Course choices use a `?topic=` filter under the owning collection, remain noindex and canonicalize to that collection. The selection page discloses missing Pencil2Pen lessons and labels the external reference. It must never imply these are 302 locally published courses. Preserve source provenance and verify references before a public release. Icons and headings use independent Pencil2Pen branding.
+`src/lib/subject-directory.ts` maps the 18 reference groups to explicit registered collection routes. `src/data/khan-course-reference.json` records 302 public menu names and reference URLs captured from Khan Academy on October 1, 2026, not course content. Course choices use a `?topic=` filter under the owning collection, remain noindex and canonicalize to that collection. The selection page discloses missing Dekhoexams lessons and labels the external reference. It must never imply these are 302 locally published courses. Preserve source provenance and verify references before a public release. Icons and headings use independent Dekhoexams branding.
 
 The homepage renders 16 of these groups and 281 options. `/explore-more` and `/teachers` are intentionally absent from homepage discovery, while their previously registered routes remain available to existing links.
 
