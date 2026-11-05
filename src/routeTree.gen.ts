@@ -17,9 +17,14 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StudyRouteImport } from './routes/study'
+import { Route as QuestionsIndexRouteImport } from './routes/questions.index'
+import { Route as QuestionsBookmarksRouteImport } from './routes/questions.bookmarks'
 import { Route as StudyIndexRouteImport } from './routes/study.index'
 import { Route as StudySplatRouteImport } from './routes/study.$'
 import { Route as StudySearchRouteImport } from './routes/study.search'
+import { Route as QuestionsExamIndexRouteImport } from './routes/questions.$exam.index'
+import { Route as QuestionsExamPracticeRouteImport } from './routes/questions.$exam.practice'
+import { Route as QuestionsExamSubjectChapterRouteImport } from './routes/questions.$exam.$subject.$chapter'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -61,6 +66,16 @@ const StudyRoute = StudyRouteImport.update({
   path: '/study',
   getParentRoute: () => rootRouteImport,
 } as any)
+const QuestionsIndexRoute = QuestionsIndexRouteImport.update({
+  id: '/questions/',
+  path: '/questions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuestionsBookmarksRoute = QuestionsBookmarksRouteImport.update({
+  id: '/questions/bookmarks',
+  path: '/questions/bookmarks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudyIndexRoute = StudyIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -76,6 +91,22 @@ const StudySearchRoute = StudySearchRouteImport.update({
   path: '/search',
   getParentRoute: () => StudyRoute,
 } as any)
+const QuestionsExamIndexRoute = QuestionsExamIndexRouteImport.update({
+  id: '/questions/$exam/',
+  path: '/questions/$exam/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuestionsExamPracticeRoute = QuestionsExamPracticeRouteImport.update({
+  id: '/questions/$exam/practice',
+  path: '/questions/$exam/practice',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuestionsExamSubjectChapterRoute =
+  QuestionsExamSubjectChapterRouteImport.update({
+    id: '/questions/$exam/$subject/$chapter',
+    path: '/questions/$exam/$subject/$chapter',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -86,9 +117,14 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/study': typeof StudyRouteWithChildren
+  '/questions/bookmarks': typeof QuestionsBookmarksRoute
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
+  '/questions/': typeof QuestionsIndexRoute
   '/study/': typeof StudyIndexRoute
+  '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
+  '/questions/$exam/': typeof QuestionsExamIndexRoute
+  '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -98,9 +134,14 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/questions/bookmarks': typeof QuestionsBookmarksRoute
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
+  '/questions': typeof QuestionsIndexRoute
   '/study': typeof StudyIndexRoute
+  '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
+  '/questions/$exam': typeof QuestionsExamIndexRoute
+  '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -112,9 +153,14 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/study': typeof StudyRouteWithChildren
+  '/questions/bookmarks': typeof QuestionsBookmarksRoute
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
+  '/questions/': typeof QuestionsIndexRoute
   '/study/': typeof StudyIndexRoute
+  '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
+  '/questions/$exam/': typeof QuestionsExamIndexRoute
+  '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -127,9 +173,14 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/study'
+    | '/questions/bookmarks'
     | '/study/$'
     | '/study/search'
+    | '/questions/'
     | '/study/'
+    | '/questions/$exam/practice'
+    | '/questions/$exam/'
+    | '/questions/$exam/$subject/$chapter'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -139,9 +190,14 @@ export interface FileRouteTypes {
     | '/auth'
     | '/privacy'
     | '/reset-password'
+    | '/questions/bookmarks'
     | '/study/$'
     | '/study/search'
+    | '/questions'
     | '/study'
+    | '/questions/$exam/practice'
+    | '/questions/$exam'
+    | '/questions/$exam/$subject/$chapter'
   id:
     | '__root__'
     | '/'
@@ -152,9 +208,14 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/study'
+    | '/questions/bookmarks'
     | '/study/$'
     | '/study/search'
+    | '/questions/'
     | '/study/'
+    | '/questions/$exam/practice'
+    | '/questions/$exam/'
+    | '/questions/$exam/$subject/$chapter'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -166,6 +227,11 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   StudyRoute: typeof StudyRouteWithChildren
+  QuestionsBookmarksRoute: typeof QuestionsBookmarksRoute
+  QuestionsIndexRoute: typeof QuestionsIndexRoute
+  QuestionsExamPracticeRoute: typeof QuestionsExamPracticeRoute
+  QuestionsExamIndexRoute: typeof QuestionsExamIndexRoute
+  QuestionsExamSubjectChapterRoute: typeof QuestionsExamSubjectChapterRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -226,6 +292,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/questions/': {
+      id: '/questions/'
+      path: '/questions'
+      fullPath: '/questions/'
+      preLoaderRoute: typeof QuestionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/questions/bookmarks': {
+      id: '/questions/bookmarks'
+      path: '/questions/bookmarks'
+      fullPath: '/questions/bookmarks'
+      preLoaderRoute: typeof QuestionsBookmarksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/study/': {
       id: '/study/'
       path: '/'
@@ -246,6 +326,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/study/search'
       preLoaderRoute: typeof StudySearchRouteImport
       parentRoute: typeof StudyRoute
+    }
+    '/questions/$exam/': {
+      id: '/questions/$exam/'
+      path: '/questions/$exam'
+      fullPath: '/questions/$exam/'
+      preLoaderRoute: typeof QuestionsExamIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/questions/$exam/practice': {
+      id: '/questions/$exam/practice'
+      path: '/questions/$exam/practice'
+      fullPath: '/questions/$exam/practice'
+      preLoaderRoute: typeof QuestionsExamPracticeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/questions/$exam/$subject/$chapter': {
+      id: '/questions/$exam/$subject/$chapter'
+      path: '/questions/$exam/$subject/$chapter'
+      fullPath: '/questions/$exam/$subject/$chapter'
+      preLoaderRoute: typeof QuestionsExamSubjectChapterRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -273,6 +374,11 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   StudyRoute: StudyRouteWithChildren,
+  QuestionsBookmarksRoute: QuestionsBookmarksRoute,
+  QuestionsIndexRoute: QuestionsIndexRoute,
+  QuestionsExamPracticeRoute: QuestionsExamPracticeRoute,
+  QuestionsExamIndexRoute: QuestionsExamIndexRoute,
+  QuestionsExamSubjectChapterRoute: QuestionsExamSubjectChapterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
