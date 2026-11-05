@@ -1,0 +1,9 @@
+# Spring Boot startup and migration pass
+
+This pass adds ten original Spring & Spring Boot articles and a twelve-question quiz. Spring remains a separate subject from Java; the new material links back to related Java migration contracts without joining the Java curriculum. The Spring track now has 153 articles, 10 hubs, 5 quizzes and 109 questions. Its articles contain 1,295 internal links and have no curriculum orphans under the content checker.
+
+The source kit adds three Boot configuration tests for profile-specific properties, missing required imports and missing optional imports. Two more tests use a non-web Boot context and test-scoped `spring-boot-starter-flyway` to check V2/V3 migration at startup and failure on damaged history. A unique H2 URL is passed as a command-line property; the packaged datasource setting outranked the earlier builder default. The full kit has 128 Maven tests. The runnable `ReceiptApplication` still uses in-memory receipts and has no runtime migration wiring.
+
+Research order for the requested Java references was Oracle LinkedList API, GeeksforGeeks Java, W3Schools LinkedList, BeginnersBook LinkedList, then CodingNomads Linked Lists. They informed the Java topic boundary, not Spring behavior. Spring startup details were checked against the Spring Boot data-initialization and SpringApplication references. Article prose, questions and code examples were written for AI Trove; no source text was reused.
+
+Still open: decide whether the application or a deployment job owns migrations; test the exact SQL and lock behavior on the intended database; exercise mixed-version application processes, concurrent replicas, large-table backfills and rollback; wire durable storage and real identity into the runnable API. The site content and local H2 tests do not establish those deployment properties.

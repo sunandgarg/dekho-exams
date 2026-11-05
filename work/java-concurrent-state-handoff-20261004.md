@@ -1,0 +1,11 @@
+# Java concurrent state draft handoff — 2026-10-04
+
+This batch adds 10 standalone Java tutorials and a 10-question quiz. Four map and snapshot lessons cover `computeIfAbsent` with `LongAdder`, ordered range views, copy-on-write listener iteration, and immutable map publication. Three queue lessons cover delayed retries, two-party buffer exchange, and consumer receipt handoff. Three thread-state lessons cover a high-water metric, `ThreadLocal` scope restoration, and the `LockSupport` condition loop.
+
+The Java fixture now has 456 routes: 427 articles, 10 hubs, and 19 quizzes containing 226 questions. The new lessons appear in three Advanced Java modules, link within their groups and to earlier lessons, and receive backlinks from the Java root and eight existing articles. Every internal link and module target checked across Java article and quiz bodies resolves to a fixture path. Each new public article body uses only permitted semantic HTML, has one compiled Java code block and a Common Mistakes section, and contains no external URL.
+
+`work/aitrove-java-import-drafts.json` contains 457 draft records, including the editorial author record. It is ready for editorial review and import preparation; nothing was sent to WordPress or published. `scripts/export-java-for-wordpress.py` regenerates it. `work/java-concurrent-state-20261004.py` is a one-shot builder run against the preceding committed fixture state.
+
+Verification: `python3 scripts/check-java-concurrent-state.py` compiled all 10 new code samples under Java 11 and passed a local smoke test for their primary contracts. `WRANGLER_LOG_PATH=/private/tmp/aitrove-wrangler-logs npm run build` succeeded. `npm run lint` passed with zero errors and nine existing warnings. The build still reports a large-bundle advisory. The broader Java checker previously stopped at unchanged `java/socket-boundaries` because this sandbox does not permit binding its local server socket; this focused checker requires no socket.
+
+Remaining work: editorial review, WordPress import and publication, then live-route verification. Further Java topic expansion remains open-ended. No AI-detector score or exclusive ownership of Java API facts was measured or claimed.

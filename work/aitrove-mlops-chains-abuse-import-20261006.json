@@ -1,0 +1,1027 @@
+[
+  {
+    "id": "743612b5-53e3-5efc-96bd-58027ee83c5d",
+    "type": "article",
+    "path": "mlops/failover-drills-and-decision-reconciliation",
+    "title": "Failover drills: reconcile decisions across regions",
+    "summary": "A failover drill must prove one logical outcome per decision key even when clients retry across regions.",
+    "body": "<p>A failover drill must prove one logical outcome per decision key even when clients retry across regions.</p><h2>Give requests a stable identity</h2><p>A client may time out after the primary writes a decision and retry against the standby. The retry should reuse the same idempotency key, scoped to caller and logical operation. A region-specific request ID is still useful for traces, but it cannot serve as the only deduplication key. Record the decision state, model digest, route and issuing region behind that stable key. <a href=\"/mlops/inference-logging-privacy\">Restricted logging</a> keeps raw receipt data out of the reconciliation store while preserving a joinable identity.</p><h2>State the recovery contract</h2><p>Choose recovery time and tolerable feature-state loss before a drill. Define whether a failover can serve the last approved model or must match the newest approved digest, and what to do with lagged features. Keep a single operator decision record for switch, hold, rollback and return to primary. <a href=\"/mlops/region-failover-model-and-feature-identity\">Region identity checks</a> guard the start of serving; they do not prove that two regions will not issue conflicting responses during a split or a delayed DNS transition.</p><h2>Reconcile, then resume normal routing</h2><p>Collect all decision events for the drill window from both regions and group them by stable key. Identical repeated responses are harmless if consumers see one committed logical decision. Different routes or digests for one key require quarantine and review. Also compare gateway counts with decision-log counts to find lost events. Preserve a record of requests with no durable response; do not invent an outcome from a log gap. <a href=\"/mlops/prediction-outcome-join-and-maturity\">Outcome joins</a> later depend on these IDs remaining stable.</p><h2>Measure what the drill changed</h2><p>Report switch time, rejected or manually reviewed receipts, feature lag, duplicate retries, divergent decisions, log gaps and return-to-primary time. Test a false-positive health alarm as well as an actual regional loss, because unnecessary switches create their own risk. <a href=\"/mlops/receipt-region-failover-project\">The project</a> demonstrates an apparently successful cutover that still fails reconciliation because one receipt was scored differently on both sides. The drill is complete only when the discrepancy has an owner and a resolution.</p><h2>Implementation</h2><pre><code class=\"language-python\">def reconcile_decisions(events):\n    grouped = {}\n    for event in events:\n        grouped.setdefault(event[&quot;decision_key&quot;], set()).add(\n            (event[&quot;route&quot;], event[&quot;model_digest&quot;]))\n    divergent = sorted(key for key, outcomes in grouped.items()\n                       if len(outcomes) &gt; 1)\n    return {&quot;state&quot;: &quot;hold&quot; if divergent else &quot;consistent&quot;,\n            &quot;divergent_keys&quot;: divergent}\n\nevents = [{&quot;decision_key&quot;: &quot;receipt-47&quot;, &quot;route&quot;: &quot;review&quot;,\n           &quot;model_digest&quot;: &quot;model-47&quot;},\n          {&quot;decision_key&quot;: &quot;receipt-47&quot;, &quot;route&quot;: &quot;review&quot;,\n           &quot;model_digest&quot;: &quot;model-47&quot;}]\nassert reconcile_decisions(events)[&quot;state&quot;] == &quot;consistent&quot;\nassert reconcile_decisions(events + [{**events[0], &quot;route&quot;: &quot;clear&quot;}])[\n    &quot;divergent_keys&quot;] == [&quot;receipt-47&quot;]\n</code></pre><h2>Performance and operating cost</h2><p>For n events, grouping uses O(n) expected time and O(n) memory; sorting only divergent keys adds O(d log d) time for d discrepancies. Cross-region logs may arrive late, so the drill must wait for a defined watermark before declaring no divergence. The example checks response identity, not whether the underlying business action was applied twice.</p><h3>Common Mistakes</h3><ul><li>Generating a new idempotency key on every retry.</li><li>Calling the drill successful from gateway uptime alone.</li><li>Dropping logs from the old region before reconciliation.</li><li>Assuming identical API responses prove downstream side effects were deduplicated.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/region-failover-model-and-feature-identity\">Region failover for inference: match model and feature state</a></li><li><a href=\"/mlops/receipt-region-failover-project\">Project: fail over receipt inference and reconcile every decision</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li><li><a href=\"/mlops/prediction-outcome-join-and-maturity\">Prediction-outcome joins: evaluate only mature, matched decisions</a></li><li><a href=\"/mlops/incident-triage-and-evidence-timeline\">Model incidents: build a release and evidence timeline before rollback</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/idempotent-inference-retries-and-quotas\">Inference retries: bound repeated work and preserve one decision</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6143,
+    "status": "published",
+    "published_at": "2026-10-06T16:23:06.532590+00:00",
+    "created_at": "2026-10-06T16:23:06.532590+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/region-failover-model-and-feature-identity",
+          "title": "Region failover for inference: match model and feature state"
+        },
+        {
+          "path": "mlops/receipt-region-failover-project",
+          "title": "Project: fail over receipt inference and reconcile every decision"
+        },
+        {
+          "path": "mlops/inference-logging-privacy",
+          "title": "Inference logs: keep diagnostic joins without copying sensitive payloads"
+        },
+        {
+          "path": "mlops/prediction-outcome-join-and-maturity",
+          "title": "Prediction-outcome joins: evaluate only mature, matched decisions"
+        },
+        {
+          "path": "mlops/incident-triage-and-evidence-timeline",
+          "title": "Model incidents: build a release and evidence timeline before rollback"
+        },
+        {
+          "path": "mlops/idempotent-inference-retries-and-quotas",
+          "title": "Inference retries: bound repeated work and preserve one decision"
+        }
+      ]
+    }
+  },
+  {
+    "id": "7b95ae4e-720c-5835-97dd-d1d298bf375b",
+    "type": "article",
+    "path": "mlops/feature-training-serving-parity",
+    "title": "Training-serving parity: compare feature values at one prediction clock",
+    "summary": "A production feature must represent the same information and transformation that was available to the offline training example.",
+    "body": "<p>A production feature must represent the same information and transformation that was available to the offline training example.</p><h2>Define a feature view</h2><p>Name source fields, types, null policy, event-time cutoff and transform version. A seven-day receipt count at 09:00 cannot include a transaction that posts at 09:05, even if the warehouse later backfills it. Compare offline and online values for the same entity and decision timestamp. <a href=\"/machine-learning/prediction-time-feature-availability\">Feature availability</a> defines what the model was allowed to know.</p><h2>Test both paths</h2><p>Build a parity fixture with late arrivals, corrected amounts and absent history. Run it through offline and online transforms, then compare numeric values within justified tolerance. A shared function is helpful but does not prove parity if the paths read different source snapshots. <a href=\"/data-engineering/event-time-and-late-arrivals\">Event-time policy</a> must be shared too.</p><h2>Name freshness separately</h2><p>An online feature can match the offline formula yet be stale because its cache has not refreshed. Record source event time and serving refresh time, set a maximum age and choose a fallback for missing or stale values. A fallback of zero changes meaning when zero is a valid measured count; use an explicit missing indicator when required.</p><h2>Monitor skew by cause</h2><p>Log aggregate parity differences from sampled replayable requests without exposing sensitive records. Partition mismatches by feature version, source lag and entity type. A sudden mismatch after deployment may be a parser change, not model drift. Pause promotion or route to a safe fallback until the cause is understood.</p><h2>Implementation</h2><pre><code class=\"language-python\">def compare_feature_snapshots(offline, online, tolerance=1e-6):\n    if offline.keys() != online.keys():\n        raise ValueError(&quot;feature names differ&quot;)\n    mismatches = {}\n    for feature_name in offline:\n        left, right = offline[feature_name], online[feature_name]\n        if left is None or right is None:\n            different = left != right\n        else:\n            different = abs(left - right) &gt; tolerance\n        if different:\n            mismatches[feature_name] = (left, right)\n    return mismatches</code></pre><h2>Performance and operating cost</h2><p>Comparing F scalar features costs O(F) per sampled request. The expensive work is reconstructing point-in-time offline values and retaining enough history to explain differences.</p><h3>Common Mistakes</h3><ul><li>Do not compare values computed at different prediction times.</li><li>Do not mistake a stale cache for a changed formula.</li><li>Do not use zero as a universal missing fallback.</li></ul><h2>Read next</h2><ul><li><a href=\"/machine-learning/prediction-time-feature-availability\">Prediction-time feature availability: reject future information before training</a></li><li><a href=\"/data-engineering/event-time-and-late-arrivals\">Event time and late arrivals: close windows with an explicit correction policy</a></li><li><a href=\"/mlops/drift-delayed-label-monitoring\">Model monitoring: separate input drift, data faults and delayed outcomes</a></li><li><a href=\"/mlops/model-registry-promotion-gates\">Model promotion: require evidence before changing the serving pointer</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/computer-vision/augmentation-and-serving-parity\">Vision augmentation: preserve labels and match serving transforms</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/feature-stores/offline-online-parity-and-tests\">Feature parity: compare historical replay with online observations</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/feature-contract-and-admission-gates\">Feature contracts: admit only usable inference records</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/online-feature-freshness-budget-and-ttl\">Online feature freshness: use event and availability clocks</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/inference-chain-contracts-and-stage-identity\">Multi-stage inference: pin each stage and its contract</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8113,
+    "status": "published",
+    "published_at": "2026-10-04T20:58:23.502482+00:00",
+    "created_at": "2026-10-04T20:58:23.502482+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "machine-learning/prediction-time-feature-availability",
+          "title": "Prediction-time feature availability: reject future information before training"
+        },
+        {
+          "path": "data-engineering/event-time-and-late-arrivals",
+          "title": "Event time and late arrivals: close windows with an explicit correction policy"
+        },
+        {
+          "path": "mlops/drift-delayed-label-monitoring",
+          "title": "Model monitoring: separate input drift, data faults and delayed outcomes"
+        },
+        {
+          "path": "mlops/model-registry-promotion-gates",
+          "title": "Model promotion: require evidence before changing the serving pointer"
+        },
+        {
+          "path": "computer-vision/augmentation-and-serving-parity",
+          "title": "Vision augmentation: preserve labels and match serving transforms"
+        },
+        {
+          "path": "feature-stores/offline-online-parity-and-tests",
+          "title": "Feature parity: compare historical replay with online observations"
+        },
+        {
+          "path": "mlops/feature-contract-and-admission-gates",
+          "title": "Feature contracts: admit only usable inference records"
+        },
+        {
+          "path": "mlops/online-feature-freshness-budget-and-ttl",
+          "title": "Online feature freshness: use event and availability clocks"
+        },
+        {
+          "path": "mlops/inference-chain-contracts-and-stage-identity",
+          "title": "Multi-stage inference: pin each stage and its contract"
+        }
+      ]
+    }
+  },
+  {
+    "id": "0d9631bc-1d39-5ec0-be8d-05c2ed0ea48a",
+    "type": "article",
+    "path": "mlops/idempotent-inference-retries-and-quotas",
+    "title": "Inference retries: bound repeated work and preserve one decision",
+    "summary": "A retry after timeout should not trigger unlimited model work or create conflicting decisions for one logical request.",
+    "body": "<p>A retry after timeout should not trigger unlimited model work or create conflicting decisions for one logical request.</p><h2>Name the logical operation</h2><p>Give the caller an idempotency key scoped to tenant, endpoint and a canonical request digest. A retry of the same request can retrieve the completed decision; reusing a key with a different payload must be rejected. Preserve the decision ID, model digest and policy revision with the result. <a href=\"/mlops/failover-drills-and-decision-reconciliation\">Cross-region reconciliation</a> needs this stable identity during failover, while <a href=\"/mlops/inference-request-response-contracts\">the API contract</a> states the expected retry behavior.</p><h2>Stop duplicate in-flight work</h2><p>Check a durable or appropriately shared in-flight record before starting inference. A second request with the same key may wait for the first within its deadline or receive a retry-later state; it must not launch another expensive extraction. Set a finite record lifetime longer than expected retry windows and protect the record update against races. An in-memory dictionary on one worker cannot deduplicate across replicas or regions. <a href=\"/mlops/region-failover-model-and-feature-identity\">Region identity</a> also determines whether replay of an old decision is allowed after policy changes.</p><h2>Apply quotas at multiple levels</h2><p>Bound request rate, in-flight work, queued work and cumulative compute by tenant and model. A small fast request repeated thousands of times can be as harmful as one oversized document. Reject excess before expensive stages and return a stable overload response. Do not count a cached replay as fresh model capacity, but include it in the caller rate budget if abuse is possible. <a href=\"/mlops/inference-payload-and-compute-admission\">Payload admission</a> handles individual requests; <a href=\"/mlops/queue-saturation-and-fallback-policy\">queue limits</a> keep accepted work bounded.</p><h2>Verify conflict and timeout behavior</h2><p>Send the same key twice concurrently, then send the same key with changed contents. Expect one logical decision for identical requests and an explicit conflict for changed contents. Force the first response to be lost after its decision was committed; retry should return the prior decision identity. <a href=\"/mlops/receipt-endpoint-resource-guard-project\">The project</a> tests that repeated receipts do not inflate model work or create a second route. A caller must know whether a timeout means “not processed” or “unknown”; it should never assume the former.</p><h2>Implementation</h2><pre><code class=\"language-python\">from hashlib import sha256\n\ndef replay_status(records, tenant, key, payload):\n    identity = (tenant, key)\n    digest = sha256(payload).hexdigest()\n    existing = records.get(identity)\n    if existing is None:\n        records[identity] = {&quot;digest&quot;: digest, &quot;decision&quot;: &quot;decision-47&quot;}\n        return &quot;new&quot;\n    if existing[&quot;digest&quot;] != digest:\n        return &quot;conflict&quot;\n    return &quot;replay:&quot; + existing[&quot;decision&quot;]\n\nrecords = {}\nassert replay_status(records, &quot;merchant-82&quot;, &quot;key-47&quot;, b&quot;receipt-A&quot;) == &quot;new&quot;\nassert replay_status(records, &quot;merchant-82&quot;, &quot;key-47&quot;, b&quot;receipt-A&quot;) == &quot;replay:decision-47&quot;\nassert replay_status(records, &quot;merchant-82&quot;, &quot;key-47&quot;, b&quot;receipt-B&quot;) == &quot;conflict&quot;\n</code></pre><h2>Performance and operating cost</h2><p>Digesting b payload bytes costs O(b) time and O(1) extra hash space; the record lookup is O(1) expected time. A durable shared record uses O(k) storage for k active keys and needs atomic creation. The example is single-process and deliberately lacks cross-worker synchronization; production deduplication must enforce one writer or transactional uniqueness.</p><h3>Common Mistakes</h3><ul><li>Generating a new key on each retry.</li><li>Accepting one key with a different payload.</li><li>Using worker-local memory as cross-region deduplication.</li><li>Retaining keys for less time than clients retry.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/inference-payload-and-compute-admission\">Inference ingress: bound payload size and compute before model work</a></li><li><a href=\"/mlops/receipt-endpoint-resource-guard-project\">Project: protect receipt inference from expensive and repeated input</a></li><li><a href=\"/mlops/failover-drills-and-decision-reconciliation\">Failover drills: reconcile decisions across regions</a></li><li><a href=\"/mlops/queue-saturation-and-fallback-policy\">Serving overload: bound queues and choose a fallback before time runs out</a></li><li><a href=\"/mlops/receipt-inference-api-migration-project\">Project: migrate receipt inference callers without breaking decisions</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6158,
+    "status": "published",
+    "published_at": "2026-10-06T16:32:20.809352+00:00",
+    "created_at": "2026-10-06T16:32:20.809352+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/inference-payload-and-compute-admission",
+          "title": "Inference ingress: bound payload size and compute before model work"
+        },
+        {
+          "path": "mlops/receipt-endpoint-resource-guard-project",
+          "title": "Project: protect receipt inference from expensive and repeated input"
+        },
+        {
+          "path": "mlops/failover-drills-and-decision-reconciliation",
+          "title": "Failover drills: reconcile decisions across regions"
+        },
+        {
+          "path": "mlops/queue-saturation-and-fallback-policy",
+          "title": "Serving overload: bound queues and choose a fallback before time runs out"
+        },
+        {
+          "path": "mlops/receipt-inference-api-migration-project",
+          "title": "Project: migrate receipt inference callers without breaking decisions"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9105998a-93c7-5df8-a39d-574cf416ee7f",
+    "type": "article",
+    "path": "mlops/inference-chain-contracts-and-stage-identity",
+    "title": "Multi-stage inference: pin each stage and its contract",
+    "summary": "A serving chain needs versioned stage inputs and outputs so a healthy final endpoint cannot hide a broken intermediate transform.",
+    "body": "<p>A serving chain needs versioned stage inputs and outputs so a healthy final endpoint cannot hide a broken intermediate transform.</p><h2>Describe the whole chain</h2><p>A receipt request may pass through image extraction, merchant normalization, risk scoring and a route policy. The final risk model alone does not define the behavior; a changed extraction model can alter every downstream feature. Record the stage order, artifact digests, input and output schemas, policy revision and overall chain revision. <a href=\"/mlops/feature-training-serving-parity\">Training-serving parity</a> compares feature meaning, while <a href=\"/mlops/inference-request-response-contracts\">the public API contract</a> covers only what callers send and receive. Both matter, but neither fully describes intermediate stage identity.</p><h2>Specify stage failure states</h2><p>Each stage should return a typed success or a named failure such as unreadable image, unsupported currency, timeout or contract mismatch. Do not turn missing text into an empty string that happens to produce a plausible low-risk score. Decide which failures route to manual review and which reject the request. A stage may be optional only if the downstream model was evaluated with that stage absent. <a href=\"/mlops/model-card-scope-and-limitation-register\">The approved scope</a> should name that degraded path; a fallback is a different decision policy, not invisible error handling.</p><h2>Allocate one end-to-end deadline</h2><p>Give each stage a sub-budget within the caller deadline and retain queue, network and serialization time. A chain of individually fast stages can still miss the endpoint SLO, especially when a shared feature service stalls. Pass the remaining deadline downstream rather than starting a fresh full timeout at every hop. <a href=\"/mlops/inference-latency-budget-and-tail-observation\">Tail latency measurement</a> needs stage-level spans and one end-to-end clock. Count a stage timeout as a failed or degraded decision even if a later policy returns a successful manual-review route.</p><h2>Promote as a tested unit</h2><p>An independent extractor release can change the risk model input distribution while its digest stays fixed. Test stage contracts, a frozen end-to-end fixture set and a small live canary before changing the chain pointer. Preserve the previous complete chain for rollback; mixing old and new stages during rollback can produce an untested combination. <a href=\"/mlops/receipt-inference-chain-project\">The project</a> injects an extractor change and verifies that the route policy receives a typed failure rather than a fabricated low-risk score.</p><h2>Implementation</h2><pre><code class=\"language-python\">def chain_decision(extraction, risk_score, chain):\n    if extraction[&quot;digest&quot;] != chain[&quot;extractor_digest&quot;]:\n        return {&quot;route&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;extractor-mismatch&quot;}\n    if extraction[&quot;state&quot;] != &quot;ready&quot;:\n        return {&quot;route&quot;: &quot;manual-review&quot;, &quot;reason&quot;: extraction[&quot;state&quot;]}\n    if risk_score is None or not 0 &lt;= risk_score &lt;= 1:\n        return {&quot;route&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;invalid-risk-score&quot;}\n    return {&quot;route&quot;: &quot;review&quot; if risk_score &gt;= chain[&quot;review_at&quot;]\n            else &quot;clear&quot;, &quot;reason&quot;: &quot;scored&quot;}\n\nchain = {&quot;extractor_digest&quot;: &quot;extract-47&quot;, &quot;review_at&quot;: 0.72}\nextraction = {&quot;digest&quot;: &quot;extract-47&quot;, &quot;state&quot;: &quot;ready&quot;}\nassert chain_decision(extraction, 0.81, chain)[&quot;route&quot;] == &quot;review&quot;\nassert chain_decision({**extraction, &quot;state&quot;: &quot;unreadable&quot;}, None, chain)[\n    &quot;route&quot;] == &quot;manual-review&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The illustrated gate is O(1) time and space. A chain with s serial stages has latency near the sum of stage service and transfer times, with each stage able to fail the request. Extra stage replicas, contract tests and complete-chain rollback packages raise operating cost but prevent an untested combination of otherwise valid artifacts.</p><h3>Common Mistakes</h3><ul><li>Logging only the final model digest.</li><li>Mapping extraction failure to an ordinary empty feature.</li><li>Giving every stage a full endpoint timeout.</li><li>Rolling back one stage into a chain combination never tested.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/stage-deadline-and-degraded-path-tests\">Test partial failure and deadline exhaustion in model chains</a></li><li><a href=\"/mlops/receipt-inference-chain-project\">Project: verify a receipt extraction-to-decision chain</a></li><li><a href=\"/mlops/feature-training-serving-parity\">Training-serving parity: compare feature values at one prediction clock</a></li><li><a href=\"/mlops/inference-request-response-contracts\">Inference API contracts: version the decision, not only the payload</a></li><li><a href=\"/mlops/inference-latency-budget-and-tail-observation\">Inference latency budgets: measure queue, feature and model time</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6154,
+    "status": "published",
+    "published_at": "2026-10-06T16:32:20.809352+00:00",
+    "created_at": "2026-10-06T16:32:20.809352+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/stage-deadline-and-degraded-path-tests",
+          "title": "Test partial failure and deadline exhaustion in model chains"
+        },
+        {
+          "path": "mlops/receipt-inference-chain-project",
+          "title": "Project: verify a receipt extraction-to-decision chain"
+        },
+        {
+          "path": "mlops/feature-training-serving-parity",
+          "title": "Training-serving parity: compare feature values at one prediction clock"
+        },
+        {
+          "path": "mlops/inference-request-response-contracts",
+          "title": "Inference API contracts: version the decision, not only the payload"
+        },
+        {
+          "path": "mlops/inference-latency-budget-and-tail-observation",
+          "title": "Inference latency budgets: measure queue, feature and model time"
+        }
+      ]
+    }
+  },
+  {
+    "id": "7ebf71a3-d4b9-5747-9efa-d4b0d526067f",
+    "type": "article",
+    "path": "mlops/inference-latency-budget-and-tail-observation",
+    "title": "Inference latency budgets: measure queue, feature and model time",
+    "summary": "A model that computes quickly can still miss the service deadline when requests wait in a queue or feature lookup stalls.",
+    "body": "<p>A model that computes quickly can still miss the service deadline when requests wait in a queue or feature lookup stalls.</p><h2>Allocate the request deadline</h2><p>A receipt-scoring endpoint has a 240 ms service deadline. Reserve time for ingress, feature lookup, queue wait, model execution and response serialization. The budget is a design constraint, not a promise that each part always finishes exactly on schedule. Instrument each stage with a bounded set of labels: route, model version, outcome class and region. Never put request IDs into metric labels; retain request-level correlation in traces with privacy controls. <a href=\"/mlops/inference-logging-privacy\">Inference logs</a> distinguish useful join keys from unnecessary payloads.</p><h2>Measure tails and failed requests</h2><p>A low mean can hide an overloaded slice. Record duration histograms and count timeouts, cancellations, rejections and fallback responses in the same evaluation window. A p95 value calculated only from successful requests excludes some of the slowest calls. Compare candidate and incumbent under comparable traffic and hardware. <a href=\"/mlops/shadow-canary-and-rollback\">Canary release</a> needs this operational comparison in addition to model quality.</p><h2>Use one end-to-end clock</h2><p>Start a monotonic timer when the service accepts a request and stop it when a response or terminal failure is committed. Service stages can have nested timers, but their measured durations may overlap under asynchronous work; do not sum overlapping spans and call that user latency. Include retries and queue wait in the end-to-end result. Set a downstream deadline that leaves time to return an honest fallback before the client gives up.</p><h2>Test load shapes, not just steady throughput</h2><p>Run bursts, cold starts, large feature payloads and a slow feature store. Track latency by model version and outcome, but keep label cardinality bounded. The <a href=\"/mlops/receipt-serving-slo-project\">serving SLO project</a> asks whether the system can reject excess work promptly instead of letting a growing queue make every customer wait. A fast model without admission control is still an unreliable service.</p><h2>Implementation</h2><pre><code class=\"language-python\">def request_budget(stages_ms, deadline_ms):\n    if deadline_ms &lt;= 0 or any(value &lt; 0 for value in stages_ms.values()):\n        raise ValueError(&quot;durations and deadline must be valid&quot;)\n    spent = sum(stages_ms.values())\n    return {&quot;within_budget&quot;: spent &lt;= deadline_ms,\n            &quot;spent_ms&quot;: spent, &quot;remaining_ms&quot;: max(0, deadline_ms - spent)}\n\nreceipt_path = {&quot;ingress&quot;: 18, &quot;feature_lookup&quot;: 71, &quot;queue&quot;: 33,\n                &quot;model&quot;: 62, &quot;serialization&quot;: 19}\nassert request_budget(receipt_path, 240) == {\n    &quot;within_budget&quot;: True, &quot;spent_ms&quot;: 203, &quot;remaining_ms&quot;: 37}\nassert not request_budget({**receipt_path, &quot;queue&quot;: 82}, 240)[&quot;within_budget&quot;]\n</code></pre><h2>Performance and operating cost</h2><p>Combining s nonoverlapping stage durations takes O(s) time and O(1) auxiliary space. Histograms add bounded metric storage per label combination; request identifiers as labels would cause unbounded cardinality. The arithmetic example assumes sequential stages, so real traces must account for overlap and record end-to-end latency directly.</p><h3>Common Mistakes</h3><ul><li>Reporting a success-only p95 that omits timeouts.</li><li>Summing overlapping spans as if they were sequential.</li><li>Ignoring queue time because model execution is fast.</li><li>Using request IDs as metric labels.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/queue-saturation-and-fallback-policy\">Serving overload: bound queues and choose a fallback before time runs out</a></li><li><a href=\"/mlops/receipt-serving-slo-project\">Project: operate receipt scoring with a deadline and overload path</a></li><li><a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li><li><a href=\"/streaming-analytics/streaming-analytics-tutorial\">Streaming Analytics Tutorial</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/stage-deadline-and-degraded-path-tests\">Test partial failure and deadline exhaustion in model chains</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6103,
+    "status": "published",
+    "published_at": "2026-10-06T15:49:22.923301+00:00",
+    "created_at": "2026-10-06T15:49:22.923301+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/queue-saturation-and-fallback-policy",
+          "title": "Serving overload: bound queues and choose a fallback before time runs out"
+        },
+        {
+          "path": "mlops/receipt-serving-slo-project",
+          "title": "Project: operate receipt scoring with a deadline and overload path"
+        },
+        {
+          "path": "mlops/shadow-canary-and-rollback",
+          "title": "Shadow and canary rollout: compare a candidate without losing a rollback"
+        },
+        {
+          "path": "mlops/inference-logging-privacy",
+          "title": "Inference logs: keep diagnostic joins without copying sensitive payloads"
+        },
+        {
+          "path": "streaming-analytics/streaming-analytics-tutorial",
+          "title": "Streaming Analytics Tutorial"
+        },
+        {
+          "path": "mlops/stage-deadline-and-degraded-path-tests",
+          "title": "Test partial failure and deadline exhaustion in model chains"
+        }
+      ]
+    }
+  },
+  {
+    "id": "18656142-2691-5417-b298-ff9c78a84463",
+    "type": "article",
+    "path": "mlops/inference-payload-and-compute-admission",
+    "title": "Inference ingress: bound payload size and compute before model work",
+    "summary": "Validate input shape and resource cost before parsing or model execution so one request cannot exhaust a shared serving pool.",
+    "body": "<p>Validate input shape and resource cost before parsing or model execution so one request cannot exhaust a shared serving pool.</p><h2>Limit the earliest expensive boundary</h2><p>A receipt endpoint may accept a scan image and metadata. Reject oversized bodies at the gateway before copying them into application memory; then check decoded dimensions, file count, page count and permitted format before extraction. A compressed file can expand far beyond its upload size, so both compressed and decoded limits matter. <a href=\"/mlops/inference-request-response-contracts\">The API contract</a> must return a stable rejection code. Do not let a malformed payload reach a GPU worker simply because its HTTP body passed a size check.</p><h2>Estimate work by request class</h2><p>A one-page image and a 47-page document can have very different extraction and inference cost. Define bounded request classes with a maximum estimated work unit, then admit against the model-specific concurrency and queue budget. Separate authentication, authorization and customer quota from model capacity; a valid customer can still send a request that exceeds the endpoint limit. <a href=\"/mlops/multi-model-admission-and-noisy-neighbors\">Per-model admission</a> protects neighboring models; this ingress gate prevents a single allowed request from consuming unreasonable resources.</p><h2>Fail clearly and do not retry blindly</h2><p>Return an explicit client error for invalid shape or unsupported size; retriable overload needs a different code and bounded retry advice. A caller that retries an invalid 47-page document will only repeat the waste. Log a reason and bounded size bucket, not the document bytes, in operational telemetry. <a href=\"/mlops/monitoring-cardinality-and-metric-identities\">Metric-cardinality rules</a> keep document IDs out of labels, while <a href=\"/mlops/inference-logging-privacy\">restricted logs</a> retain a joinable request ID if investigation is needed.</p><h2>Test bypass and expansion cases</h2><p>Exercise tiny files with huge declared dimensions, compressed payloads with high expansion ratios, malformed metadata, arrays with too many elements and concurrent near-limit requests. Ensure the gateway and application enforce compatible limits; one layer may be bypassed during internal calls. <a href=\"/mlops/receipt-endpoint-resource-guard-project\">The project</a> demonstrates a request rejected before extraction and a permitted request that still meets its latency budget. A 413 response alone does not prove the decoder never allocated memory.</p><h2>Implementation</h2><pre><code class=\"language-python\">def admit_receipt_payload(request, max_bytes=4_700_000,\n                          max_pages=8, max_pixels=18_000_000):\n    checks = (request[&quot;body_bytes&quot;], request[&quot;pages&quot;], request[&quot;pixels&quot;])\n    if any(value &lt; 0 for value in checks):\n        raise ValueError(&quot;negative payload measure&quot;)\n    if request[&quot;body_bytes&quot;] &gt; max_bytes:\n        return &quot;reject:body-size&quot;\n    if request[&quot;pages&quot;] &gt; max_pages or request[&quot;pixels&quot;] &gt; max_pixels:\n        return &quot;reject:decode-work&quot;\n    return &quot;admit&quot;\n\nreceipt = {&quot;body_bytes&quot;: 470_000, &quot;pages&quot;: 2, &quot;pixels&quot;: 8_200_000}\nassert admit_receipt_payload(receipt) == &quot;admit&quot;\nassert admit_receipt_payload({**receipt, &quot;pages&quot;: 47}) == &quot;reject:decode-work&quot;\n</code></pre><h2>Performance and operating cost</h2><p>Checking declared bounds is O(1) time and space. Decoding still costs work proportional to expanded pixels and pages, so verify actual decoded size before large allocations and enforce runtime memory limits. Tight limits may reject legitimate long receipts; choose them from measured use and a documented alternate review path.</p><h3>Common Mistakes</h3><ul><li>Checking upload bytes but not decoded pixel count.</li><li>Treating invalid shape as retriable server overload.</li><li>Placing the first size check after expensive decoding.</li><li>Assuming valid authentication makes resource use safe.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/idempotent-inference-retries-and-quotas\">Inference retries: bound repeated work and preserve one decision</a></li><li><a href=\"/mlops/receipt-endpoint-resource-guard-project\">Project: protect receipt inference from expensive and repeated input</a></li><li><a href=\"/mlops/inference-request-response-contracts\">Inference API contracts: version the decision, not only the payload</a></li><li><a href=\"/mlops/multi-model-admission-and-noisy-neighbors\">Multi-model serving: admission control for noisy neighbors</a></li><li><a href=\"/mlops/monitoring-cardinality-and-metric-identities\">Model monitoring dimensions without metric-cardinality failure</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6157,
+    "status": "published",
+    "published_at": "2026-10-06T16:32:20.809352+00:00",
+    "created_at": "2026-10-06T16:32:20.809352+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/idempotent-inference-retries-and-quotas",
+          "title": "Inference retries: bound repeated work and preserve one decision"
+        },
+        {
+          "path": "mlops/receipt-endpoint-resource-guard-project",
+          "title": "Project: protect receipt inference from expensive and repeated input"
+        },
+        {
+          "path": "mlops/inference-request-response-contracts",
+          "title": "Inference API contracts: version the decision, not only the payload"
+        },
+        {
+          "path": "mlops/multi-model-admission-and-noisy-neighbors",
+          "title": "Multi-model serving: admission control for noisy neighbors"
+        },
+        {
+          "path": "mlops/monitoring-cardinality-and-metric-identities",
+          "title": "Model monitoring dimensions without metric-cardinality failure"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9164e991-fc55-5ef6-b54e-d295bd625ebc",
+    "type": "article",
+    "path": "mlops/inference-request-response-contracts",
+    "title": "Inference API contracts: version the decision, not only the payload",
+    "summary": "A serving API must specify request validation, response meaning, model identity and stable failure behavior for every caller.",
+    "body": "<p>A serving API must specify request validation, response meaning, model identity and stable failure behavior for every caller.</p><h2>Separate public and internal contracts</h2><p>The HTTP request belongs to the caller; the feature vector belongs to the serving pipeline. A public receipt request may contain a receipt ID and capture time while the internal model consumes normalized merchant age and currency signals. Changing the feature contract does not require every caller to change. Conversely, renaming a public field is breaking even if the model bytes are identical. <a href=\"/mlops/feature-schema-evolution-and-consumers\">Feature schema evolution</a> covers internal consumers; this page covers the endpoint boundary and its visible decision semantics.</p><h2>Specify acceptance and rejection</h2><p>Write the accepted media type, required fields, units, length limits, idempotency key and timestamp rules. Define a stable error code for invalid input, unsupported currency and temporary feature unavailability. Do not reply with a successful score when admission fails. A response should include a decision ID, route, model digest or approved alias, policy revision and a machine-readable reason for fallback. <a href=\"/mlops/feature-contract-and-admission-gates\">Admission gates</a> decide whether the feature state is fit to score; the API translates that state into a safe caller response.</p><h2>Protect old clients during change</h2><p>Additive optional fields can often remain within one API version if old clients ignore unknown response fields and new required fields are not introduced. A changed score meaning, route enum or error code requires deliberate migration even when the JSON shape stays the same. Keep the old contract available until every registered consumer has moved, or provide an explicit version adapter with contract tests. <a href=\"/mlops/inference-client-migration-and-contract-tests\">Client migration</a> sets the evidence needed to retire that adapter.</p><h2>Test against real caller expectations</h2><p>Use captured redacted requests and caller-owned assertions to test valid input, absent fields, extra fields, repeated idempotency keys and unavailable features. Exercise the actual deployed endpoint; a schema test alone cannot catch a model digest unexpectedly promoted behind an alias. <a href=\"/mlops/receipt-inference-api-migration-project\">The project</a> migrates two receipt consumers while preserving their response behavior. Keep response identity in <a href=\"/mlops/inference-logging-privacy\">restricted decision logs</a> so an incident can join an API response to the served model.</p><h2>Implementation</h2><pre><code class=\"language-python\">def validate_receipt_request(payload):\n    required = {&quot;receipt_id&quot;, &quot;currency&quot;, &quot;captured_at&quot;}\n    if not isinstance(payload, dict) or not required &lt;= payload.keys():\n        return {&quot;ok&quot;: False, &quot;code&quot;: &quot;INVALID_REQUEST&quot;}\n    if not all(isinstance(payload[key], str) and payload[key]\n               for key in required):\n        return {&quot;ok&quot;: False, &quot;code&quot;: &quot;INVALID_REQUEST&quot;}\n    if payload[&quot;currency&quot;] not in {&quot;INR&quot;, &quot;SGD&quot;}:\n        return {&quot;ok&quot;: False, &quot;code&quot;: &quot;UNSUPPORTED_CURRENCY&quot;}\n    return {&quot;ok&quot;: True, &quot;code&quot;: &quot;ACCEPTED&quot;}\n\nvalid = {&quot;receipt_id&quot;: &quot;r-47&quot;, &quot;currency&quot;: &quot;INR&quot;,\n         &quot;captured_at&quot;: &quot;2026-10-06T09:00:00Z&quot;}\nassert validate_receipt_request(valid)[&quot;ok&quot;]\nassert validate_receipt_request({**valid, &quot;currency&quot;: &quot;EUR&quot;})[&quot;code&quot;] == &quot;UNSUPPORTED_CURRENCY&quot;\n</code></pre><h2>Performance and operating cost</h2><p>Validation is O(f) expected time for f required fields and O(1) extra space here. A full endpoint also pays for parsing, authentication, feature reads and model inference. The example intentionally omits timestamp parsing and size limits; a real ingress should validate those at its trust boundary before feature lookup.</p><h3>Common Mistakes</h3><ul><li>Treating a model artifact revision as an API version.</li><li>Returning HTTP success with an unmarked fallback score.</li><li>Changing a response enum without testing old callers.</li><li>Logging raw receipts to diagnose contract failures.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/inference-client-migration-and-contract-tests\">Migrate inference clients with compatibility tests and usage evidence</a></li><li><a href=\"/mlops/receipt-inference-api-migration-project\">Project: migrate receipt inference callers without breaking decisions</a></li><li><a href=\"/mlops/feature-schema-evolution-and-consumers\">Feature schema evolution: keep producers and rollback models compatible</a></li><li><a href=\"/mlops/feature-contract-and-admission-gates\">Feature contracts: admit only usable inference records</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/inference-payload-and-compute-admission\">Inference ingress: bound payload size and compute before model work</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6139,
+    "status": "published",
+    "published_at": "2026-10-06T16:20:37.956732+00:00",
+    "created_at": "2026-10-06T16:20:37.956732+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/inference-client-migration-and-contract-tests",
+          "title": "Migrate inference clients with compatibility tests and usage evidence"
+        },
+        {
+          "path": "mlops/receipt-inference-api-migration-project",
+          "title": "Project: migrate receipt inference callers without breaking decisions"
+        },
+        {
+          "path": "mlops/feature-schema-evolution-and-consumers",
+          "title": "Feature schema evolution: keep producers and rollback models compatible"
+        },
+        {
+          "path": "mlops/feature-contract-and-admission-gates",
+          "title": "Feature contracts: admit only usable inference records"
+        },
+        {
+          "path": "mlops/inference-logging-privacy",
+          "title": "Inference logs: keep diagnostic joins without copying sensitive payloads"
+        },
+        {
+          "path": "mlops/inference-payload-and-compute-admission",
+          "title": "Inference ingress: bound payload size and compute before model work"
+        }
+      ]
+    }
+  },
+  {
+    "id": "33aa6f06-5936-5e9d-b054-8ec571f92c61",
+    "type": "subject",
+    "path": "mlops/mlops-tutorial",
+    "title": "MLOps Tutorial",
+    "summary": "Release models through traceable artifacts, feature parity, promotion gates, staged rollout, monitoring and rollback.",
+    "body": "<p>Release models through traceable artifacts, feature parity, promotion gates, staged rollout, monitoring and rollback.</p><h2>Learning path</h2><ul><li><a href=\"/mlops/run-manifest-and-artifact-lineage\">Training manifests: link data, code, configuration and artifact</a></li><li><a href=\"/mlops/feature-training-serving-parity\">Training-serving parity: compare feature values at one prediction clock</a></li><li><a href=\"/mlops/model-registry-promotion-gates\">Model promotion: require evidence before changing the serving pointer</a></li><li><a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a></li><li><a href=\"/mlops/drift-delayed-label-monitoring\">Model monitoring: separate input drift, data faults and delayed outcomes</a></li><li><a href=\"/mlops/retraining-trigger-and-challenger\">Retraining decisions: require a reason and a challenger comparison</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li><li><a href=\"/mlops/receipt-triage-release-project\">Project: release receipt triage with lineage, canary checks and rollback</a></li></ul><h2>Connected foundations</h2><p>Use the earlier data and model boundaries as prerequisites.</p><ul><li><a href=\"/data-engineering/data-engineering-tutorial\">Data Engineering Tutorial</a></li><li><a href=\"/machine-learning/machine-learning-tutorial\">Machine Learning Tutorial</a></li></ul><h2>Practice</h2><ul><li><a href=\"/mlops/mlops-tutorial/project\">MLOps: Projects</a></li></ul><p><strong>Continue into another subject:</strong> <a href=\"/computer-vision/computer-vision-tutorial\">Computer Vision Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/feature-stores/feature-stores-tutorial\">Feature Stores Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/privacy-aware-ml/privacy-aware-ml-tutorial\">Privacy-Aware ML Tutorial</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a>.</p><h2>Feature contracts and data admission</h2><ul><li><a href=\"/mlops/feature-contract-and-admission-gates\">Feature contracts: admit only usable inference records</a></li><li><a href=\"/mlops/feature-schema-evolution-and-consumers\">Feature schema evolution: keep producers and rollback models compatible</a></li></ul><h2>Feature contracts and data admission project</h2><ul><li><a href=\"/mlops/receipt-feature-admission-project\">Project: release a versioned receipt feature admission gate</a></li></ul><h2>Serving reliability and capacity</h2><ul><li><a href=\"/mlops/inference-latency-budget-and-tail-observation\">Inference latency budgets: measure queue, feature and model time</a></li><li><a href=\"/mlops/queue-saturation-and-fallback-policy\">Serving overload: bound queues and choose a fallback before time runs out</a></li></ul><h2>Serving reliability and capacity project</h2><ul><li><a href=\"/mlops/receipt-serving-slo-project\">Project: operate receipt scoring with a deadline and overload path</a></li></ul><h2>Model artifact trust and release evidence</h2><ul><li><a href=\"/mlops/model-artifact-digest-and-safe-loading\">Model artifacts: verify digest, origin and loading format</a></li><li><a href=\"/mlops/promotion-attestation-and-reversible-pointer\">Promotion evidence: bind evaluation, contract and rollback to one digest</a></li></ul><h2>Model artifact trust and release evidence project</h2><ul><li><a href=\"/mlops/trusted-model-promotion-project\">Project: promote a receipt model with artifact and rollback evidence</a></li></ul><h2>Outcome feedback and label lineage</h2><ul><li><a href=\"/mlops/prediction-outcome-join-and-maturity\">Prediction-outcome joins: evaluate only mature, matched decisions</a></li><li><a href=\"/mlops/label-corrections-and-evaluation-ledger\">Label corrections: version outcomes before rebuilding quality metrics</a></li></ul><h2>Outcome feedback and label lineage project</h2><ul><li><a href=\"/mlops/receipt-outcome-feedback-project\">Project: build a versioned receipt outcome feedback loop</a></li></ul><h2>Reproducible training pipelines</h2><ul><li><a href=\"/mlops/pipeline-stage-inputs-and-cache-identity\">Pipeline stages: cache by complete input identity</a></li><li><a href=\"/mlops/snapshot-split-and-environment-replay\">Training replay: freeze the cohort, split and runtime</a></li></ul><h2>Reproducible training pipelines project</h2><ul><li><a href=\"/mlops/reproducible-training-run-project\">Project: replay a receipt model from frozen training evidence</a></li></ul><h2>Batch inference and replay</h2><ul><li><a href=\"/mlops/batch-inference-partition-and-idempotency\">Batch inference: make partitions idempotent and outputs identifiable</a></li><li><a href=\"/mlops/batch-replay-versioning-and-consumer-reconciliation\">Batch replay: supersede outputs without duplicating downstream actions</a></li></ul><h2>Batch inference and replay project</h2><ul><li><a href=\"/mlops/nightly-receipt-batch-project\">Project: publish and replay a nightly receipt scoring partition</a></li></ul><h2>Monitoring alerts and incident response</h2><ul><li><a href=\"/mlops/model-alert-symptoms-ownership-and-noise\">Model alerts: page on customer symptoms with a named owner</a></li><li><a href=\"/mlops/incident-triage-and-evidence-timeline\">Model incidents: build a release and evidence timeline before rollback</a></li></ul><h2>Monitoring alerts and incident response project</h2><ul><li><a href=\"/mlops/receipt-model-incident-drill-project\">Project: run a receipt-model incident drill with honest mitigation</a></li></ul><h2>Model retirement and retained evidence</h2><ul><li><a href=\"/mlops/model-consumer-inventory-and-retirement-gates\">Model retirement: find consumers before removing a version</a></li><li><a href=\"/mlops/retention-and-derivative-deletion-boundary\">MLOps retention: trace source deletion into features and training artifacts</a></li></ul><h2>Model retirement and retained evidence project</h2><ul><li><a href=\"/mlops/receipt-model-retirement-project\">Project: retire a receipt model without breaking batch or audit</a></li></ul><h2>ML release testing and environment gates</h2><ul><li><a href=\"/mlops/ml-test-pyramid-and-data-fixtures\">ML tests: separate code, data, model and service failures</a></li><li><a href=\"/mlops/environment-promotion-and-smoke-contracts\">Environment promotion: keep the tested artifact and contract together</a></li></ul><h2>ML release testing and environment gates project</h2><ul><li><a href=\"/mlops/receipt-ci-release-gate-project\">Project: gate a receipt model through CI and staging</a></li></ul><h2>Online feature freshness</h2><ul><li><a href=\"/mlops/online-feature-freshness-budget-and-ttl\">Online feature freshness: use event and availability clocks</a></li><li><a href=\"/mlops/late-feature-materialization-and-read-repair\">Feature materialization lag: detect stuck updates and repair safely</a></li></ul><h2>Online feature freshness project</h2><ul><li><a href=\"/mlops/receipt-feature-freshness-project\">Project: keep receipt scoring safe during feature publication lag</a></li></ul><h2>Live model experiments and exposure evidence</h2><ul><li><a href=\"/mlops/sticky-model-assignment-and-exposure-logging\">Model experiments: separate assignment from actual exposure</a></li><li><a href=\"/mlops/experiment-guardrails-and-interference\">Model experiment guardrails: stop harm without misreading the sample</a></li></ul><h2>Live model experiments and exposure evidence project</h2><ul><li><a href=\"/mlops/receipt-model-experiment-project\">Project: run a receipt-model experiment with exposure evidence</a></li></ul><h2>Training capacity and interruption recovery</h2><ul><li><a href=\"/mlops/training-checkpoints-and-preemption-recovery\">Training checkpoints: resume state after interruption</a></li><li><a href=\"/mlops/training-budget-and-resource-admission\">Training resource gates: bound cost before starting a run</a></li></ul><h2>Training capacity and interruption recovery project</h2><ul><li><a href=\"/mlops/receipt-training-recovery-project\">Project: resume receipt-model training under a compute budget</a></li></ul><h2>Model risk evidence and release scope</h2><ul><li><a href=\"/mlops/model-card-scope-and-limitation-register\">Model cards as operating contracts: scope, evidence and limits</a></li><li><a href=\"/mlops/slice-quality-gates-and-uncertainty\">Slice quality gates when labels are sparse or delayed</a></li></ul><h2>Model risk evidence and release scope project</h2><ul><li><a href=\"/mlops/receipt-model-card-review-project\">Project: approve a receipt model with a scoped evidence dossier</a></li></ul><h2>Inference API compatibility and caller migration</h2><ul><li><a href=\"/mlops/inference-request-response-contracts\">Inference API contracts: version the decision, not only the payload</a></li><li><a href=\"/mlops/inference-client-migration-and-contract-tests\">Migrate inference clients with compatibility tests and usage evidence</a></li></ul><h2>Inference API compatibility and caller migration project</h2><ul><li><a href=\"/mlops/receipt-inference-api-migration-project\">Project: migrate receipt inference callers without breaking decisions</a></li></ul><h2>Inference failover and recovery identity</h2><ul><li><a href=\"/mlops/region-failover-model-and-feature-identity\">Region failover for inference: match model and feature state</a></li><li><a href=\"/mlops/failover-drills-and-decision-reconciliation\">Failover drills: reconcile decisions across regions</a></li></ul><h2>Inference failover and recovery identity project</h2><ul><li><a href=\"/mlops/receipt-region-failover-project\">Project: fail over receipt inference and reconcile every decision</a></li></ul><h2>Shared model serving and capacity isolation</h2><ul><li><a href=\"/mlops/multi-model-admission-and-noisy-neighbors\">Multi-model serving: admission control for noisy neighbors</a></li><li><a href=\"/mlops/model-cache-warmup-and-capacity-planning\">Model cache warmup and memory planning for shared inference</a></li></ul><h2>Shared model serving and capacity isolation project</h2><ul><li><a href=\"/mlops/receipt-shared-serving-capacity-project\">Project: protect receipt inference in a shared model pool</a></li></ul><h2>Score policy and human review controls</h2><ul><li><a href=\"/mlops/score-threshold-policy-and-change-control\">Score thresholds are release policy, not model metadata</a></li><li><a href=\"/mlops/human-override-and-adjudication-ledger\">Human overrides: keep decisions, reasons and labels distinct</a></li></ul><h2>Score policy and human review controls project</h2><ul><li><a href=\"/mlops/receipt-score-policy-project\">Project: release a receipt threshold with review evidence</a></li></ul><h2>Monitoring evidence and telemetry limits</h2><ul><li><a href=\"/mlops/monitoring-cardinality-and-metric-identities\">Model monitoring dimensions without metric-cardinality failure</a></li><li><a href=\"/mlops/trace-sampling-and-coverage-ledger\">Trace sampling and coverage: know what production evidence misses</a></li></ul><h2>Monitoring evidence and telemetry limits project</h2><ul><li><a href=\"/mlops/receipt-monitoring-evidence-project\">Project: measure receipt inference without losing the denominator</a></li></ul><h2>Multi-stage inference and dependency failure</h2><ul><li><a href=\"/mlops/inference-chain-contracts-and-stage-identity\">Multi-stage inference: pin each stage and its contract</a></li><li><a href=\"/mlops/stage-deadline-and-degraded-path-tests\">Test partial failure and deadline exhaustion in model chains</a></li></ul><h2>Multi-stage inference and dependency failure project</h2><ul><li><a href=\"/mlops/receipt-inference-chain-project\">Project: verify a receipt extraction-to-decision chain</a></li></ul><h2>Inference resource protection and request identity</h2><ul><li><a href=\"/mlops/inference-payload-and-compute-admission\">Inference ingress: bound payload size and compute before model work</a></li><li><a href=\"/mlops/idempotent-inference-retries-and-quotas\">Inference retries: bound repeated work and preserve one decision</a></li></ul><h2>Inference resource protection and request identity project</h2><ul><li><a href=\"/mlops/receipt-endpoint-resource-guard-project\">Project: protect receipt inference from expensive and repeated input</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8000,
+    "status": "published",
+    "published_at": "2026-10-04T20:58:23.502482+00:00",
+    "created_at": "2026-10-04T20:58:23.502482+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Build and promotion",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "mlops/run-manifest-and-artifact-lineage",
+            "mlops/feature-training-serving-parity",
+            "mlops/model-registry-promotion-gates"
+          ]
+        },
+        {
+          "title": "Release and operate",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "mlops/shadow-canary-and-rollback",
+            "mlops/drift-delayed-label-monitoring",
+            "mlops/retraining-trigger-and-challenger",
+            "mlops/inference-logging-privacy"
+          ]
+        },
+        {
+          "title": "Feature contracts and data admission",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/feature-contract-and-admission-gates",
+            "mlops/feature-schema-evolution-and-consumers"
+          ]
+        },
+        {
+          "title": "Serving reliability and capacity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/inference-latency-budget-and-tail-observation",
+            "mlops/queue-saturation-and-fallback-policy"
+          ]
+        },
+        {
+          "title": "Model artifact trust and release evidence",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/model-artifact-digest-and-safe-loading",
+            "mlops/promotion-attestation-and-reversible-pointer"
+          ]
+        },
+        {
+          "title": "Outcome feedback and label lineage",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/prediction-outcome-join-and-maturity",
+            "mlops/label-corrections-and-evaluation-ledger"
+          ]
+        },
+        {
+          "title": "Reproducible training pipelines",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/pipeline-stage-inputs-and-cache-identity",
+            "mlops/snapshot-split-and-environment-replay"
+          ]
+        },
+        {
+          "title": "Batch inference and replay",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/batch-inference-partition-and-idempotency",
+            "mlops/batch-replay-versioning-and-consumer-reconciliation"
+          ]
+        },
+        {
+          "title": "Monitoring alerts and incident response",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/model-alert-symptoms-ownership-and-noise",
+            "mlops/incident-triage-and-evidence-timeline"
+          ]
+        },
+        {
+          "title": "Model retirement and retained evidence",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/model-consumer-inventory-and-retirement-gates",
+            "mlops/retention-and-derivative-deletion-boundary"
+          ]
+        },
+        {
+          "title": "ML release testing and environment gates",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/ml-test-pyramid-and-data-fixtures",
+            "mlops/environment-promotion-and-smoke-contracts"
+          ]
+        },
+        {
+          "title": "Online feature freshness",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/online-feature-freshness-budget-and-ttl",
+            "mlops/late-feature-materialization-and-read-repair"
+          ]
+        },
+        {
+          "title": "Live model experiments and exposure evidence",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/sticky-model-assignment-and-exposure-logging",
+            "mlops/experiment-guardrails-and-interference"
+          ]
+        },
+        {
+          "title": "Training capacity and interruption recovery",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/training-checkpoints-and-preemption-recovery",
+            "mlops/training-budget-and-resource-admission"
+          ]
+        },
+        {
+          "title": "Model risk evidence and release scope",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/model-card-scope-and-limitation-register",
+            "mlops/slice-quality-gates-and-uncertainty"
+          ]
+        },
+        {
+          "title": "Inference API compatibility and caller migration",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/inference-request-response-contracts",
+            "mlops/inference-client-migration-and-contract-tests"
+          ]
+        },
+        {
+          "title": "Inference failover and recovery identity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/region-failover-model-and-feature-identity",
+            "mlops/failover-drills-and-decision-reconciliation"
+          ]
+        },
+        {
+          "title": "Shared model serving and capacity isolation",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/multi-model-admission-and-noisy-neighbors",
+            "mlops/model-cache-warmup-and-capacity-planning"
+          ]
+        },
+        {
+          "title": "Score policy and human review controls",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/score-threshold-policy-and-change-control",
+            "mlops/human-override-and-adjudication-ledger"
+          ]
+        },
+        {
+          "title": "Monitoring evidence and telemetry limits",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/monitoring-cardinality-and-metric-identities",
+            "mlops/trace-sampling-and-coverage-ledger"
+          ]
+        },
+        {
+          "title": "Multi-stage inference and dependency failure",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/inference-chain-contracts-and-stage-identity",
+            "mlops/stage-deadline-and-degraded-path-tests"
+          ]
+        },
+        {
+          "title": "Inference resource protection and request identity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/inference-payload-and-compute-admission",
+            "mlops/idempotent-inference-retries-and-quotas"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "mlops/receipt-triage-release-project",
+            "mlops/receipt-feature-admission-project",
+            "mlops/receipt-serving-slo-project",
+            "mlops/trusted-model-promotion-project",
+            "mlops/receipt-outcome-feedback-project",
+            "mlops/reproducible-training-run-project",
+            "mlops/nightly-receipt-batch-project",
+            "mlops/receipt-model-incident-drill-project",
+            "mlops/receipt-model-retirement-project",
+            "mlops/receipt-ci-release-gate-project",
+            "mlops/receipt-feature-freshness-project",
+            "mlops/receipt-model-experiment-project",
+            "mlops/receipt-training-recovery-project",
+            "mlops/receipt-model-card-review-project",
+            "mlops/receipt-inference-api-migration-project",
+            "mlops/receipt-region-failover-project",
+            "mlops/receipt-shared-serving-capacity-project",
+            "mlops/receipt-score-policy-project",
+            "mlops/receipt-monitoring-evidence-project",
+            "mlops/receipt-inference-chain-project",
+            "mlops/receipt-endpoint-resource-guard-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "MLOps",
+          "path": "mlops/mlops-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "mlops/mlops-tutorial/project"
+        }
+      ],
+      "related": [
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        }
+      ]
+    }
+  },
+  {
+    "id": "892521e9-66fd-5c97-8904-f46ba14951db",
+    "type": "subject",
+    "path": "mlops/mlops-tutorial/project",
+    "title": "MLOps: Projects",
+    "summary": "A checked project for the MLOps curriculum.",
+    "body": "<p>Apply the MLOps curriculum to a checked project.</p><h2>Project brief</h2><ul><li><a href=\"/mlops/receipt-triage-release-project\">Project: release receipt triage with lineage, canary checks and rollback</a></li></ul><h2>Required concepts</h2><ul><li><a href=\"/mlops/run-manifest-and-artifact-lineage\">Training manifests: link data, code, configuration and artifact</a></li><li><a href=\"/mlops/feature-training-serving-parity\">Training-serving parity: compare feature values at one prediction clock</a></li><li><a href=\"/mlops/model-registry-promotion-gates\">Model promotion: require evidence before changing the serving pointer</a></li><li><a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a></li><li><a href=\"/mlops/drift-delayed-label-monitoring\">Model monitoring: separate input drift, data faults and delayed outcomes</a></li><li><a href=\"/mlops/retraining-trigger-and-challenger\">Retraining decisions: require a reason and a challenger comparison</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li></ul><h2>Completion standard</h2><p>Submit runnable work, a data or run manifest, measured results and failure-case evidence.</p><h2>Feature contracts and data admission</h2><ul><li><a href=\"/mlops/receipt-feature-admission-project\">Project: release a versioned receipt feature admission gate</a></li></ul><h2>Serving reliability and capacity</h2><ul><li><a href=\"/mlops/receipt-serving-slo-project\">Project: operate receipt scoring with a deadline and overload path</a></li></ul><h2>Model artifact trust and release evidence</h2><ul><li><a href=\"/mlops/trusted-model-promotion-project\">Project: promote a receipt model with artifact and rollback evidence</a></li></ul><h2>Outcome feedback and label lineage</h2><ul><li><a href=\"/mlops/receipt-outcome-feedback-project\">Project: build a versioned receipt outcome feedback loop</a></li></ul><h2>Reproducible training pipelines</h2><ul><li><a href=\"/mlops/reproducible-training-run-project\">Project: replay a receipt model from frozen training evidence</a></li></ul><h2>Batch inference and replay</h2><ul><li><a href=\"/mlops/nightly-receipt-batch-project\">Project: publish and replay a nightly receipt scoring partition</a></li></ul><h2>Monitoring alerts and incident response</h2><ul><li><a href=\"/mlops/receipt-model-incident-drill-project\">Project: run a receipt-model incident drill with honest mitigation</a></li></ul><h2>Model retirement and retained evidence</h2><ul><li><a href=\"/mlops/receipt-model-retirement-project\">Project: retire a receipt model without breaking batch or audit</a></li></ul><h2>ML release testing and environment gates</h2><ul><li><a href=\"/mlops/receipt-ci-release-gate-project\">Project: gate a receipt model through CI and staging</a></li></ul><h2>Online feature freshness</h2><ul><li><a href=\"/mlops/receipt-feature-freshness-project\">Project: keep receipt scoring safe during feature publication lag</a></li></ul><h2>Live model experiments and exposure evidence</h2><ul><li><a href=\"/mlops/receipt-model-experiment-project\">Project: run a receipt-model experiment with exposure evidence</a></li></ul><h2>Training capacity and interruption recovery</h2><ul><li><a href=\"/mlops/receipt-training-recovery-project\">Project: resume receipt-model training under a compute budget</a></li></ul><h2>Model risk evidence and release scope</h2><ul><li><a href=\"/mlops/receipt-model-card-review-project\">Project: approve a receipt model with a scoped evidence dossier</a></li></ul><h2>Inference API compatibility and caller migration</h2><ul><li><a href=\"/mlops/receipt-inference-api-migration-project\">Project: migrate receipt inference callers without breaking decisions</a></li></ul><h2>Inference failover and recovery identity</h2><ul><li><a href=\"/mlops/receipt-region-failover-project\">Project: fail over receipt inference and reconcile every decision</a></li></ul><h2>Shared model serving and capacity isolation</h2><ul><li><a href=\"/mlops/receipt-shared-serving-capacity-project\">Project: protect receipt inference in a shared model pool</a></li></ul><h2>Score policy and human review controls</h2><ul><li><a href=\"/mlops/receipt-score-policy-project\">Project: release a receipt threshold with review evidence</a></li></ul><h2>Monitoring evidence and telemetry limits</h2><ul><li><a href=\"/mlops/receipt-monitoring-evidence-project\">Project: measure receipt inference without losing the denominator</a></li></ul><h2>Multi-stage inference and dependency failure</h2><ul><li><a href=\"/mlops/receipt-inference-chain-project\">Project: verify a receipt extraction-to-decision chain</a></li></ul><h2>Inference resource protection and request identity</h2><ul><li><a href=\"/mlops/receipt-endpoint-resource-guard-project\">Project: protect receipt inference from expensive and repeated input</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "mlops-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8001,
+    "status": "published",
+    "published_at": "2026-10-04T20:58:23.502482+00:00",
+    "created_at": "2026-10-04T20:58:23.502482+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Projects",
+          "lessons": [
+            "mlops/receipt-triage-release-project",
+            "mlops/receipt-feature-admission-project",
+            "mlops/receipt-serving-slo-project",
+            "mlops/trusted-model-promotion-project",
+            "mlops/receipt-outcome-feedback-project",
+            "mlops/reproducible-training-run-project",
+            "mlops/nightly-receipt-batch-project",
+            "mlops/receipt-model-incident-drill-project",
+            "mlops/receipt-model-retirement-project",
+            "mlops/receipt-ci-release-gate-project",
+            "mlops/receipt-feature-freshness-project",
+            "mlops/receipt-model-experiment-project",
+            "mlops/receipt-training-recovery-project",
+            "mlops/receipt-model-card-review-project",
+            "mlops/receipt-inference-api-migration-project",
+            "mlops/receipt-region-failover-project",
+            "mlops/receipt-shared-serving-capacity-project",
+            "mlops/receipt-score-policy-project",
+            "mlops/receipt-monitoring-evidence-project",
+            "mlops/receipt-inference-chain-project",
+            "mlops/receipt-endpoint-resource-guard-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "MLOps",
+          "path": "mlops/mlops-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "mlops/mlops-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "94f13ed8-c10b-534c-9692-fe87633ca86f",
+    "type": "article",
+    "path": "mlops/receipt-endpoint-resource-guard-project",
+    "title": "Project: protect receipt inference from expensive and repeated input",
+    "summary": "Place shape limits, tenant quotas and idempotency ahead of extraction, then prove rejected and retried requests do not consume duplicate model work.",
+    "body": "<p>Place shape limits, tenant quotas and idempotency ahead of extraction, then prove rejected and retried requests do not consume duplicate model work.</p><h2>Write the ingress contract</h2><p>Specify maximum upload bytes, decoded pixels, pages and accepted formats for receipt scans. Define a bounded alternate review path for legitimate larger submissions. Add tenant rate and in-flight limits, a stable idempotency key and a response code for size, conflict and temporary overload. <a href=\"/mlops/inference-payload-and-compute-admission\">Payload admission</a> should run before extraction; <a href=\"/mlops/inference-request-response-contracts\">the public contract</a> explains each rejection to callers.</p><h2>Inject resource abuse cases</h2><p>Send a compressed scan whose decoded dimensions exceed the pixel limit, a 47-page document and a burst of small valid receipts. Verify oversized requests never start the extractor or GPU worker. The burst should hit a tenant limit while unrelated tenants retain their model slots. Record gateway request count, admission result, expensive stage invocations and caller-visible response for each case. <a href=\"/mlops/multi-model-admission-and-noisy-neighbors\">Shared model isolation</a> adds protection against one model consuming the entire pool.</p><h2>Test retries after uncertain completion</h2><p>Allow one valid receipt to commit a decision, then drop its response. Retry with the original tenant, key and payload: return the existing decision ID without a second model invocation. Retry with the same key but changed bytes: reject as a conflict. <a href=\"/mlops/idempotent-inference-retries-and-quotas\">The retry rule</a> must use an atomic shared record in the deployed system. A local unit example proves branch logic, not cross-replica safety; run the integration test across two workers.</p><h2>Publish the load and safety result</h2><p>Report accepted, rejected, replayed and conflicting requests; extraction and model invocation counts; p99 latency for unaffected tenants; quota state and deduplication record lifetime. Identify the owner of each limit and the procedure for a legitimate oversized document. A guard that silently drops requests or converts malformed input to a low-risk score fails this exercise. Link the result to <a href=\"/mlops/receipt-serving-slo-project\">the serving target</a> and to <a href=\"/mlops/receipt-monitoring-evidence-project\">complete telemetry counts</a> so the protection is observable.</p><h2>Implementation</h2><pre><code class=\"language-python\">def guard_result(payload_bytes, pages, replay_state, tenant_active):\n    if payload_bytes &gt; 4_700_000 or pages &gt; 8:\n        return &quot;reject:payload&quot;\n    if replay_state == &quot;conflict&quot;:\n        return &quot;reject:key-conflict&quot;\n    if replay_state == &quot;completed&quot;:\n        return &quot;return:prior-decision&quot;\n    if tenant_active &gt;= 23:\n        return &quot;retry:tenant-capacity&quot;\n    return &quot;start:inference&quot;\n\nassert guard_result(470_000, 2, &quot;new&quot;, 18) == &quot;start:inference&quot;\nassert guard_result(470_000, 47, &quot;new&quot;, 0) == &quot;reject:payload&quot;\nassert guard_result(470_000, 2, &quot;completed&quot;, 23) == &quot;return:prior-decision&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The illustrated gate is O(1) time and space per request. A real decoder needs resource limits after expansion, and deduplication requires a shared atomic store. Quotas trade some peak throughput for isolation. The integration check should confirm that rejected requests never enter expensive stages and that replayed responses do not consume fresh inference capacity.</p><h3>Common Mistakes</h3><ul><li>Enforcing payload limits only after extraction.</li><li>Returning a fresh decision for a retry whose first response was lost.</li><li>Letting one tenant consume reserved capacity for others.</li><li>Using a non-atomic per-worker retry map in a multi-worker deployment.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/inference-payload-and-compute-admission\">Inference ingress: bound payload size and compute before model work</a></li><li><a href=\"/mlops/idempotent-inference-retries-and-quotas\">Inference retries: bound repeated work and preserve one decision</a></li><li><a href=\"/mlops/receipt-serving-slo-project\">Project: operate receipt scoring with a deadline and overload path</a></li><li><a href=\"/mlops/multi-model-admission-and-noisy-neighbors\">Multi-model serving: admission control for noisy neighbors</a></li><li><a href=\"/mlops/receipt-monitoring-evidence-project\">Project: measure receipt inference without losing the denominator</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6159,
+    "status": "published",
+    "published_at": "2026-10-06T16:32:20.809352+00:00",
+    "created_at": "2026-10-06T16:32:20.809352+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/inference-payload-and-compute-admission",
+          "title": "Inference ingress: bound payload size and compute before model work"
+        },
+        {
+          "path": "mlops/idempotent-inference-retries-and-quotas",
+          "title": "Inference retries: bound repeated work and preserve one decision"
+        },
+        {
+          "path": "mlops/receipt-serving-slo-project",
+          "title": "Project: operate receipt scoring with a deadline and overload path"
+        },
+        {
+          "path": "mlops/multi-model-admission-and-noisy-neighbors",
+          "title": "Multi-model serving: admission control for noisy neighbors"
+        },
+        {
+          "path": "mlops/receipt-monitoring-evidence-project",
+          "title": "Project: measure receipt inference without losing the denominator"
+        }
+      ]
+    }
+  },
+  {
+    "id": "2b64a36f-c9e0-5175-9897-5b171be875f2",
+    "type": "article",
+    "path": "mlops/receipt-feature-admission-project",
+    "title": "Project: release a versioned receipt feature admission gate",
+    "summary": "Build a replayable admission gate for a receipt model, then prove a unit migration does not break the candidate or rollback service.",
+    "body": "<p>Build a replayable admission gate for a receipt model, then prove a unit migration does not break the candidate or rollback service.</p><h2>State the operating task</h2><p>A payment intake system scores receipts with amount, merchant age and event time. The model must never see an amount with unknown units, a future event or a field silently converted from text. Define accepted, rejected and fallback outcomes, plus one short reason code for each failure. The <a href=\"/mlops/feature-contract-and-admission-gates\">feature contract</a> is part of the model release package, not an informal convention in the request handler.</p><h2>Build adversarial fixtures</h2><p>Create valid records, null merchant ages, boolean amounts, oversized amounts, stale timestamps, future timestamps and an upstream change from cents to thousands of cents. Freeze expected decisions before writing migration code. Include both the new candidate and the old rollback model as consumers. <a href=\"/mlops/feature-schema-evolution-and-consumers\">Schema evolution</a> forces the migration to support both until rollback is no longer needed.</p><h2>Wire admission to promotion</h2><p>Store the contract version, model digest and source schema revision with each test result. Reject a candidate whose fixture pass rate falls below its declared threshold, even if offline quality improved. Shadow live requests through the new gate and compare outcome counts with the old gate without using the shadow output for customer decisions. Keep restricted examples of rejected data for debugging; publish only reason counts and low-cardinality source labels. <a href=\"/mlops/shadow-canary-and-rollback\">Shadow rollout</a> provides the comparison pattern.</p><h2>Review the release evidence</h2><p>Report fixture failures, live rejection rate, unknown-version rate, candidate and rollback compatibility, and median and tail admission latency. Simulate an upstream unit change after candidate promotion; the gate must hold requests or use an approved fallback, not issue scores in the wrong units. Record who approves retirement of the old field and the earliest date the rollback model can be removed.</p><h2>Implementation</h2><pre><code class=\"language-python\">def admission_release(candidate_checks, rollback_checks, shadow_counts):\n    if not all(candidate_checks.values()):\n        return {&quot;state&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;candidate-fixture&quot;}\n    if not all(rollback_checks.values()):\n        return {&quot;state&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;rollback-fixture&quot;}\n    total = shadow_counts[&quot;accepted&quot;] + shadow_counts[&quot;rejected&quot;]\n    if total &lt; 470:\n        return {&quot;state&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;small-shadow-sample&quot;}\n    if shadow_counts[&quot;rejected&quot;] / total &gt; 0.03:\n        return {&quot;state&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;rejection-rate&quot;}\n    return {&quot;state&quot;: &quot;ready&quot;, &quot;checked&quot;: total}\n\nfixtures = {&quot;units&quot;: True, &quot;future_clock&quot;: True, &quot;nulls&quot;: True}\nrollback = {&quot;old_amount_minor&quot;: True}\nassert admission_release(fixtures, rollback,\n                         {&quot;accepted&quot;: 489, &quot;rejected&quot;: 11})[&quot;state&quot;] == &quot;ready&quot;\nassert admission_release(fixtures, {&quot;old_amount_minor&quot;: False},\n                         {&quot;accepted&quot;: 489, &quot;rejected&quot;: 11})[&quot;state&quot;] == &quot;hold&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The gate evaluation is O(f) time for fixture results and O(1) extra space aside from its response. Running both model contracts in shadow doubles validation work for sampled requests. Set a bounded review queue for rejected records, and treat threshold selection as an explicit product decision grounded in observed traffic.</p><h3>Common Mistakes</h3><ul><li>Passing candidate fixtures while ignoring the retained rollback model.</li><li>Treating a high rejection rate as harmless because accepted predictions look accurate.</li><li>Using shadow outputs for customer decisions.</li><li>Publishing raw rejected receipts through a monitoring dashboard.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/feature-contract-and-admission-gates\">Feature contracts: admit only usable inference records</a></li><li><a href=\"/mlops/feature-schema-evolution-and-consumers\">Feature schema evolution: keep producers and rollback models compatible</a></li><li><a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a></li><li><a href=\"/mlops/model-registry-promotion-gates\">Model promotion: require evidence before changing the serving pointer</a></li><li><a href=\"/mlops/receipt-triage-release-project\">Project: release receipt triage with lineage, canary checks and rollback</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/trusted-model-promotion-project\">Project: promote a receipt model with artifact and rollback evidence</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/receipt-inference-chain-project\">Project: verify a receipt extraction-to-decision chain</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6102,
+    "status": "published",
+    "published_at": "2026-10-06T15:49:22.923301+00:00",
+    "created_at": "2026-10-06T15:49:22.923301+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/feature-contract-and-admission-gates",
+          "title": "Feature contracts: admit only usable inference records"
+        },
+        {
+          "path": "mlops/feature-schema-evolution-and-consumers",
+          "title": "Feature schema evolution: keep producers and rollback models compatible"
+        },
+        {
+          "path": "mlops/shadow-canary-and-rollback",
+          "title": "Shadow and canary rollout: compare a candidate without losing a rollback"
+        },
+        {
+          "path": "mlops/model-registry-promotion-gates",
+          "title": "Model promotion: require evidence before changing the serving pointer"
+        },
+        {
+          "path": "mlops/receipt-triage-release-project",
+          "title": "Project: release receipt triage with lineage, canary checks and rollback"
+        },
+        {
+          "path": "mlops/trusted-model-promotion-project",
+          "title": "Project: promote a receipt model with artifact and rollback evidence"
+        },
+        {
+          "path": "mlops/receipt-inference-chain-project",
+          "title": "Project: verify a receipt extraction-to-decision chain"
+        }
+      ]
+    }
+  },
+  {
+    "id": "43e8e461-6c2c-5711-a43d-67adbf8ebd90",
+    "type": "article",
+    "path": "mlops/receipt-inference-chain-project",
+    "title": "Project: verify a receipt extraction-to-decision chain",
+    "summary": "Pin extraction, normalization, risk scoring and route policy as one release, then inject stage failures and measure the complete deadline.",
+    "body": "<p>Pin extraction, normalization, risk scoring and route policy as one release, then inject stage failures and measure the complete deadline.</p><h2>Freeze a chain manifest</h2><p>Record the extractor digest, normalization revision, risk model digest, feature contract, route policy revision and endpoint contract. Prepare a frozen set of clean scans, unreadable scans, missing merchant fields and unsupported currencies. Each fixture needs an expected route and reason, not only an expected numeric score. <a href=\"/mlops/inference-chain-contracts-and-stage-identity\">The chain contract</a> binds intermediate outputs to the exact downstream consumer. Keep the previous complete manifest as the rollback target.</p><h2>Break one stage at a time</h2><p>Make extraction return unreadable; scoring must not run. Make normalization return the wrong schema; the chain must hold rather than coerce a value. Delay merchant lookup until only 18 milliseconds remain in the endpoint budget; the later risk stage must not start with a fresh timeout. Record the first failure, elapsed time and fallback state. <a href=\"/mlops/stage-deadline-and-degraded-path-tests\">The failure matrix</a> names every planned branch before the test is run.</p><h2>Test combined failure and canary</h2><p>During a small live canary, pause the shared feature store while sending a hard scan. Count joint failures and manual-review load. Confirm that the public response says a degraded route was used and that logs retain all stage digests. If fallback saturates review staff, stop the canary. <a href=\"/mlops/receipt-serving-slo-project\">The service-level exercise</a> provides the latency target, and <a href=\"/mlops/inference-logging-privacy\">decision logging</a> gives a restricted trace across stages.</p><h2>Choose rollout or hold</h2><p>Deliver the manifest, fixture results, observed stage latency, combined-failure behavior, canary volume and rollback target. A passing model-only metric does not cover a changed extractor. Approve only the tested chain combination, and make rollback restore the whole chain pointer. If an independent stage must be promoted, rerun the end-to-end fixture set and record a new chain revision. Preserve any unreadable receipts for manual handling rather than replacing them with an apparently clean score.</p><h2>Implementation</h2><pre><code class=\"language-python\">def chain_release_gate(stages, expected, fallback_load, capacity):\n    mismatches = [name for name, digest in expected.items()\n                  if stages.get(name) != digest]\n    if mismatches:\n        return {&quot;state&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;stage-identity&quot;,\n                &quot;stages&quot;: mismatches}\n    if fallback_load &gt; capacity:\n        return {&quot;state&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;review-capacity&quot;}\n    return {&quot;state&quot;: &quot;canary&quot;}\n\nexpected = {&quot;extractor&quot;: &quot;extract-47&quot;, &quot;risk&quot;: &quot;risk-82&quot;,\n            &quot;policy&quot;: &quot;policy-3&quot;}\nassert chain_release_gate(expected, expected, 18, 23)[&quot;state&quot;] == &quot;canary&quot;\nassert chain_release_gate({**expected, &quot;extractor&quot;: &quot;extract-46&quot;},\n                          expected, 18, 23)[&quot;reason&quot;] == &quot;stage-identity&quot;\n</code></pre><h2>Performance and operating cost</h2><p>Comparing s stage identities takes O(s) time and O(s) mismatch space. End-to-end tests have cost proportional to the number of fixtures and stage invocations; a live canary adds staff and fallback capacity. The gate cannot substitute for stage outputs, deadline measurements or evidence that the fallback actually reaches the review queue.</p><h3>Common Mistakes</h3><ul><li>Approving a model digest without pinning its extractor.</li><li>Starting later stages after an earlier required stage fails.</li><li>Letting a degraded route overload human review.</li><li>Rolling back only the risk model and retaining the new extractor.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/inference-chain-contracts-and-stage-identity\">Multi-stage inference: pin each stage and its contract</a></li><li><a href=\"/mlops/stage-deadline-and-degraded-path-tests\">Test partial failure and deadline exhaustion in model chains</a></li><li><a href=\"/mlops/receipt-serving-slo-project\">Project: operate receipt scoring with a deadline and overload path</a></li><li><a href=\"/mlops/receipt-feature-admission-project\">Project: release a versioned receipt feature admission gate</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6156,
+    "status": "published",
+    "published_at": "2026-10-06T16:32:20.809352+00:00",
+    "created_at": "2026-10-06T16:32:20.809352+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/inference-chain-contracts-and-stage-identity",
+          "title": "Multi-stage inference: pin each stage and its contract"
+        },
+        {
+          "path": "mlops/stage-deadline-and-degraded-path-tests",
+          "title": "Test partial failure and deadline exhaustion in model chains"
+        },
+        {
+          "path": "mlops/receipt-serving-slo-project",
+          "title": "Project: operate receipt scoring with a deadline and overload path"
+        },
+        {
+          "path": "mlops/receipt-feature-admission-project",
+          "title": "Project: release a versioned receipt feature admission gate"
+        },
+        {
+          "path": "mlops/inference-logging-privacy",
+          "title": "Inference logs: keep diagnostic joins without copying sensitive payloads"
+        }
+      ]
+    }
+  },
+  {
+    "id": "56ceb73f-4422-5c0b-957b-3406400098fc",
+    "type": "article",
+    "path": "mlops/receipt-serving-slo-project",
+    "title": "Project: operate receipt scoring with a deadline and overload path",
+    "summary": "Define a measurable receipt-scoring service objective, then test capacity, timeout and fallback behavior under failure.",
+    "body": "<p>Define a measurable receipt-scoring service objective, then test capacity, timeout and fallback behavior under failure.</p><h2>Write the customer-visible contract</h2><p>The service receives a receipt and either returns a risk decision within 240 ms or routes it to a declared manual-review state. Choose an end-to-end availability definition that counts timeout and invalid responses, not just process health. Define a target window, traffic population and exclusions before looking at a favorable dashboard. The <a href=\"/mlops/inference-latency-budget-and-tail-observation\">latency budget</a> allocates time across lookup, queue, model and response.</p><h2>Build load and fault fixtures</h2><p>Replay a normal hour, a short 3× burst, a slow feature-store period and a cold model restart. Include large payloads and a candidate model with higher CPU demand. Record accepted, timed out, overloaded and manual-review outcomes. Use the same inputs for the current and candidate release; a result on idle hardware is not comparable to one on a saturated node. <a href=\"/mlops/queue-saturation-and-fallback-policy\">Overload policy</a> decides when the queue must stop growing.</p><h2>Gate deployment on complete evidence</h2><p>Require the candidate to meet quality and latency bounds while preserving enough rollback capacity. Check that the fallback path works when the feature store is unavailable, and that shadow requests are canceled when the main request ends. Emit low-cardinality duration metrics and trace identifiers; keep receipt payloads under a separate privacy policy. Canary a small traffic share and halt if customer-visible manual review exceeds its budget. <a href=\"/mlops/shadow-canary-and-rollback\">Rollback</a> must restore both model pointer and serving capacity.</p><h2>Review the failure drill</h2><p>Report end-to-end deadline success, tail latency, timeout rate, queue depth, fallback volume and cost per accepted score. During a simulated outage, verify that no fabricated safe score appears and that operations can distinguish capacity overload from malformed features. Store the test hardware, model digest and source revision so a later comparison is meaningful. A release is ready only when the rollback drill and the customer fallback meet their stated limits.</p><h2>Implementation</h2><pre><code class=\"language-python\">def serving_gate(outcomes, minimum_total=470):\n    total = sum(outcomes.values())\n    if total &lt; minimum_total:\n        return {&quot;state&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;insufficient-traffic&quot;}\n    timely = outcomes.get(&quot;scored-in-budget&quot;, 0)\n    unsafe = outcomes.get(&quot;fabricated-safe-score&quot;, 0)\n    fallback = outcomes.get(&quot;manual-review&quot;, 0)\n    if unsafe or timely / total &lt; 0.96 or fallback / total &gt; 0.04:\n        return {&quot;state&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;service-objective&quot;}\n    return {&quot;state&quot;: &quot;ready&quot;, &quot;evaluated&quot;: total}\n\nwindow = {&quot;scored-in-budget&quot;: 481, &quot;manual-review&quot;: 19}\nassert serving_gate(window)[&quot;state&quot;] == &quot;ready&quot;\nassert serving_gate({**window, &quot;fabricated-safe-score&quot;: 1})[&quot;state&quot;] == &quot;hold&quot;\n</code></pre><h2>Performance and operating cost</h2><p>Aggregating k outcome counters takes O(k) time and O(1) auxiliary space. A load test costs compute and may need isolated capacity to avoid affecting customers. This gate checks one window only; production release policy should also cover traffic slices, tail latency and repeated windows so a brief good period cannot mask a persistent problem.</p><h3>Common Mistakes</h3><ul><li>Measuring only model compute time instead of the request deadline.</li><li>Calling a process healthy while customers receive timeouts.</li><li>Sending shadow load without reserving capacity.</li><li>Treating manual review as free or unlimited capacity.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/inference-latency-budget-and-tail-observation\">Inference latency budgets: measure queue, feature and model time</a></li><li><a href=\"/mlops/queue-saturation-and-fallback-policy\">Serving overload: bound queues and choose a fallback before time runs out</a></li><li><a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a></li><li><a href=\"/mlops/receipt-triage-release-project\">Project: release receipt triage with lineage, canary checks and rollback</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/receipt-outcome-feedback-project\">Project: build a versioned receipt outcome feedback loop</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/receipt-model-incident-drill-project\">Project: run a receipt-model incident drill with honest mitigation</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/receipt-feature-freshness-project\">Project: keep receipt scoring safe during feature publication lag</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/receipt-inference-api-migration-project\">Project: migrate receipt inference callers without breaking decisions</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/receipt-shared-serving-capacity-project\">Project: protect receipt inference in a shared model pool</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/receipt-endpoint-resource-guard-project\">Project: protect receipt inference from expensive and repeated input</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6105,
+    "status": "published",
+    "published_at": "2026-10-06T15:49:22.923301+00:00",
+    "created_at": "2026-10-06T15:49:22.923301+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/inference-latency-budget-and-tail-observation",
+          "title": "Inference latency budgets: measure queue, feature and model time"
+        },
+        {
+          "path": "mlops/queue-saturation-and-fallback-policy",
+          "title": "Serving overload: bound queues and choose a fallback before time runs out"
+        },
+        {
+          "path": "mlops/shadow-canary-and-rollback",
+          "title": "Shadow and canary rollout: compare a candidate without losing a rollback"
+        },
+        {
+          "path": "mlops/receipt-triage-release-project",
+          "title": "Project: release receipt triage with lineage, canary checks and rollback"
+        },
+        {
+          "path": "mlops/inference-logging-privacy",
+          "title": "Inference logs: keep diagnostic joins without copying sensitive payloads"
+        },
+        {
+          "path": "mlops/receipt-outcome-feedback-project",
+          "title": "Project: build a versioned receipt outcome feedback loop"
+        },
+        {
+          "path": "mlops/receipt-model-incident-drill-project",
+          "title": "Project: run a receipt-model incident drill with honest mitigation"
+        },
+        {
+          "path": "mlops/receipt-feature-freshness-project",
+          "title": "Project: keep receipt scoring safe during feature publication lag"
+        },
+        {
+          "path": "mlops/receipt-inference-api-migration-project",
+          "title": "Project: migrate receipt inference callers without breaking decisions"
+        },
+        {
+          "path": "mlops/receipt-shared-serving-capacity-project",
+          "title": "Project: protect receipt inference in a shared model pool"
+        },
+        {
+          "path": "mlops/receipt-endpoint-resource-guard-project",
+          "title": "Project: protect receipt inference from expensive and repeated input"
+        }
+      ]
+    }
+  },
+  {
+    "id": "128e55c1-275b-5cf9-b159-b04b2d1f13e2",
+    "type": "article",
+    "path": "mlops/stage-deadline-and-degraded-path-tests",
+    "title": "Test partial failure and deadline exhaustion in model chains",
+    "summary": "A chain should make one defensible decision when an early stage fails, a later stage times out or the total deadline expires.",
+    "body": "<p>A chain should make one defensible decision when an early stage fails, a later stage times out or the total deadline expires.</p><h2>Carry remaining time forward</h2><p>Start an absolute request deadline at ingress and recompute time remaining before each stage. The extraction stage can consume most of the budget on a hard scan; the risk model must not then begin a fresh unrestricted wait. Include queue time and transit overhead. A deadline exhausted before scoring should return a named fallback state without an invented score. <a href=\"/mlops/inference-chain-contracts-and-stage-identity\">Stage contracts</a> establish which failures are permitted, and <a href=\"/mlops/queue-saturation-and-fallback-policy\">overload policy</a> says how callers see the result.</p><h2>Exercise the failure matrix</h2><p>For each stage, test malformed input, unavailable dependency, slow response, stale artifact and wrong schema. Confirm that downstream stages are skipped when their preconditions fail and that the decision log records the first causal failure. A later timeout should not overwrite an earlier contract mismatch. Keep a control case that traverses the whole chain. <a href=\"/mlops/ml-test-pyramid-and-data-fixtures\">Deterministic fixtures</a> make the branches repeatable; a live canary checks deployed wiring and real resource limits.</p><h2>Name the degraded decision</h2><p>Manual review may be safe for an unreadable receipt but unsafe for a request that must be rejected on authorization failure. The fallback table needs owner, expected volume and test evidence. Separate “no model score was produced” from “model score below threshold” in the response and event stream. <a href=\"/mlops/human-override-and-adjudication-ledger\">Reviewer actions</a> later refer to what the system actually proposed. A degraded path should have its own usage counter so it cannot quietly become the normal path.</p><h2>Detect correlated dependency loss</h2><p>Several stages may use one feature store or authentication service. A single dependency outage can drive every stage timeout and cause the fallback queue to saturate. Test under a joint failure rather than only one isolated stage at a time. <a href=\"/mlops/receipt-inference-chain-project\">The applied chain project</a> injects both a slow extractor and missing merchant feature, then checks deadline, fallback load and complete decision identity. The operator record should identify the first broken dependency, not merely the final HTTP status.</p><h2>Implementation</h2><pre><code class=\"language-python\">def run_stage_budget(deadline_ms, elapsed_ms, planned_stage_ms):\n    if min(deadline_ms, elapsed_ms, planned_stage_ms) &lt; 0:\n        raise ValueError(&quot;negative time&quot;)\n    remaining = deadline_ms - elapsed_ms\n    if remaining &lt;= 0:\n        return {&quot;state&quot;: &quot;fallback&quot;, &quot;reason&quot;: &quot;deadline-exhausted&quot;}\n    if planned_stage_ms &gt; remaining:\n        return {&quot;state&quot;: &quot;fallback&quot;, &quot;reason&quot;: &quot;stage-cannot-fit&quot;}\n    return {&quot;state&quot;: &quot;run&quot;, &quot;budget_ms&quot;: remaining}\n\nassert run_stage_budget(180, 140, 30) == {&quot;state&quot;: &quot;run&quot;, &quot;budget_ms&quot;: 40}\nassert run_stage_budget(180, 140, 47)[&quot;state&quot;] == &quot;fallback&quot;\nassert run_stage_budget(180, 181, 1)[&quot;reason&quot;] == &quot;deadline-exhausted&quot;\n</code></pre><h2>Performance and operating cost</h2><p>Each stage budget check is O(1) time and space. The production clock should be monotonic, and measured stage duration can differ from the plan; always enforce the actual absolute deadline. Exercising s stages over f failure classes needs O(sf) cases before combined outages, while complete tracing adds storage proportional to requests and stages.</p><h3>Common Mistakes</h3><ul><li>Resetting the full request deadline at each stage.</li><li>Calling manual review equivalent to a low model score.</li><li>Testing only isolated failures when stages share a dependency.</li><li>Reporting only final status and losing the first failure cause.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/inference-chain-contracts-and-stage-identity\">Multi-stage inference: pin each stage and its contract</a></li><li><a href=\"/mlops/receipt-inference-chain-project\">Project: verify a receipt extraction-to-decision chain</a></li><li><a href=\"/mlops/queue-saturation-and-fallback-policy\">Serving overload: bound queues and choose a fallback before time runs out</a></li><li><a href=\"/mlops/ml-test-pyramid-and-data-fixtures\">ML tests: separate code, data, model and service failures</a></li><li><a href=\"/mlops/receipt-serving-slo-project\">Project: operate receipt scoring with a deadline and overload path</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6155,
+    "status": "published",
+    "published_at": "2026-10-06T16:32:20.809352+00:00",
+    "created_at": "2026-10-06T16:32:20.809352+00:00",
+    "updated_at": "2026-10-06T16:32:20.809352+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/inference-chain-contracts-and-stage-identity",
+          "title": "Multi-stage inference: pin each stage and its contract"
+        },
+        {
+          "path": "mlops/receipt-inference-chain-project",
+          "title": "Project: verify a receipt extraction-to-decision chain"
+        },
+        {
+          "path": "mlops/queue-saturation-and-fallback-policy",
+          "title": "Serving overload: bound queues and choose a fallback before time runs out"
+        },
+        {
+          "path": "mlops/ml-test-pyramid-and-data-fixtures",
+          "title": "ML tests: separate code, data, model and service failures"
+        },
+        {
+          "path": "mlops/receipt-serving-slo-project",
+          "title": "Project: operate receipt scoring with a deadline and overload path"
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,1391 @@
+[
+  {
+    "id": "a72e11c9-e305-50a7-b043-b5c784a77060",
+    "type": "article",
+    "path": "deep-learning/causal-dilated-convolution-receptive-field",
+    "title": "Causal dilated convolution and receptive field",
+    "summary": "A sequence convolution is causal only when its padding and indexing prevent future samples from influencing an earlier output.",
+    "body": "<p>A sequence convolution is causal only when its padding and indexing prevent future samples from influencing an earlier output.</p><h2>State the forecast clock</h2><p>For a warehouse queue at minute 47, a forecast must use measurements observable at or before minute 47. A one-dimensional convolution with symmetric padding can place future values in the window around an output even if its output shape looks right. Use left padding of dilation times kernel-width-minus-one for stride-one causal convolution, then verify by perturbing a later input and checking every earlier output. The code does that directly. <a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent state</a> has a different but related time-boundary problem.</p><h2>Calculate the receptive field</h2><p>For a chain of stride-one causal convolutions with kernel width k and dilation values d, the receptive-field length is one plus the sum of (k minus one) times each d. Three width-three layers with dilations one, two and four see fifteen time positions. A lookback shorter than this can leave much of the nominal receptive field filled with padding. Receptive field is a maximum context span, not evidence that every old measurement matters equally. Record all layer widths, dilations, strides and crop rules.</p><h2>Keep feature latency explicit</h2><p>Event time and availability time differ. A database metric observed at 47 might not be available until 49. If the forecast runs at 47, including it violates the information boundary even though its event timestamp is not in the future. Build training windows from the as-available feature view, not a backfilled table. For missing minutes, choose a gap marker, forward-fill rule or explicit mask and apply it in serving. <a href=\"/deep-learning/graph-neighbor-sampling-and-time-split\">Time-safe graph splits</a> rely on the same observable-at principle.</p><h2>Compare long context with a short baseline</h2><p>Dilations expand coverage without proportionally expanding kernel parameters, but a long nominal lookback can still add compute and noise. Compare with last-value, seasonal and short-window models on identical rolling origins. Report errors by demand regime, missingness and holiday or incident periods. If the long-context model helps only on windows after a future-data backfill, the gain is suspect. <a href=\"/deep-learning/warehouse-queue-tcn-project\">The project</a> uses a rolling release gate.</p><h2>Check deployment alignment</h2><p>A causal model trained to output a value at every input time must select the final output for a next-horizon forecast and must shift labels consistently. An off-by-one label can yield attractive validation loss while serving a forecast for the already observed interval. Save an input window with timestamps, expected horizon and model output, and replay it after changes. Do not treat matching tensor lengths as proof of correct forecast alignment.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\ntorch.manual_seed(47)\nqueue_history = torch.arange(11, dtype=torch.float32).view(1, 1, 11)\ncausal_filter = nn.Conv1d(1, 1, kernel_size=3, dilation=2, bias=False)\nleft_padding = 2 * (3 - 1)\nbaseline = causal_filter(functional.pad(queue_history, (left_padding, 0)))\nchanged_future = queue_history.clone()\nchanged_future[:, :, -1] = 900\nreplayed = causal_filter(functional.pad(changed_future, (left_padding, 0)))\nassert baseline.shape == queue_history.shape\ntorch.testing.assert_close(baseline[:, :, :-1], replayed[:, :, :-1])\nassert 1 + (3 - 1) * sum((1, 2, 4)) == 15</code></pre><h2>Performance and operating cost</h2><p>For B windows, input channels C_in, output channels C_out, length T and kernel width k, a direct convolution is on the order of O(BTC_inC_outk) operations per layer; dilation changes spacing, not the number of kernel weights. Activations cost O(BTC_out) per layer in training, apart from backend buffers. Stacking layers increases the receptive field and stored activations. The test proves causal indexing for one convolution but does not measure forecast skill or data-availability leakage.</p><h3>Common Mistakes</h3><ul><li>Do not use symmetric same-padding and assume it is causal.</li><li>Do not train on backfilled features unavailable at prediction time.</li><li>Do not confuse output alignment with the forecast horizon.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/quantile-forecast-loss-and-crossing-policy\">Quantile forecast loss and crossing policy</a></li><li><a href=\"/deep-learning/warehouse-queue-tcn-project\">Project: forecast warehouse queues with a causal temporal model</a></li><li><a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent hidden-state resets and truncated gradients</a></li><li><a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7923,
+    "status": "published",
+    "published_at": "2026-10-06T10:51:51.054734+00:00",
+    "created_at": "2026-10-06T10:51:51.054734+00:00",
+    "updated_at": "2026-10-06T10:51:51.054734+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/quantile-forecast-loss-and-crossing-policy",
+          "title": "Quantile forecast loss and crossing policy"
+        },
+        {
+          "path": "deep-learning/warehouse-queue-tcn-project",
+          "title": "Project: forecast warehouse queues with a causal temporal model"
+        },
+        {
+          "path": "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients",
+          "title": "Recurrent hidden-state resets and truncated gradients"
+        },
+        {
+          "path": "deep-learning/causal-target-shift-and-padding-loss",
+          "title": "Causal target shifts and padding-aware loss"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        }
+      ]
+    }
+  },
+  {
+    "id": "72f7591c-ae63-5a37-975b-1b4c1435211f",
+    "type": "article",
+    "path": "deep-learning/causal-target-shift-and-padding-loss",
+    "title": "Causal target shifts and padding-aware loss",
+    "summary": "A next-token learner should predict position t plus one from positions no later than t, while padding and any unavailable targets contribute no loss.",
+    "body": "<p>A next-token learner should predict position t plus one from positions no later than t, while padding and any unavailable targets contribute no loss.</p><h2>Separate model input from target</h2><p>For tokens A, B, C and D, feed A, B and C and score predictions against B, C and D. If the model receives D at the position used to predict D, the task leaks its own answer even when the attention mask is causal. Make the one-position shift explicit in the data contract, and assert input length equals target length after shifting. <a href=\"/natural-language-processing/unicode-tokenization-boundary\">Tokenization</a> fixes the vocabulary and special-token policy before this calculation.</p><h2>Mask the target, not just attention</h2><p>A key padding mask can keep a token from being attended to but does not stop a padded target from entering cross-entropy. Replace target positions without a real next token by the loss function’s ignore value, or use a weighted unreduced loss with a verified denominator. A batch with one long sequence and many short sequences can otherwise be dominated by padding. Count valid target tokens per optimizer update and report loss per valid token, not per allocated slot.</p><h2>Test causal independence</h2><p>Hold a prefix fixed, change only a future token, and assert that logits for earlier positions stay unchanged under deterministic evaluation. This catches a reversed triangular mask, an accidental bidirectional layer and shifted labels that read future information. A model can still score well on a leaky validation set, so the counterfactual test is more decisive than a low loss. <a href=\"/deep-learning/scaled-dot-product-attention-mask-contract\">Attention mask semantics</a> determine which comparisons are legal.</p><h2>Handle boundary tokens deliberately</h2><p>A start token can give the first target a predecessor; an end token lets the model learn when to stop. Whether the final input predicts an end token is a modeling choice, not a side effect of padding. Left-padding during generation differs from right-padding during training; position IDs and cached key/value length may need adjustment. Document the serving prompt limit and stop behavior alongside the training shift. <a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts</a> protect this boundary.</p><h2>Measure the actual denominator</h2><p>For each batch, log allocated positions, valid input positions and valid target positions. Reject an all-padding batch before softmax or loss reduction. If using gradient accumulation with variable lengths, sum token losses and divide by the total valid targets across the effective batch; averaging per-sequence means first gives short sequences extra weight. Pin the token weighting rule before comparing runs.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nimport torch.nn.functional as functional\n\npad_id = 0\nevent_sequences = torch.tensor([[7, 12, 19, 23, 0],\n                                [7, 31, 17, 0, 0]])\nmodel_inputs = event_sequences[:, :-1]\nnext_targets = event_sequences[:, 1:].clone()\nnext_targets[next_targets == pad_id] = -100\n\ntorch.manual_seed(29)\nvocabulary_size = 47\nnext_token_logits = torch.randn(2, 4, vocabulary_size,\n                                requires_grad=True)\ntoken_loss_sum = functional.cross_entropy(\n    next_token_logits.transpose(1, 2), next_targets,\n    ignore_index=-100, reduction=&quot;sum&quot;)\nvalid_targets = (next_targets != -100).sum()\nmean_token_loss = token_loss_sum / valid_targets\nmean_token_loss.backward()\nassert int(valid_targets) == 5\nassert model_inputs.shape == next_targets.shape\nassert torch.isfinite(mean_token_loss)</code></pre><h2>Performance and operating cost</h2><p>Shifting itself costs O(B × L) views or copies depending on later operations. A vocabulary cross-entropy over V classes costs roughly O(B × L × V) arithmetic and logits storage unless a fused implementation changes intermediates. Padding consumes attention and output compute even when ignored by loss. Report valid-token throughput, not only padded tokens per second.</p><h3>Common Mistakes</h3><ul><li>Do not score each token against itself because the labels were left unshifted.</li><li>Do not assume an attention mask removes padded positions from the loss.</li><li>Do not average unequal-length sequence means when the intended unit is one valid target token.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/scaled-dot-product-attention-mask-contract\">Scaled dot-product attention and mask contracts</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode and tokenization: preserve meaning at the text boundary</a></li><li><a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Gradient accumulation and effective batch accounting</a></li><li><a href=\"/deep-learning/sequence-attention-leakage-project\">Project: audit a next-event attention decoder</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/packed-lstm-lengths-and-last-valid-state\">Packed LSTM sequences and the last valid state</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/decoding-stop-rules-and-beam-score\">Decoding stop rules, sampling and beam-score accounting</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/ctc-time-length-and-blank-alignment-contract\">CTC time lengths, blank labels and alignment feasibility</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/causal-dilated-convolution-receptive-field\">Causal dilated convolution and receptive field</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7824,
+    "status": "published",
+    "published_at": "2026-10-06T08:43:23.133752+00:00",
+    "created_at": "2026-10-06T08:43:23.133752+00:00",
+    "updated_at": "2026-10-06T10:51:00.827065+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/scaled-dot-product-attention-mask-contract",
+          "title": "Scaled dot-product attention and mask contracts"
+        },
+        {
+          "path": "deep-learning/logits-loss-gradient",
+          "title": "Logits, cross-entropy and gradients: align the training calculation"
+        },
+        {
+          "path": "natural-language-processing/unicode-tokenization-boundary",
+          "title": "Unicode and tokenization: preserve meaning at the text boundary"
+        },
+        {
+          "path": "deep-learning/gradient-accumulation-and-effective-batch",
+          "title": "Gradient accumulation and effective batch accounting"
+        },
+        {
+          "path": "deep-learning/sequence-attention-leakage-project",
+          "title": "Project: audit a next-event attention decoder"
+        },
+        {
+          "path": "deep-learning/packed-lstm-lengths-and-last-valid-state",
+          "title": "Packed LSTM sequences and the last valid state"
+        },
+        {
+          "path": "deep-learning/decoding-stop-rules-and-beam-score",
+          "title": "Decoding stop rules, sampling and beam-score accounting"
+        },
+        {
+          "path": "deep-learning/ctc-time-length-and-blank-alignment-contract",
+          "title": "CTC time lengths, blank labels and alignment feasibility"
+        },
+        {
+          "path": "deep-learning/causal-dilated-convolution-receptive-field",
+          "title": "Causal dilated convolution and receptive field"
+        }
+      ]
+    }
+  },
+  {
+    "id": "1b78d671-d57a-5254-bf56-72e92771d980",
+    "type": "article",
+    "path": "deep-learning/convolution-output-geometry-and-receptive-field",
+    "title": "Convolution output geometry and receptive fields",
+    "summary": "A convolutional stack changes spatial resolution and the portion of the input each output can inspect; both properties belong in the model contract.",
+    "body": "<p>A convolutional stack changes spatial resolution and the portion of the input each output can inspect; both properties belong in the model contract.</p><h2>Calculate the grid before training</h2><p>For one spatial axis, the output length is floor((input + 2 × padding − dilation × (kernel − 1) − 1) / stride + 1). Calculate height and width separately when kernels or strides differ. A 47 by 83 receipt crop sent through a three-wide convolution with padding one and stride two becomes 24 by 42, not 23 by 41. This floor operation matters at odd sizes. Assert the observed tensor shape against the calculation before connecting a classifier or decoder. <a href=\"/deep-learning/tensor-shape-dtype-contract\">The tensor contract</a> also fixes channel order.</p><h2>Separate resolution from context</h2><p>A three-wide kernel at dilation one sees three neighboring positions in one layer. A second three-wide, stride-one layer expands the theoretical receptive field to five; a stride-two layer changes the spacing between positions used by later layers. Track two values: receptive-field width and jump, the distance in original pixels between adjacent outputs. Starting at one for both, a layer with kernel k, dilation d and stride s adds (k − 1) × d × previous jump to field width and multiplies jump by s. Large theoretical context is no guarantee that training uses distant pixels.</p><h2>Choose padding for the task</h2><p>Zero padding creates artificial borders. That may be acceptable for whole-image classification, but a defect next to a cropped edge can receive a different context from a defect in the center. Reflection padding can reduce the artificial step yet has its own constraint: the padding width must be smaller than the input extent. Keep crop policy, padding mode and any resize in the model artifact. <a href=\"/deep-learning/augmentation-leakage-boundary\">Augmentation</a> should model camera variation without moving evidence outside the label.</p><h2>Inspect aliasing and detail loss</h2><p>Stride two discards spatial samples. It can help cost and context, but tiny receipt marks may vanish after repeated reductions. Compare a shallow high-resolution branch against a deeper reduced branch on the small-defect slice, and inspect false negatives by mark width. Pooling is another reduction; it does not restore removed detail. When the target is a pixel mask, keep a clear map from output grid coordinates to input pixels and test odd dimensions as well as the usual square input.</p><h2>Validate with a shape probe</h2><p>A shape probe should include the smallest accepted crop, an odd-width crop and the maximum configured crop. Record each intermediate feature map and compare with the formula. An intentionally invalid kernel/input pair should fail before a training job begins. Put the probe in the same configuration path used by serving: a model that trains on resized 224-square crops and serves on native 47 by 83 crops has a different output geometry and potentially different edge behavior.</p><h2>Implementation</h2><pre><code class=\"language-python\">from dataclasses import dataclass\nimport torch\nfrom torch import nn\n\n@dataclass(frozen=True)\nclass ConvPlan:\n    kernel: int\n    stride: int\n    padding: int\n    dilation: int = 1\n\ndef output_extent(input_extent: int, plan: ConvPlan) -&gt; int:\n    numerator = input_extent + 2 * plan.padding - plan.dilation * (plan.kernel - 1) - 1\n    if numerator &lt; 0:\n        raise ValueError(&quot;kernel does not fit the crop&quot;)\n    return numerator // plan.stride + 1\n\nreceipt_crop = torch.zeros(2, 1, 47, 83)\nfirst_plan = ConvPlan(kernel=3, stride=2, padding=1)\nedge_bank = nn.Conv2d(1, 12, kernel_size=first_plan.kernel,\n                      stride=first_plan.stride, padding=first_plan.padding)\nedge_maps = edge_bank(receipt_crop)\nexpected_grid = (output_extent(47, first_plan), output_extent(83, first_plan))\nassert expected_grid == (24, 42)\nassert edge_maps.shape == (2, 12, *expected_grid)</code></pre><h2>Performance and operating cost</h2><p>A standard convolution with input channels C, output channels F, kernel area K and output grid area G performs work proportional to G × C × F × K per example. Its weights occupy C × F × K parameters plus optional biases. Activations scale with batch × F × G and often dominate training memory at high resolution. A larger stride reduces G but may erase narrow evidence; measure the small-object slice before accepting that trade.</p><h3>Common Mistakes</h3><ul><li>Do not assume odd input dimensions divide evenly under a stride.</li><li>Do not confuse output resolution with receptive-field width.</li><li>Do not change resize or padding behavior between training and serving.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/teacher-feature-adapter-and-layer-alignment\">Teacher feature adapters and layer alignment</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">Segmentation mask alignment and ignored pixels</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/ctc-time-length-and-blank-alignment-contract\">CTC time lengths, blank labels and alignment feasibility</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/vision-transformer-patch-grid-and-token-contract\">Vision transformer patch grids and token contracts</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7830,
+    "status": "published",
+    "published_at": "2026-10-06T09:10:58.143029+00:00",
+    "created_at": "2026-10-06T09:10:58.143029+00:00",
+    "updated_at": "2026-10-06T10:51:00.827065+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/tensor-shape-dtype-contract",
+          "title": "Tensor contracts: shape, dtype, device and mask"
+        },
+        {
+          "path": "deep-learning/augmentation-leakage-boundary",
+          "title": "Image augmentation: split originals first and preserve the label"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        },
+        {
+          "path": "deep-learning/teacher-feature-adapter-and-layer-alignment",
+          "title": "Teacher feature adapters and layer alignment"
+        },
+        {
+          "path": "deep-learning/segmentation-mask-alignment-and-ignore-pixels",
+          "title": "Segmentation mask alignment and ignored pixels"
+        },
+        {
+          "path": "deep-learning/ctc-time-length-and-blank-alignment-contract",
+          "title": "CTC time lengths, blank labels and alignment feasibility"
+        },
+        {
+          "path": "deep-learning/vision-transformer-patch-grid-and-token-contract",
+          "title": "Vision transformer patch grids and token contracts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "874942e7-0ca3-5cec-b82d-88dd2d178604",
+    "type": "subject",
+    "path": "deep-learning/deep-learning-tutorial",
+    "title": "Deep Learning Tutorial",
+    "summary": "Train and serve an image classifier through checked data, loss, validation, recovery and inference boundaries.",
+    "body": "<p>Train and serve an image classifier through checked data, loss, validation, recovery and inference boundaries.</p><h2>Learning path</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/batching-and-class-sampling\">Batching and class sampling: know the population the optimizer sees</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul><h2>Connected foundation</h2><p>Bring the earlier analysis and evaluation contracts into this subject.</p><ul><li><a href=\"/machine-learning/machine-learning-tutorial\">Machine Learning Tutorial</a></li><li><a href=\"/machine-learning/group-and-time-validation\">Group and time validation: split by the failure you expect in production</a></li></ul><h2>Practice</h2><p>Complete the project with its failure-case evidence.</p><ul><li><a href=\"/deep-learning/deep-learning-tutorial/project\">Deep Learning: Projects</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/computer-vision/computer-vision-tutorial\">Computer Vision Tutorial</a>.</p><h2>Optimization under a memory budget</h2><ul><li><a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Gradient accumulation and effective batch accounting</a></li><li><a href=\"/deep-learning/mixed-precision-scaling-and-gradient-clipping\">Mixed precision, loss scaling and gradient clipping</a></li></ul><h2>Optimization under a memory budget project</h2><ul><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li></ul><h2>Attention masks and sequence targets</h2><ul><li><a href=\"/deep-learning/scaled-dot-product-attention-mask-contract\">Scaled dot-product attention and mask contracts</a></li><li><a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a></li></ul><h2>Attention masks and sequence targets project</h2><ul><li><a href=\"/deep-learning/sequence-attention-leakage-project\">Project: audit a next-event attention decoder</a></li></ul><h2>Convolution geometry and residual design</h2><ul><li><a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Convolution output geometry and receptive fields</a></li><li><a href=\"/deep-learning/residual-blocks-and-normalization-state\">Residual blocks and normalization state</a></li></ul><h2>Convolution geometry and residual design project</h2><ul><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li></ul><h2>Transfer learning and domain shift</h2><ul><li><a href=\"/deep-learning/frozen-features-versus-fine-tuning\">Frozen features versus fine-tuning a pretrained backbone</a></li><li><a href=\"/deep-learning/staged-unfreezing-and-domain-shift-audit\">Staged unfreezing and domain-shift audits</a></li></ul><h2>Transfer learning and domain shift project</h2><ul><li><a href=\"/deep-learning/receipt-domain-adaptation-project\">Project: adapt a receipt model to a new capture device</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/frozen-features-versus-fine-tuning\">Frozen features versus fine-tuning a pretrained backbone</a>.</p><h2>Recurrent sequences and state ownership</h2><ul><li><a href=\"/deep-learning/packed-lstm-lengths-and-last-valid-state\">Packed LSTM sequences and the last valid state</a></li><li><a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent hidden-state resets and truncated gradients</a></li></ul><h2>Recurrent sequences and state ownership project</h2><ul><li><a href=\"/deep-learning/service-event-lstm-project\">Project: predict service escalation from event histories</a></li></ul><h2>Reconstruction models and anomaly scores</h2><ul><li><a href=\"/deep-learning/masked-reconstruction-loss-and-anomaly-threshold\">Masked reconstruction loss and anomaly thresholds</a></li><li><a href=\"/deep-learning/variational-latent-kl-and-collapse\">Variational latent sampling, KL accounting and collapse</a></li></ul><h2>Reconstruction models and anomaly scores project</h2><ul><li><a href=\"/deep-learning/telemetry-autoencoder-alert-project\">Project: calibrate an autoencoder alert for freezer telemetry</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/telemetry-autoencoder-alert-project\">Project: calibrate an autoencoder alert for freezer telemetry</a>.</p><h2>Distributed training and recovery</h2><ul><li><a href=\"/deep-learning/distributed-sampler-tail-and-global-loss-weighting\">Distributed sampler tails and global loss weighting</a></li><li><a href=\"/deep-learning/distributed-checkpoint-manifest-and-resume\">Distributed checkpoint manifests and coherent resume</a></li></ul><h2>Distributed training and recovery project</h2><ul><li><a href=\"/deep-learning/receipt-multiworker-parity-project\">Project: prove multiworker receipt-training parity</a></li></ul><h2>Confidence, abstention and evidence checks</h2><ul><li><a href=\"/deep-learning/temperature-scaling-and-selective-risk\">Temperature scaling and selective risk</a></li><li><a href=\"/deep-learning/occlusion-attribution-and-sanity-checks\">Occlusion attribution and explanation sanity checks</a></li></ul><h2>Confidence, abstention and evidence checks project</h2><ul><li><a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a>.</p><h2>Diffusion training and sampling contracts</h2><ul><li><a href=\"/deep-learning/diffusion-forward-noise-and-timestep-target\">Diffusion forward noise and timestep targets</a></li><li><a href=\"/deep-learning/diffusion-reverse-step-and-guidance\">Diffusion reverse steps and conditional guidance</a></li></ul><h2>Diffusion training and sampling contracts project</h2><ul><li><a href=\"/deep-learning/receipt-background-diffusion-project\">Project: train and audit a receipt-background denoiser</a></li></ul><h2>Compression and edge release</h2><ul><li><a href=\"/deep-learning/post-training-quantization-calibration-contract\">Post-training quantization and calibration contracts</a></li><li><a href=\"/deep-learning/structured-pruning-and-latency-parity\">Structured pruning and latency parity</a></li></ul><h2>Compression and edge release project</h2><ul><li><a href=\"/deep-learning/receipt-edge-model-release-project\">Project: release a compact receipt model to an edge device</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-edge-model-release-project\">Project: release a compact receipt model to an edge device</a>.</p><h2>Self-supervised views and contrastive objectives</h2><ul><li><a href=\"/deep-learning/contrastive-view-identity-and-augmentation-contract\">Contrastive view identity and augmentation contracts</a></li><li><a href=\"/deep-learning/contrastive-temperature-and-negative-mask\">Contrastive temperature and negative-mask accounting</a></li></ul><h2>Self-supervised views and contrastive objectives project</h2><ul><li><a href=\"/deep-learning/receipt-contrastive-pretraining-project\">Project: pretrain receipt features from unlabeled captures</a></li></ul><h2>Teacher-student distillation contracts</h2><ul><li><a href=\"/deep-learning/distillation-soft-target-temperature-and-label-balance\">Distillation soft targets, temperature and label balance</a></li><li><a href=\"/deep-learning/teacher-feature-adapter-and-layer-alignment\">Teacher feature adapters and layer alignment</a></li></ul><h2>Teacher-student distillation contracts project</h2><ul><li><a href=\"/deep-learning/receipt-student-distillation-project\">Project: distill and release a receipt-quality student</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-student-distillation-project\">Project: distill and release a receipt-quality student</a>.</p><h2>Adversarial generation and coverage audits</h2><ul><li><a href=\"/deep-learning/gan-discriminator-generator-update-boundary\">GAN discriminator and generator update boundaries</a></li><li><a href=\"/deep-learning/gan-mode-coverage-and-duplicate-audit\">GAN mode coverage and near-duplicate audits</a></li></ul><h2>Adversarial generation and coverage audits project</h2><ul><li><a href=\"/deep-learning/receipt-paper-texture-gan-project\">Project: audit a receipt-paper texture GAN</a></li></ul><h2>Autoregressive decoding and cache parity</h2><ul><li><a href=\"/deep-learning/autoregressive-kv-cache-position-and-mask-parity\">Autoregressive KV cache position and mask parity</a></li><li><a href=\"/deep-learning/decoding-stop-rules-and-beam-score\">Decoding stop rules, sampling and beam-score accounting</a></li></ul><h2>Autoregressive decoding and cache parity project</h2><ul><li><a href=\"/deep-learning/service-event-decoder-parity-project\">Project: release an incremental service-event decoder</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-event-decoder-parity-project\">Project: release an incremental service-event decoder</a>.</p><h2>Optimization schedules and checkpoint selection</h2><ul><li><a href=\"/deep-learning/adamw-decay-groups-and-update-indexed-schedules\">AdamW decay groups and update-indexed schedules</a></li><li><a href=\"/deep-learning/early-stopping-best-state-and-seed-variance\">Early stopping, best-state restoration and seed variance</a></li></ul><h2>Optimization schedules and checkpoint selection project</h2><ul><li><a href=\"/deep-learning/receipt-optimizer-selection-project\">Project: select a receipt training schedule without test leakage</a></li></ul><h2>Perturbation sensitivity and release gates</h2><ul><li><a href=\"/deep-learning/fgsm-input-scale-and-perturbation-threat-model\">FGSM input scale and perturbation threat models</a></li><li><a href=\"/deep-learning/adversarial-training-clean-robust-balance\">Adversarial training and the clean–stress tradeoff</a></li></ul><h2>Perturbation sensitivity and release gates project</h2><ul><li><a href=\"/deep-learning/receipt-perturbation-stress-project\">Project: stress-test receipt decisions under bounded image changes</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-perturbation-stress-project\">Project: stress-test receipt decisions under bounded image changes</a>.</p><h2>Pixel-level defect learning and mask audits</h2><ul><li><a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">Segmentation mask alignment and ignored pixels</a></li><li><a href=\"/deep-learning/dice-iou-empty-mask-and-threshold-policy\">Dice, IoU, empty masks and threshold policy</a></li></ul><h2>Pixel-level defect learning and mask audits project</h2><ul><li><a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a></li></ul><h2>Activation recomputation and memory measurement</h2><ul><li><a href=\"/deep-learning/activation-checkpointing-recompute-and-rng-parity\">Activation checkpointing, recomputation and RNG parity</a></li><li><a href=\"/deep-learning/training-memory-profiler-and-allocator-boundaries\">Training memory profiling and allocator boundaries</a></li></ul><h2>Activation recomputation and memory measurement project</h2><ul><li><a href=\"/deep-learning/receipt-activation-recompute-project\">Project: measure activation recomputation on receipt training</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a>.</p><h2>Graph message passing and incident attribution</h2><ul><li><a href=\"/deep-learning/graph-message-passing-edge-direction-and-self-state\">Graph message passing, edge direction and self state</a></li><li><a href=\"/deep-learning/graph-neighbor-sampling-and-time-split\">Graph neighbor sampling and time-safe evaluation</a></li></ul><h2>Graph message passing and incident attribution project</h2><ul><li><a href=\"/deep-learning/service-incident-graph-project\">Project: attribute service incidents with a time-safe graph</a></li></ul><h2>Unaligned sequence recognition and OCR checks</h2><ul><li><a href=\"/deep-learning/ctc-time-length-and-blank-alignment-contract\">CTC time lengths, blank labels and alignment feasibility</a></li><li><a href=\"/deep-learning/ctc-greedy-collapse-and-error-audit\">CTC greedy collapse and transcription error audit</a></li></ul><h2>Unaligned sequence recognition and OCR checks project</h2><ul><li><a href=\"/deep-learning/receipt-line-ocr-ctc-project\">Project: recognize receipt line items with CTC</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-incident-graph-project\">Project: attribute service incidents with a time-safe graph</a>.</p><h2>Vision tokens and resolution contracts</h2><ul><li><a href=\"/deep-learning/vision-transformer-patch-grid-and-token-contract\">Vision transformer patch grids and token contracts</a></li><li><a href=\"/deep-learning/vision-position-grid-resizing-and-transfer\">Vision position grids, resolution changes and transfer</a></li></ul><h2>Vision tokens and resolution contracts project</h2><ul><li><a href=\"/deep-learning/receipt-vision-transformer-project\">Project: compare receipt vision tokens with a convolutional baseline</a></li></ul><h2>Causal convolution and interval forecasts</h2><ul><li><a href=\"/deep-learning/causal-dilated-convolution-receptive-field\">Causal dilated convolution and receptive field</a></li><li><a href=\"/deep-learning/quantile-forecast-loss-and-crossing-policy\">Quantile forecast loss and crossing policy</a></li></ul><h2>Causal convolution and interval forecasts project</h2><ul><li><a href=\"/deep-learning/warehouse-queue-tcn-project\">Project: forecast warehouse queues with a causal temporal model</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-vision-transformer-project\">Project: compare receipt vision tokens with a convolutional baseline</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7700,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T10:51:51.054734+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Training contracts",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "deep-learning/tensor-shape-dtype-contract",
+            "deep-learning/logits-loss-gradient",
+            "deep-learning/batching-and-class-sampling",
+            "deep-learning/augmentation-leakage-boundary"
+          ]
+        },
+        {
+          "title": "Evaluation and deployment",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "deep-learning/train-eval-validation-loop",
+            "deep-learning/checkpoint-resume-state",
+            "deep-learning/inference-schema-and-latency"
+          ]
+        },
+        {
+          "title": "Optimization under a memory budget",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/gradient-accumulation-and-effective-batch",
+            "deep-learning/mixed-precision-scaling-and-gradient-clipping"
+          ]
+        },
+        {
+          "title": "Attention masks and sequence targets",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/scaled-dot-product-attention-mask-contract",
+            "deep-learning/causal-target-shift-and-padding-loss"
+          ]
+        },
+        {
+          "title": "Convolution geometry and residual design",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/convolution-output-geometry-and-receptive-field",
+            "deep-learning/residual-blocks-and-normalization-state"
+          ]
+        },
+        {
+          "title": "Transfer learning and domain shift",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/frozen-features-versus-fine-tuning",
+            "deep-learning/staged-unfreezing-and-domain-shift-audit"
+          ]
+        },
+        {
+          "title": "Recurrent sequences and state ownership",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/packed-lstm-lengths-and-last-valid-state",
+            "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients"
+          ]
+        },
+        {
+          "title": "Reconstruction models and anomaly scores",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/masked-reconstruction-loss-and-anomaly-threshold",
+            "deep-learning/variational-latent-kl-and-collapse"
+          ]
+        },
+        {
+          "title": "Distributed training and recovery",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/distributed-sampler-tail-and-global-loss-weighting",
+            "deep-learning/distributed-checkpoint-manifest-and-resume"
+          ]
+        },
+        {
+          "title": "Confidence, abstention and evidence checks",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/temperature-scaling-and-selective-risk",
+            "deep-learning/occlusion-attribution-and-sanity-checks"
+          ]
+        },
+        {
+          "title": "Diffusion training and sampling contracts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/diffusion-forward-noise-and-timestep-target",
+            "deep-learning/diffusion-reverse-step-and-guidance"
+          ]
+        },
+        {
+          "title": "Compression and edge release",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/post-training-quantization-calibration-contract",
+            "deep-learning/structured-pruning-and-latency-parity"
+          ]
+        },
+        {
+          "title": "Self-supervised views and contrastive objectives",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/contrastive-view-identity-and-augmentation-contract",
+            "deep-learning/contrastive-temperature-and-negative-mask"
+          ]
+        },
+        {
+          "title": "Teacher-student distillation contracts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/distillation-soft-target-temperature-and-label-balance",
+            "deep-learning/teacher-feature-adapter-and-layer-alignment"
+          ]
+        },
+        {
+          "title": "Adversarial generation and coverage audits",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/gan-discriminator-generator-update-boundary",
+            "deep-learning/gan-mode-coverage-and-duplicate-audit"
+          ]
+        },
+        {
+          "title": "Autoregressive decoding and cache parity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/autoregressive-kv-cache-position-and-mask-parity",
+            "deep-learning/decoding-stop-rules-and-beam-score"
+          ]
+        },
+        {
+          "title": "Optimization schedules and checkpoint selection",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/adamw-decay-groups-and-update-indexed-schedules",
+            "deep-learning/early-stopping-best-state-and-seed-variance"
+          ]
+        },
+        {
+          "title": "Perturbation sensitivity and release gates",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/fgsm-input-scale-and-perturbation-threat-model",
+            "deep-learning/adversarial-training-clean-robust-balance"
+          ]
+        },
+        {
+          "title": "Pixel-level defect learning and mask audits",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/segmentation-mask-alignment-and-ignore-pixels",
+            "deep-learning/dice-iou-empty-mask-and-threshold-policy"
+          ]
+        },
+        {
+          "title": "Activation recomputation and memory measurement",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/activation-checkpointing-recompute-and-rng-parity",
+            "deep-learning/training-memory-profiler-and-allocator-boundaries"
+          ]
+        },
+        {
+          "title": "Graph message passing and incident attribution",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/graph-message-passing-edge-direction-and-self-state",
+            "deep-learning/graph-neighbor-sampling-and-time-split"
+          ]
+        },
+        {
+          "title": "Unaligned sequence recognition and OCR checks",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/ctc-time-length-and-blank-alignment-contract",
+            "deep-learning/ctc-greedy-collapse-and-error-audit"
+          ]
+        },
+        {
+          "title": "Vision tokens and resolution contracts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/vision-transformer-patch-grid-and-token-contract",
+            "deep-learning/vision-position-grid-resizing-and-transfer"
+          ]
+        },
+        {
+          "title": "Causal convolution and interval forecasts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/causal-dilated-convolution-receptive-field",
+            "deep-learning/quantile-forecast-loss-and-crossing-policy"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "deep-learning/receipt-image-quality-project",
+            "deep-learning/receipt-training-memory-project",
+            "deep-learning/sequence-attention-leakage-project",
+            "deep-learning/receipt-defect-localization-project",
+            "deep-learning/receipt-domain-adaptation-project",
+            "deep-learning/service-event-lstm-project",
+            "deep-learning/telemetry-autoencoder-alert-project",
+            "deep-learning/receipt-multiworker-parity-project",
+            "deep-learning/receipt-confidence-audit-project",
+            "deep-learning/receipt-background-diffusion-project",
+            "deep-learning/receipt-edge-model-release-project",
+            "deep-learning/receipt-contrastive-pretraining-project",
+            "deep-learning/receipt-student-distillation-project",
+            "deep-learning/receipt-paper-texture-gan-project",
+            "deep-learning/service-event-decoder-parity-project",
+            "deep-learning/receipt-optimizer-selection-project",
+            "deep-learning/receipt-perturbation-stress-project",
+            "deep-learning/receipt-defect-segmentation-project",
+            "deep-learning/receipt-activation-recompute-project",
+            "deep-learning/service-incident-graph-project",
+            "deep-learning/receipt-line-ocr-ctc-project",
+            "deep-learning/receipt-vision-transformer-project",
+            "deep-learning/warehouse-queue-tcn-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Deep Learning",
+          "path": "deep-learning/deep-learning-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "deep-learning/deep-learning-tutorial/project"
+        }
+      ],
+      "related": [
+        {
+          "path": "deep-learning/frozen-features-versus-fine-tuning",
+          "title": "Frozen features versus fine-tuning a pretrained backbone"
+        },
+        {
+          "path": "deep-learning/telemetry-autoencoder-alert-project",
+          "title": "Project: calibrate an autoencoder alert for freezer telemetry"
+        },
+        {
+          "path": "deep-learning/receipt-confidence-audit-project",
+          "title": "Project: audit receipt confidence and review handoff"
+        },
+        {
+          "path": "deep-learning/receipt-edge-model-release-project",
+          "title": "Project: release a compact receipt model to an edge device"
+        },
+        {
+          "path": "deep-learning/receipt-student-distillation-project",
+          "title": "Project: distill and release a receipt-quality student"
+        },
+        {
+          "path": "deep-learning/service-event-decoder-parity-project",
+          "title": "Project: release an incremental service-event decoder"
+        },
+        {
+          "path": "deep-learning/receipt-perturbation-stress-project",
+          "title": "Project: stress-test receipt decisions under bounded image changes"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        },
+        {
+          "path": "deep-learning/service-incident-graph-project",
+          "title": "Project: attribute service incidents with a time-safe graph"
+        },
+        {
+          "path": "deep-learning/receipt-vision-transformer-project",
+          "title": "Project: compare receipt vision tokens with a convolutional baseline"
+        }
+      ]
+    }
+  },
+  {
+    "id": "57e47ab4-8a42-572b-b82d-a617bd2ba594",
+    "type": "subject",
+    "path": "deep-learning/deep-learning-tutorial/project",
+    "title": "Deep Learning: Projects",
+    "summary": "A checked project for the Deep Learning curriculum.",
+    "body": "<p>Build and review a complete Deep Learning project.</p><h2>Project brief</h2><ul><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul><h2>Required concepts</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/batching-and-class-sampling\">Batching and class sampling: know the population the optimizer sees</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul><h2>Completion standard</h2><p>Submit inputs, runnable work, measured output, failure-case results and a short decision note.</p><h2>Optimization under a memory budget</h2><ul><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li></ul><h2>Attention masks and sequence targets</h2><ul><li><a href=\"/deep-learning/sequence-attention-leakage-project\">Project: audit a next-event attention decoder</a></li></ul><h2>Convolution geometry and residual design</h2><ul><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li></ul><h2>Transfer learning and domain shift</h2><ul><li><a href=\"/deep-learning/receipt-domain-adaptation-project\">Project: adapt a receipt model to a new capture device</a></li></ul><h2>Recurrent sequences and state ownership</h2><ul><li><a href=\"/deep-learning/service-event-lstm-project\">Project: predict service escalation from event histories</a></li></ul><h2>Reconstruction models and anomaly scores</h2><ul><li><a href=\"/deep-learning/telemetry-autoencoder-alert-project\">Project: calibrate an autoencoder alert for freezer telemetry</a></li></ul><h2>Distributed training and recovery</h2><ul><li><a href=\"/deep-learning/receipt-multiworker-parity-project\">Project: prove multiworker receipt-training parity</a></li></ul><h2>Confidence, abstention and evidence checks</h2><ul><li><a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a></li></ul><h2>Diffusion training and sampling contracts</h2><ul><li><a href=\"/deep-learning/receipt-background-diffusion-project\">Project: train and audit a receipt-background denoiser</a></li></ul><h2>Compression and edge release</h2><ul><li><a href=\"/deep-learning/receipt-edge-model-release-project\">Project: release a compact receipt model to an edge device</a></li></ul><h2>Self-supervised views and contrastive objectives</h2><ul><li><a href=\"/deep-learning/receipt-contrastive-pretraining-project\">Project: pretrain receipt features from unlabeled captures</a></li></ul><h2>Teacher-student distillation contracts</h2><ul><li><a href=\"/deep-learning/receipt-student-distillation-project\">Project: distill and release a receipt-quality student</a></li></ul><h2>Adversarial generation and coverage audits</h2><ul><li><a href=\"/deep-learning/receipt-paper-texture-gan-project\">Project: audit a receipt-paper texture GAN</a></li></ul><h2>Autoregressive decoding and cache parity</h2><ul><li><a href=\"/deep-learning/service-event-decoder-parity-project\">Project: release an incremental service-event decoder</a></li></ul><h2>Optimization schedules and checkpoint selection</h2><ul><li><a href=\"/deep-learning/receipt-optimizer-selection-project\">Project: select a receipt training schedule without test leakage</a></li></ul><h2>Perturbation sensitivity and release gates</h2><ul><li><a href=\"/deep-learning/receipt-perturbation-stress-project\">Project: stress-test receipt decisions under bounded image changes</a></li></ul><h2>Pixel-level defect learning and mask audits</h2><ul><li><a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a></li></ul><h2>Activation recomputation and memory measurement</h2><ul><li><a href=\"/deep-learning/receipt-activation-recompute-project\">Project: measure activation recomputation on receipt training</a></li></ul><h2>Graph message passing and incident attribution</h2><ul><li><a href=\"/deep-learning/service-incident-graph-project\">Project: attribute service incidents with a time-safe graph</a></li></ul><h2>Unaligned sequence recognition and OCR checks</h2><ul><li><a href=\"/deep-learning/receipt-line-ocr-ctc-project\">Project: recognize receipt line items with CTC</a></li></ul><h2>Vision tokens and resolution contracts</h2><ul><li><a href=\"/deep-learning/receipt-vision-transformer-project\">Project: compare receipt vision tokens with a convolutional baseline</a></li></ul><h2>Causal convolution and interval forecasts</h2><ul><li><a href=\"/deep-learning/warehouse-queue-tcn-project\">Project: forecast warehouse queues with a causal temporal model</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7701,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T10:51:51.054734+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Projects",
+          "lessons": [
+            "deep-learning/receipt-image-quality-project",
+            "deep-learning/receipt-training-memory-project",
+            "deep-learning/sequence-attention-leakage-project",
+            "deep-learning/receipt-defect-localization-project",
+            "deep-learning/receipt-domain-adaptation-project",
+            "deep-learning/service-event-lstm-project",
+            "deep-learning/telemetry-autoencoder-alert-project",
+            "deep-learning/receipt-multiworker-parity-project",
+            "deep-learning/receipt-confidence-audit-project",
+            "deep-learning/receipt-background-diffusion-project",
+            "deep-learning/receipt-edge-model-release-project",
+            "deep-learning/receipt-contrastive-pretraining-project",
+            "deep-learning/receipt-student-distillation-project",
+            "deep-learning/receipt-paper-texture-gan-project",
+            "deep-learning/service-event-decoder-parity-project",
+            "deep-learning/receipt-optimizer-selection-project",
+            "deep-learning/receipt-perturbation-stress-project",
+            "deep-learning/receipt-defect-segmentation-project",
+            "deep-learning/receipt-activation-recompute-project",
+            "deep-learning/service-incident-graph-project",
+            "deep-learning/receipt-line-ocr-ctc-project",
+            "deep-learning/receipt-vision-transformer-project",
+            "deep-learning/warehouse-queue-tcn-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Deep Learning",
+          "path": "deep-learning/deep-learning-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "deep-learning/deep-learning-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "59281dda-3696-5163-8c9b-93e7d839c9ba",
+    "type": "article",
+    "path": "deep-learning/frozen-features-versus-fine-tuning",
+    "title": "Frozen features versus fine-tuning a pretrained backbone",
+    "summary": "Feature extraction and fine-tuning use the same pretrained weights but change which state is allowed to move, how much memory training needs and what can overfit.",
+    "body": "<p>Feature extraction and fine-tuning use the same pretrained weights but change which state is allowed to move, how much memory training needs and what can overfit.</p><h2>Establish a frozen baseline</h2><p>Replace the pretrained classifier with a new head for the target labels, freeze every backbone parameter and train only the head. Keep the backbone in evaluation mode if its normalization buffers are intended to remain fixed. Match the preprocessing expected by the selected weights; changing color order or normalization can make the features meaningless even though tensor shapes match. <a href=\"/deep-learning/receipt-image-quality-project\">Receipt-quality labels</a> provide a concrete target while the pretrained backbone supplies initial visual features.</p><h2>Unfreeze only when evidence warrants it</h2><p>A frozen baseline is fast to run and makes a useful lower-risk comparison. If errors cluster on domain-specific marks, unfreeze a late block and measure whether held-out groups improve. New head parameters start from a different distribution than pretrained features, so use a separately controlled learning rate for each parameter group. Training every layer from the first update on a small dataset can move useful features before the head stabilizes. <a href=\"/deep-learning/train-eval-validation-loop\">Validation discipline</a> decides whether adaptation helped.</p><h2>Separate gradients from module mode</h2><p>requires_grad false prevents gradient accumulation for frozen parameters, but train mode can still update BatchNorm buffers and apply dropout. Use a wrapper or training-loop rule that reapplies eval to a frozen backbone after calling model.train on the full model. If a late block is unfrozen, choose explicitly whether its normalization buffers also adapt. Do not infer the choice from optimizer parameter groups. <a href=\"/deep-learning/residual-blocks-and-normalization-state\">Normalization state</a> belongs in the checkpoint and test plan.</p><h2>Budget the two phases</h2><p>With a frozen backbone, no backward graph through its internal layers is needed; only the new head requires gradient storage. Fine-tuning late layers stores their activations for backward, increasing memory and training time. Keep frozen-feature caching only when preprocessing is deterministic and the backbone truly fixed; random augmentation changes features each epoch. If cached features are derived from images with sensitive information, apply the same retention and access controls as the original inputs.</p><h2>Keep comparison fair</h2><p>Use the same identity-disjoint split, label map, target metric and decision threshold policy for frozen and fine-tuned models. Compare by source device and defect type, not only the mean score. A small average gain can hide a serious regression on low-contrast receipts. Save both candidates, preprocessing configuration and validation report; choose with a stated rule before opening the final test population.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torchvision.models import resnet18, ResNet18_Weights\n\nselected_weights = ResNet18_Weights.IMAGENET1K_V1\nquality_backbone = resnet18(weights=selected_weights)\ninput_features = quality_backbone.fc.in_features\nquality_backbone.fc = nn.Linear(input_features, 3)\nfor parameter_name, parameter in quality_backbone.named_parameters():\n    parameter.requires_grad = parameter_name.startswith(&quot;fc.&quot;)\n\nquality_backbone.train()\nfor module_name, module in quality_backbone.named_modules():\n    if module_name and not module_name.startswith(&quot;fc&quot;):\n        module.eval()\n\nhead_optimizer = torch.optim.AdamW(quality_backbone.fc.parameters(), lr=0.00037)\nassert all(not parameter.requires_grad for parameter in quality_backbone.layer1.parameters())\nassert quality_backbone.bn1.training is False\nassert quality_backbone.fc.training is True\npreprocess_for_inference = selected_weights.transforms()</code></pre><h2>Performance and operating cost</h2><p>Feature extraction still runs a backbone forward pass, but saves much less backward state and updates only the head. Fine-tuning a late stage adds its parameter gradients, optimizer state and retained activations. Full fine-tuning can approach the cost of training the whole network. Pretrained weights may download once, so pin their identity and cache the artifact in a controlled build rather than depending on a network fetch at serving time.</p><h3>Common Mistakes</h3><ul><li>Do not freeze parameters while leaving running normalization buffers free to drift by accident.</li><li>Do not compare models built with different image normalization or label splits.</li><li>Do not deploy a model that downloads its pretrained weights during a request.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/residual-blocks-and-normalization-state\">Residual blocks and normalization state</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/staged-unfreezing-and-domain-shift-audit\">Staged unfreezing and domain-shift audits</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/structured-pruning-and-latency-parity\">Structured pruning and latency parity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-contrastive-pretraining-project\">Project: pretrain receipt features from unlabeled captures</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/vision-position-grid-resizing-and-transfer\">Vision position grids, resolution changes and transfer</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7833,
+    "status": "published",
+    "published_at": "2026-10-06T09:10:58.143029+00:00",
+    "created_at": "2026-10-06T09:10:58.143029+00:00",
+    "updated_at": "2026-10-06T10:51:00.827065+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/residual-blocks-and-normalization-state",
+          "title": "Residual blocks and normalization state"
+        },
+        {
+          "path": "deep-learning/train-eval-validation-loop",
+          "title": "Training and validation modes: measure the model you will serve"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "deep-learning/augmentation-leakage-boundary",
+          "title": "Image augmentation: split originals first and preserve the label"
+        },
+        {
+          "path": "deep-learning/staged-unfreezing-and-domain-shift-audit",
+          "title": "Staged unfreezing and domain-shift audits"
+        },
+        {
+          "path": "deep-learning/structured-pruning-and-latency-parity",
+          "title": "Structured pruning and latency parity"
+        },
+        {
+          "path": "deep-learning/receipt-contrastive-pretraining-project",
+          "title": "Project: pretrain receipt features from unlabeled captures"
+        },
+        {
+          "path": "deep-learning/vision-position-grid-resizing-and-transfer",
+          "title": "Vision position grids, resolution changes and transfer"
+        }
+      ]
+    }
+  },
+  {
+    "id": "50b928ca-6624-58a1-8f51-25c27e0ce210",
+    "type": "article",
+    "path": "deep-learning/inference-schema-and-latency",
+    "title": "Inference contracts: preserve preprocessing and measure tail latency",
+    "summary": "Deployment binds weights to input transforms and class mapping, then measures latency under realistic request load.",
+    "body": "<p>Deployment binds weights to input transforms and class mapping, then measures latency under realistic request load.</p><h2>Package the decision</h2><p>Publish model weights, preprocessing version, dimensions, channel order, class names and threshold together. A server that resizes differently or reverses channels may return plausible scores with the wrong meaning. Validate file type, decoded dimensions and maximum bytes before allocating large tensors. <a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts</a>] are API constraints, not training-only checks.</p><h2>Separate score and action</h2><p>Return a score only with a declared class order. Convert logits to probabilities when the endpoint promises them, then apply a threshold chosen under a review-capacity policy. Include an abstain path for unsupported or poor-quality inputs. <a href=\"/machine-learning/decision-threshold-and-cost\">Threshold analysis</a>] connects model output to the operational action.</p><h2>Measure loaded behavior</h2><p>Warm the model, then measure decode, preprocessing, queue, forward pass and serialization separately. Report median and high-percentile latency under concurrent traffic, rather than one idle request. Batch inference may raise throughput while making one request wait longer. State maximum batch and timeout, and reject overload predictably.</p><h2>Monitor failure safely</h2><p>Count decode failures, invalid shapes, abstentions and score shifts by relevant slice. Avoid raw personal images in routine logs. Keep a rollback artifact and known-good requests; compare outputs and class names with the manifest before shifting traffic.</p><h2>Implementation</h2><pre><code class=\"language-python\">def predict_receipt(image_bytes, receipt_model, preprocess, class_names):\n    if len(image_bytes) &gt; 4_000_000:\n        raise ValueError(&quot;image exceeds request limit&quot;)\n    image_tensor = preprocess(image_bytes)\n    if image_tensor.shape != (3, 224, 224):\n        raise ValueError(&quot;unexpected dimensions&quot;)\n    receipt_model.eval()\n    with torch.inference_mode():\n        logits = receipt_model(image_tensor.unsqueeze(0))\n        probabilities = logits.softmax(dim=1)[0]\n    return dict(zip(class_names, probabilities.tolist()))</code></pre><h2>Performance and operating cost</h2><p>Prediction costs preprocessing and one model forward pass. Concurrent requests add queue and memory pressure; batching exchanges lower compute per image for additional wait time. Measure p95 under intended concurrency.</p><h3>Common Mistakes</h3><ul><li>Do not deploy weights without class mapping and preprocessing.</li><li>Do not treat an idle request as a latency guarantee.</li><li>Do not log sensitive images during routine errors.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li><li><a href=\"/machine-learning/decision-threshold-and-cost\">Decision thresholds: choose an action from probabilities and error costs</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/machine-learning/model-inference-budget-and-device-profile\">Model inference budget and device profile</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-domain-adaptation-project\">Project: adapt a receipt model to a new capture device</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent hidden-state resets and truncated gradients</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/post-training-quantization-calibration-contract\">Post-training quantization and calibration contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/autoregressive-kv-cache-position-and-mask-parity\">Autoregressive KV cache position and mask parity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-incident-graph-project\">Project: attribute service incidents with a time-safe graph</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/warehouse-queue-tcn-project\">Project: forecast warehouse queues with a causal temporal model</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7816,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T10:51:00.827065+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "deep-learning/tensor-shape-dtype-contract",
+          "title": "Tensor contracts: shape, dtype, device and mask"
+        },
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "machine-learning/decision-threshold-and-cost",
+          "title": "Decision thresholds: choose an action from probabilities and error costs"
+        },
+        {
+          "path": "mlops/shadow-canary-and-rollback",
+          "title": "Shadow and canary rollout: compare a candidate without losing a rollback"
+        },
+        {
+          "path": "machine-learning/model-inference-budget-and-device-profile",
+          "title": "Model inference budget and device profile"
+        },
+        {
+          "path": "deep-learning/causal-target-shift-and-padding-loss",
+          "title": "Causal target shifts and padding-aware loss"
+        },
+        {
+          "path": "deep-learning/receipt-domain-adaptation-project",
+          "title": "Project: adapt a receipt model to a new capture device"
+        },
+        {
+          "path": "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients",
+          "title": "Recurrent hidden-state resets and truncated gradients"
+        },
+        {
+          "path": "deep-learning/receipt-confidence-audit-project",
+          "title": "Project: audit receipt confidence and review handoff"
+        },
+        {
+          "path": "deep-learning/post-training-quantization-calibration-contract",
+          "title": "Post-training quantization and calibration contracts"
+        },
+        {
+          "path": "deep-learning/autoregressive-kv-cache-position-and-mask-parity",
+          "title": "Autoregressive KV cache position and mask parity"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        },
+        {
+          "path": "deep-learning/service-incident-graph-project",
+          "title": "Project: attribute service incidents with a time-safe graph"
+        },
+        {
+          "path": "deep-learning/warehouse-queue-tcn-project",
+          "title": "Project: forecast warehouse queues with a causal temporal model"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f2f50d73-fb7c-55e3-b416-a15d10d03a4d",
+    "type": "article",
+    "path": "deep-learning/quantile-forecast-loss-and-crossing-policy",
+    "title": "Quantile forecast loss and crossing policy",
+    "summary": "A probabilistic forecast needs a declared horizon, quantile order and calibration check; low point error alone cannot justify an uncertainty interval.",
+    "body": "<p>A probabilistic forecast needs a declared horizon, quantile order and calibration check; low point error alone cannot justify an uncertainty interval.</p><h2>Define the unit and horizon</h2><p>A queue forecast might estimate completed orders thirty minutes ahead for each warehouse. Record whether the target is an integer count, rate or time-to-clear, and whether it covers a point at minute 77 or the sum over minutes 48 through 77. Those are different labels. Build features only from values available at issue time. A quantile model predicts conditional cutoffs, such as lower, median and upper outcomes, not three independent accuracy scores. <a href=\"/deep-learning/causal-dilated-convolution-receptive-field\">The causal lesson</a> fixes the input clock.</p><h2>Use asymmetric pinball cost</h2><p>At quantile q, underpredicting an observation by five contributes q times five; overpredicting by five contributes one-minus-q times five. Thus a lower quantile is punished less for being below the observation and more for being above it. The code checks both directions with fresh values rather than relying on a library helper. Aggregate the loss at matched horizons and nonmissing labels. Point forecast metrics can accompany it, but mean absolute error does not assess the promised interval.</p><h2>Prevent or audit crossing</h2><p>Separately trained outputs can produce an estimated lower quantile above the upper quantile. Reject crossing predictions in a release audit, or parameterize ordered outputs with positive increments. Sorting after prediction may hide a modeling issue and can change which head receives training gradients. The project uses a median with positive distances to lower and upper bounds. This enforces order but not empirical coverage. <a href=\"/deep-learning/warehouse-queue-tcn-project\">The project</a> audits both.</p><h2>Measure interval coverage and width together</h2><p>For a proposed lower–upper interval, coverage is the fraction of realized demand values inside it; width measures how informative that interval is. A huge interval can attain high coverage without helping staffing. Evaluate coverage by warehouse, traffic regime and horizon on rolling held-out periods. An interval selected on the same final period used to report coverage leaks tuning into evaluation. Count missing labels and avoid reporting confidence from a tiny number of independent days.</p><h2>Make the decision cost visible</h2><p>If staffing undercapacity is more costly than idle staff, an upper quantile may feed the decision rule, but the ratio of costs needs operational validation. Keep the forecast distribution and the staffing policy separate so either can be changed without mislabeling model accuracy. Report labor or service-level outcomes under replay with capacity constraints, rather than assuming a lower pinball loss guarantees a better operational decision. Retain a seasonal baseline for rollback.</p><h2>Implementation</h2><pre><code class=\"language-python\">from math import isclose\n\ndef pinball(observed, predicted, quantile):\n    if not 0 &lt; quantile &lt; 1:\n        raise ValueError(&quot;quantile must be between zero and one&quot;)\n    error = observed - predicted\n    return max(quantile * error, (quantile - 1) * error)\n\nobserved_orders = 47\nlower_estimate = 42\nupper_estimate = 52\nassert lower_estimate &lt;= upper_estimate\nassert isclose(pinball(observed_orders, lower_estimate, 0.2), 1.0)\nassert isclose(pinball(observed_orders, upper_estimate, 0.8), 1.0)\nobserved_interval_hit = lower_estimate &lt;= observed_orders &lt;= upper_estimate\nassert observed_interval_hit</code></pre><h2>Performance and operating cost</h2><p>The scalar pinball calculation is O(1); over N forecast rows and Q quantiles it costs O(NQ) time with streaming O(1) auxiliary space per row. Training cost is dominated by the forecasting network, while storing every horizon and quantile needs O(NHQ) output space for H horizons. Coverage estimates need enough independent issue times, not merely many overlapping windows from one day. The numeric check is illustrative and does not establish calibrated intervals.</p><h3>Common Mistakes</h3><ul><li>Do not score a point target against an interval-sum forecast.</li><li>Do not claim calibration because lower and upper outputs are ordered.</li><li>Do not tune quantiles or interval width on the final reporting period.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/causal-dilated-convolution-receptive-field\">Causal dilated convolution and receptive field</a></li><li><a href=\"/deep-learning/warehouse-queue-tcn-project\">Project: forecast warehouse queues with a causal temporal model</a></li><li><a href=\"/deep-learning/temperature-scaling-and-selective-risk\">Temperature scaling and selective risk</a></li><li><a href=\"/deep-learning/early-stopping-best-state-and-seed-variance\">Early stopping, best-state restoration and seed variance</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7924,
+    "status": "published",
+    "published_at": "2026-10-06T10:51:51.054734+00:00",
+    "created_at": "2026-10-06T10:51:51.054734+00:00",
+    "updated_at": "2026-10-06T10:51:51.054734+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/causal-dilated-convolution-receptive-field",
+          "title": "Causal dilated convolution and receptive field"
+        },
+        {
+          "path": "deep-learning/warehouse-queue-tcn-project",
+          "title": "Project: forecast warehouse queues with a causal temporal model"
+        },
+        {
+          "path": "deep-learning/temperature-scaling-and-selective-risk",
+          "title": "Temperature scaling and selective risk"
+        },
+        {
+          "path": "deep-learning/early-stopping-best-state-and-seed-variance",
+          "title": "Early stopping, best-state restoration and seed variance"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        }
+      ]
+    }
+  },
+  {
+    "id": "3df7f2bd-d775-570f-a69c-67e5dcc6cf74",
+    "type": "article",
+    "path": "deep-learning/receipt-defect-localization-project",
+    "title": "Project: localize receipt defects with a residual CNN",
+    "summary": "Build a pixel-level defect detector that keeps coordinate alignment across convolution, downsampling and a residual block, then audit failures at crop edges.",
+    "body": "<p>Build a pixel-level defect detector that keeps coordinate alignment across convolution, downsampling and a residual block, then audit failures at crop edges.</p><h2>Write a mask contract</h2><p>For each receipt image, store an image identity, native height and width, a binary mask for unreadable regions and a crop transform. Split by receipt identity before extracting overlapping crops. A mask cannot be resized with the same smooth interpolation as a photograph: use nearest-neighbor for discrete labels, and verify that every positive pixel still maps to the right location. <a href=\"/deep-learning/augmentation-leakage-boundary\">Split-before-augmentation</a> prevents neighboring crops from contaminating validation.</p><h2>Design the spatial path</h2><p>Use a stride-one feature stem and one stride-two residual block. Upsample to the original crop size for a one-channel logit mask; size-based interpolation removes ambiguity for odd heights and widths. The network below is a minimal shape-checked reference, not a claim that one block is enough for every receipt. Compare its receptive field against the width of known defects. <a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Geometry accounting</a> explains the half-resolution feature grid.</p><h2>Keep the loss and metric honest</h2><p>Train on logits with a binary cross-entropy loss; threshold probabilities only for an evaluation decision. Report pixel recall, intersection over union and receipt-level miss rate, with edge defects separated from center defects. A model can earn a good global pixel score by predicting background everywhere when defects are rare. Fix the threshold using validation data; leave a held-out test split untouched. <a href=\"/deep-learning/logits-loss-gradient\">Logits and loss</a> must keep the same target scale.</p><h2>Challenge the padding choice</h2><p>Create a test set with marks touching the crop edge and one with the same marks translated into the center. Compare false-negative rates. Test zero padding against an explicit alternative under the same split, optimizer and threshold policy. A change in crop size can also change the feature-map grid, so assert output mask dimensions for 47 by 83, 48 by 84 and a narrow minimum crop. Do not infer edge reliability from center-only visual examples.</p><h2>Package the serving boundary</h2><p>Save a full state dictionary, class definition version, normalization values, resize policy, mask threshold and output-coordinate transform. Reload the artifact and check pixel-aligned output for the same fixed image. Log latency and peak memory at the largest accepted crop. The project passes only when an edge-defect counterexample, a blank receipt and a low-contrast receipt all have documented outcomes, including what the product does when confidence is low.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\nclass ReceiptDefectNet(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.stem = nn.Sequential(nn.Conv2d(1, 12, 3, padding=1, bias=False),\n                                  nn.BatchNorm2d(12), nn.ReLU())\n        self.main = nn.Sequential(nn.Conv2d(12, 24, 3, stride=2, padding=1,\n                                            bias=False), nn.BatchNorm2d(24), nn.ReLU(),\n                                  nn.Conv2d(24, 24, 3, padding=1, bias=False),\n                                  nn.BatchNorm2d(24))\n        self.shortcut = nn.Conv2d(12, 24, 1, stride=2)\n        self.head = nn.Conv2d(24, 1, 1)\n\n    def forward(self, receipt_images: torch.Tensor) -&gt; torch.Tensor:\n        high_resolution = self.stem(receipt_images)\n        low_resolution = functional.relu(self.main(high_resolution)\n                                         + self.shortcut(high_resolution))\n        low_resolution_logits = self.head(low_resolution)\n        return functional.interpolate(low_resolution_logits,\n                                      size=receipt_images.shape[-2:],\n                                      mode=&quot;bilinear&quot;, align_corners=False)\n\nmodel = ReceiptDefectNet()\nreceipt_images = torch.rand(2, 1, 47, 83)\ndefect_masks = torch.zeros_like(receipt_images)\ndefect_masks[:, :, 11:16, 33:39] = 1\nmask_logits = model(receipt_images)\nloss = functional.binary_cross_entropy_with_logits(mask_logits, defect_masks)\nloss.backward()\nassert mask_logits.shape == defect_masks.shape\nassert torch.isfinite(loss)</code></pre><h2>Performance and operating cost</h2><p>Convolution work grows with image area, kernel area and channel products; the retained high-resolution stem activation can dominate memory. Bilinear output resizing costs O(batch × image pixels) and does not recover detail already erased by a coarse feature grid. Track receipt-level miss rate alongside pixel metrics, and profile largest accepted crops rather than only the 47 by 83 reference.</p><h3>Common Mistakes</h3><ul><li>Do not split overlapping crops from one receipt across training and validation.</li><li>Do not use smooth interpolation on a binary ground-truth mask.</li><li>Do not treat a high background-dominated pixel accuracy as defect detection.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Convolution output geometry and receptive fields</a></li><li><a href=\"/deep-learning/residual-blocks-and-normalization-state\">Residual blocks and normalization state</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/occlusion-attribution-and-sanity-checks\">Occlusion attribution and explanation sanity checks</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/diffusion-reverse-step-and-guidance\">Diffusion reverse steps and conditional guidance</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/contrastive-view-identity-and-augmentation-contract\">Contrastive view identity and augmentation contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-vision-transformer-project\">Project: compare receipt vision tokens with a convolutional baseline</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7832,
+    "status": "published",
+    "published_at": "2026-10-06T09:10:58.143029+00:00",
+    "created_at": "2026-10-06T09:10:58.143029+00:00",
+    "updated_at": "2026-10-06T10:51:00.827065+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/convolution-output-geometry-and-receptive-field",
+          "title": "Convolution output geometry and receptive fields"
+        },
+        {
+          "path": "deep-learning/residual-blocks-and-normalization-state",
+          "title": "Residual blocks and normalization state"
+        },
+        {
+          "path": "deep-learning/augmentation-leakage-boundary",
+          "title": "Image augmentation: split originals first and preserve the label"
+        },
+        {
+          "path": "deep-learning/logits-loss-gradient",
+          "title": "Logits, cross-entropy and gradients: align the training calculation"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/occlusion-attribution-and-sanity-checks",
+          "title": "Occlusion attribution and explanation sanity checks"
+        },
+        {
+          "path": "deep-learning/diffusion-reverse-step-and-guidance",
+          "title": "Diffusion reverse steps and conditional guidance"
+        },
+        {
+          "path": "deep-learning/contrastive-view-identity-and-augmentation-contract",
+          "title": "Contrastive view identity and augmentation contracts"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        },
+        {
+          "path": "deep-learning/receipt-vision-transformer-project",
+          "title": "Project: compare receipt vision tokens with a convolutional baseline"
+        }
+      ]
+    }
+  },
+  {
+    "id": "476e3b71-e176-5f2d-a937-03d079dbb1af",
+    "type": "article",
+    "path": "deep-learning/receipt-defect-segmentation-project",
+    "title": "Project: segment clipped edges and folds on receipts",
+    "summary": "Train a pixel-level defect model with ignored annotation regions, then prove that mask overlap and image-level alerts survive held-out receipts and full-resolution inference.",
+    "body": "<p>Train a pixel-level defect model with ignored annotation regions, then prove that mask overlap and image-level alerts survive held-out receipts and full-resolution inference.</p><h2>Prepare paired annotations</h2><p>Collect grayscale receipt images with reviewed masks for background, clipped edge and fold, plus an ignore code for uncertain borders. Split by physical receipt before generating crops and keep annotation versions in the manifest. Audit overlays from multiple capture devices, especially narrow clipped edges near the crop boundary. The tiny model below runs one training step to validate dimensions and ignored-pixel handling; it is not a production architecture. <a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">The alignment lesson</a> defines the preprocessing contract.</p><h2>Train with explicit pixel accounting</h2><p>Use per-pixel multiclass logits and ignore uncertain pixels in the loss. Count accepted pixels and positive pixels per batch; reject empty-supervision batches. Sample images so rare defect masks are seen without repeating a few physical receipts so often that validation becomes misleading. Keep all geometric image transforms paired with nearest-neighbor mask transforms. Save a fixed image–mask–logit triplet after each code change. A model can lower loss by learning background while missing almost every clipped edge.</p><h2>Validate overlap and detection</h2><p>Choose a development-set checkpoint and any postprocessing threshold before final test. Report per-class Dice and IoU with an explicit both-empty policy, plus image-level clipped-edge recall and false alerts. Preserve counts by device and defect size. Compare to a simple image-level classifier: pixel masks cost annotation and runtime, so they should earn that cost through better localization or decisions. <a href=\"/deep-learning/dice-iou-empty-mask-and-threshold-policy\">The metric lesson</a> specifies counts and denominators.</p><h2>Test full-resolution tiles</h2><p>If inference uses overlapping tiles, account for padding, coordinate offsets and merging. A defect split across tile boundaries must not vanish or be double-counted. Compare full-image predictions from tiled and untiled runs where memory allows; inspect seam regions and near-edge masks. Record tile size, overlap, blending and output threshold with the model. Measure p95 end-to-end latency including image decode, tiling and mask assembly, not only the neural forward. <a href=\"/deep-learning/inference-schema-and-latency\">The serving contract</a> applies to masks too.</p><h2>Release only with a reversible gate</h2><p>Define minimum clipped-edge image recall, maximum false alerts, per-class overlap floor, review capacity and latency before final test. Export class map, preprocessing, tile policy and ignore-label treatment. Reload a fixed batch in a clean process and compare mask logits. Keep the previous classifier or manual review route if the segmentation candidate misses a gate. Deliver annotated examples, mask-overlap counts and a failure gallery, not a single aggregate score.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\ntorch.manual_seed(47)\nreceipt_images = torch.rand(4, 1, 8, 8)\nreviewed_masks = torch.zeros(4, 8, 8, dtype=torch.long)\nreviewed_masks[:, 2:4, 5:7] = 1\nreviewed_masks[:, 5:7, 1:4] = 2\nreviewed_masks[:, 0, 0] = 255\nmodel = nn.Sequential(nn.Conv2d(1, 8, 3, padding=1), nn.ReLU(),\n                      nn.Conv2d(8, 3, 1))\noptimizer = torch.optim.AdamW(model.parameters(), lr=0.0007)\noptimizer.zero_grad(set_to_none=True)\nlogits = model(receipt_images)\nassert logits.shape == (4, 3, 8, 8)\nassert int(reviewed_masks.ne(255).sum()) == 252\nloss = functional.cross_entropy(logits, reviewed_masks, ignore_index=255)\nloss.backward()\noptimizer.step()\nassert torch.isfinite(loss)</code></pre><h2>Performance and operating cost</h2><p>Dense per-pixel logits use O(BCHW) storage and a full-resolution model may need substantially more activation memory than an image classifier. Tiled inference trades peak memory for repeated border compute and merging work; overlapping tiles can increase total pixels processed. Mask annotation and review are material project costs. The toy model has only two convolutions and proves tensor and loss wiring, not accuracy. Benchmark image decode, full-resolution assembly and serving latency on the target runtime.</p><h3>Common Mistakes</h3><ul><li>Do not claim a high pixel score when clipped-edge image recall is poor.</li><li>Do not train on masks bilinearly resized into fractional class IDs.</li><li>Do not evaluate tiled images without checking seams and coordinate restoration.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">Segmentation mask alignment and ignored pixels</a></li><li><a href=\"/deep-learning/dice-iou-empty-mask-and-threshold-policy\">Dice, IoU, empty masks and threshold policy</a></li><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-line-ocr-ctc-project\">Project: recognize receipt line items with CTC</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-vision-transformer-project\">Project: compare receipt vision tokens with a convolutional baseline</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7902,
+    "status": "published",
+    "published_at": "2026-10-06T10:24:36.040168+00:00",
+    "created_at": "2026-10-06T10:24:36.040168+00:00",
+    "updated_at": "2026-10-06T10:51:00.827065+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/segmentation-mask-alignment-and-ignore-pixels",
+          "title": "Segmentation mask alignment and ignored pixels"
+        },
+        {
+          "path": "deep-learning/dice-iou-empty-mask-and-threshold-policy",
+          "title": "Dice, IoU, empty masks and threshold policy"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "deep-learning/receipt-line-ocr-ctc-project",
+          "title": "Project: recognize receipt line items with CTC"
+        },
+        {
+          "path": "deep-learning/receipt-vision-transformer-project",
+          "title": "Project: compare receipt vision tokens with a convolutional baseline"
+        }
+      ]
+    }
+  },
+  {
+    "id": "afc869bd-a471-5577-a3e8-ba721cd357d6",
+    "type": "article",
+    "path": "deep-learning/receipt-vision-transformer-project",
+    "title": "Project: compare receipt vision tokens with a convolutional baseline",
+    "summary": "Train a small patch-token classifier for receipt-quality decisions, then test whether its added attention cost improves small-defect and device-shift outcomes.",
+    "body": "<p>Train a small patch-token classifier for receipt-quality decisions, then test whether its added attention cost improves small-defect and device-shift outcomes.</p><h2>Fix the data and decision</h2><p>Use a physical-receipt split with labels for usable image, clipped edge and severe fold. Keep crop, grayscale normalization and review policy identical for the token model and convolutional baseline. Define whether a receipt can carry more than one defect; the miniature code uses one mutually exclusive label per image. Save class IDs and the exact resized image dimensions. <a href=\"/deep-learning/vision-transformer-patch-grid-and-token-contract\">The patch lesson</a> determines token count.</p><h2>Run a token wiring check</h2><p>The code converts 24-by-32 images into twelve patches, prepends a class token, adds position vectors, applies one encoder layer and updates a three-class head. It checks that the token count and loss are finite. It is an architecture smoke test on random images, not evidence of field accuracy. Train the real candidate from a declared initialization with deterministic validation and compare accepted-example and compute budgets. <a href=\"/deep-learning/logits-loss-gradient\">Logit loss</a> should receive raw class scores.</p><h2>Test resolution and transfer as separate changes</h2><p>If using transferred weights at a different image size, resize only the spatial position grid and document head replacement. First compare architectures at one resolution. Then compare old and new resolutions for the selected architecture, holding splits and annotation rules fixed. This prevents a resolution improvement from being misreported as an attention improvement. <a href=\"/deep-learning/vision-position-grid-resizing-and-transfer\">The position lesson</a> details this step.</p><h2>Look where the classifier fails</h2><p>Report clipped-edge recall by edge width, false alerts on clean receipts, device-specific error, calibration and p95 end-to-end latency. Inspect border patches and occluded text. If a class token scores the image correctly but a safety-critical clipped edge is missed, a pixel-level model or targeted crop may be a better workflow. Keep examples of wrong predictions with image and label provenance rather than relying on a single aggregate score. <a href=\"/deep-learning/receipt-defect-segmentation-project\">Segmentation</a> is a related alternative.</p><h2>Package a reversible release</h2><p>Predeclare minimum small-defect recall, maximum false alerts, memory ceiling and p95 latency. Export patch size, image dimensions, normalization, position table, class map and model revision. Reload and compare logits on fixed images in a clean process. Keep the prior convolutional path if the token model misses any gate. A release report should state the measured advantage and its serving cost, not merely that a transformer was trained.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\ntorch.manual_seed(47)\nreceipt_images = torch.rand(3, 1, 24, 32)\nquality_labels = torch.tensor([0, 2, 1], dtype=torch.long)\npatch_projection = nn.Conv2d(1, 24, kernel_size=8, stride=8)\nclass_token = nn.Parameter(torch.zeros(1, 1, 24))\npositions = nn.Parameter(torch.zeros(1, 13, 24))\nencoder = nn.TransformerEncoderLayer(d_model=24, nhead=3,\n                                     dim_feedforward=48, batch_first=True)\nquality_head = nn.Linear(24, 3)\nparameters = list(patch_projection.parameters()) + [class_token, positions]\nparameters += list(encoder.parameters()) + list(quality_head.parameters())\noptimizer = torch.optim.AdamW(parameters, lr=0.0007)\noptimizer.zero_grad(set_to_none=True)\npatch_tokens = patch_projection(receipt_images).flatten(2).transpose(1, 2)\nall_tokens = torch.cat((class_token.expand(3, -1, -1), patch_tokens), dim=1)\nassert all_tokens.shape == (3, 13, 24)\nquality_logits = quality_head(encoder(all_tokens + positions)[:, 0])\nloss = functional.cross_entropy(quality_logits, quality_labels)\nloss.backward()\noptimizer.step()\nassert torch.isfinite(loss)</code></pre><h2>Performance and operating cost</h2><p>For N tokens, D embedding width and B images, a standard dense attention layer incurs approximately O(BN²D) arithmetic and O(BN²) attention-map storage, plus projection and feed-forward work. At production resolution N may be far larger than thirteen. The example allocates one tiny encoder layer and performs one update, so it tests wiring only. Compare wall time and peak memory including preprocessing against a convolutional model on the intended hardware and batch policy.</p><h3>Common Mistakes</h3><ul><li>Do not label random-input smoke-test loss as model performance.</li><li>Do not credit architecture for a gain caused by a different image resolution.</li><li>Do not release without small-defect recall and full-pipeline latency checks.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/vision-transformer-patch-grid-and-token-contract\">Vision transformer patch grids and token contracts</a></li><li><a href=\"/deep-learning/vision-position-grid-resizing-and-transfer\">Vision position grids, resolution changes and transfer</a></li><li><a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a></li><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7922,
+    "status": "published",
+    "published_at": "2026-10-06T10:51:51.054734+00:00",
+    "created_at": "2026-10-06T10:51:51.054734+00:00",
+    "updated_at": "2026-10-06T10:51:51.054734+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/vision-transformer-patch-grid-and-token-contract",
+          "title": "Vision transformer patch grids and token contracts"
+        },
+        {
+          "path": "deep-learning/vision-position-grid-resizing-and-transfer",
+          "title": "Vision position grids, resolution changes and transfer"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        }
+      ]
+    }
+  },
+  {
+    "id": "aa7d2150-a1ce-5f92-9a08-4331d59f3349",
+    "type": "article",
+    "path": "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients",
+    "title": "Recurrent hidden-state resets and truncated gradients",
+    "summary": "A recurrent state belongs to one ordered stream; detaching it limits gradient history, while resetting it prevents another stream from inheriting private context.",
+    "body": "<p>A recurrent state belongs to one ordered stream; detaching it limits gradient history, while resetting it prevents another stream from inheriting private context.</p><h2>Define state ownership</h2><p>An LSTM carries hidden and cell tensors with layer, batch and width axes. Batch column zero at the next chunk must still represent the same stream as column zero in the previous chunk, or the state must be reset. Shuffling chunks without their stream identifiers creates cross-customer contamination even when the loss calculation succeeds. At serving time, key state by an opaque conversation or device identifier, put a time-to-live on it, and clear it at an end event or identity change. A state cache is part of the prediction contract, not an internal convenience.</p><h2>Detach at the training boundary</h2><p>If chunks from one long history are processed in order, the computational graph can span all previous chunks unless hidden and cell states are detached after a chosen truncation boundary. Detaching keeps their numeric contents for the next chunk while stopping gradients from flowing backward across that boundary. Resetting to zero discards the contents too. These operations solve different problems. <a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Gradient accumulation</a> can still combine losses from multiple chunks before an optimizer step, but retained graphs and update timing must be accounted for.</p><h2>Apply per-stream reset masks</h2><p>A batch can contain one continuing device and one new device. Reset only the changed column, not the whole batch, by multiplying detached state by a zero-or-one keep mask broadcast over layers and features. Verify the mask comes from stable stream identity, not from a label or sequence length that merely happens to match. If a stream is removed and the batch is compacted, reorder state columns with the same mapping or allocate a fresh state. A checksum of stream IDs next to state helps expose accidental reuse.</p><h2>Name the temporal limit</h2><p>Truncating every 23 events means a loss cannot send gradient through earlier chunks, although the numeric state can carry old information forward. That is a modeling trade: shorter spans reduce memory and make updates more frequent, but may weaken learning of long dependencies. Compare several spans against a fixed validation set grouped by stream and report event count, optimizer updates and peak memory. <a href=\"/deep-learning/packed-lstm-lengths-and-last-valid-state\">Packing</a> handles within-batch padding; it does not decide how far the backward graph reaches.</p><h2>Test a handoff failure</h2><p>Feed stream A for one chunk, replace its identifier with stream B and assert B receives a zero initial state. Feed a second chunk of A and assert the state is retained but detached. Hold model weights fixed in evaluation mode when testing state ownership; otherwise dropout or training updates can make the comparison noisy. Also test worker restart: either restore state from a versioned checkpoint or explicitly start a new session, with a documented effect on predictions.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\n\ntorch.manual_seed(83)\nevent_lstm = nn.LSTM(input_size=4, hidden_size=6, batch_first=True)\nevent_head = nn.Linear(6, 2)\noptimizer = torch.optim.AdamW(list(event_lstm.parameters())\n                              + list(event_head.parameters()), lr=0.00047)\nfirst_chunk = torch.randn(2, 3, 4)\nfirst_labels = torch.tensor([0, 1])\n\noptimizer.zero_grad(set_to_none=True)\nfirst_outputs, carried_state = event_lstm(first_chunk)\nfirst_loss = nn.functional.cross_entropy(event_head(first_outputs[:, -1]),\n                                         first_labels)\nfirst_loss.backward()\noptimizer.step()\n\nsame_stream_next = torch.tensor([True, False]).view(1, 2, 1)\nnext_state = tuple(state.detach() * same_stream_next for state in carried_state)\nassert all(not state.requires_grad for state in next_state)\nassert torch.count_nonzero(next_state[0][:, 1]) == 0\nsecond_chunk = torch.randn(2, 3, 4)\nsecond_outputs, second_state = event_lstm(second_chunk, next_state)\nassert second_outputs.shape == (2, 3, 6)\nassert second_state[0].shape == (1, 2, 6)</code></pre><h2>Performance and operating cost</h2><p>Without truncation, retained activations and graph history grow with the number of processed steps until backward releases them. Detaching bounds that history to the chosen chunk span, while state tensors themselves occupy O(layers × batch × hidden width). LSTM work remains sequential across timesteps. An online state cache adds memory proportional to concurrent streams, so expiration and eviction belong in capacity planning.</p><h3>Common Mistakes</h3><ul><li>Do not carry a hidden state into a different stream after batch reshuffling.</li><li>Do not confuse detach, which cuts gradients, with reset, which clears information.</li><li>Do not claim long-horizon training when the backward span ends at every short chunk.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/packed-lstm-lengths-and-last-valid-state\">Packed LSTM sequences and the last valid state</a></li><li><a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Gradient accumulation and effective batch accounting</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/service-event-lstm-project\">Project: predict service escalation from event histories</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/causal-dilated-convolution-receptive-field\">Causal dilated convolution and receptive field</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7841,
+    "status": "published",
+    "published_at": "2026-10-06T09:23:43.915278+00:00",
+    "created_at": "2026-10-06T09:23:43.915278+00:00",
+    "updated_at": "2026-10-06T10:51:00.827065+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/packed-lstm-lengths-and-last-valid-state",
+          "title": "Packed LSTM sequences and the last valid state"
+        },
+        {
+          "path": "deep-learning/gradient-accumulation-and-effective-batch",
+          "title": "Gradient accumulation and effective batch accounting"
+        },
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/service-event-lstm-project",
+          "title": "Project: predict service escalation from event histories"
+        },
+        {
+          "path": "deep-learning/causal-dilated-convolution-receptive-field",
+          "title": "Causal dilated convolution and receptive field"
+        }
+      ]
+    }
+  },
+  {
+    "id": "7a0119c9-a78c-5d08-b675-6b8e59063f6c",
+    "type": "article",
+    "path": "deep-learning/scaled-dot-product-attention-mask-contract",
+    "title": "Scaled dot-product attention and mask contracts",
+    "summary": "An attention score combines a query with every permitted key; a mask must encode exactly which key positions may influence each query position.",
+    "body": "<p>An attention score combines a query with every permitted key; a mask must encode exactly which key positions may influence each query position.</p><h2>Track four axes</h2><p>For a batched multi-head implementation, queries have batch, head, query-position and feature axes; keys and values have batch, head, key-position and feature axes. Scores occupy batch by head by query-position by key-position. Scale dot products by the square root of the query/key feature width before softmax so score magnitude does not grow unchecked with width. The resulting weights mix value vectors, not key vectors. <a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts</a> should assert every axis before training.</p><h2>Specify mask meaning per API</h2><p>In one common scaled-dot-product API, a Boolean True means the key may participate; another multi-head API uses True to mean padding should be ignored. Carry a named allow-mask at the boundary and convert it deliberately when switching APIs. A padding mask blocks invalid key positions; a causal mask blocks keys to the right of the query. Combine them by logical AND. A key mask alone does not guarantee padded query outputs are zero, so zero or exclude those outputs before downstream pooling.</p><h2>Avoid rows with no valid keys</h2><p>Softmax over all negative-infinity scores is undefined in a simple reference implementation and may produce NaN. A request with zero valid tokens should fail validation or use an explicit safe fallback. With causal attention and right padding, valid query positions normally retain at least their own key. Left padding, cached decoding and cross-attention need separate tests, because their query and key lengths or alignments can differ.</p><h2>Control dropout at evaluation</h2><p>Some low-level attention functions apply the passed dropout probability even when the containing model is in evaluation mode. Pass zero explicitly during evaluation or serving. Compare deterministic outputs for the same input twice, and confirm no output at position p changes when only a future token changes. <a href=\"/deep-learning/train-eval-validation-loop\">Train/eval mode checks</a> apply to custom attention calls as well as ordinary dropout modules.</p><h2>Budget sequence length</h2><p>Dense score computation scales quadratically with sequence length and linearly with heads and batch size; specialized kernels may avoid storing the entire score matrix, but arithmetic still grows with attended pairs. Profile the longest accepted sequence rather than the median. A mask does not automatically make a dense kernel sparse. Restrict length, choose a supported efficient kernel or change the attention pattern when the cost exceeds the product budget.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nimport torch.nn.functional as functional\n\ntorch.manual_seed(61)\nreceipt_tokens = torch.randn(1, 1, 4, 8)\nvalid_tokens = torch.tensor([[True, True, True, False]])\nsequence_length = receipt_tokens.size(-2)\ncausal_allow = torch.ones(sequence_length, sequence_length,\n                          dtype=torch.bool).tril()\nkey_allow = valid_tokens[:, None, None, :]\nallow_mask = causal_allow[None, None, :, :] &amp; key_allow\n\nattended = functional.scaled_dot_product_attention(\n    receipt_tokens, receipt_tokens, receipt_tokens,\n    attn_mask=allow_mask, dropout_p=0.0)\nattended = attended * valid_tokens[:, None, :, None]\nassert attended.shape == receipt_tokens.shape\nassert torch.count_nonzero(attended[:, :, -1, :]) == 0\nassert not allow_mask[0, 0, 0, 1]\nassert not allow_mask[0, 0, 2, 3]</code></pre><h2>Performance and operating cost</h2><p>A dense attention layer computes roughly O(B × H × L × S × D) work for batch B, heads H, query length L, key length S and head width D. A naive implementation also stores O(B × H × L × S) scores. Kernel choice can reduce stored intermediates, but padding still wastes work unless batching or the kernel exploits lengths. Validate masks before expensive model execution.</p><h3>Common Mistakes</h3><ul><li>Do not carry a Boolean mask between APIs without checking which truth value means allowed.</li><li>Do not assume padding keys also zero padded query outputs.</li><li>Do not rely on model.eval() alone to disable a dropout probability passed to a low-level attention function.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a></li><li><a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode and tokenization: preserve meaning at the text boundary</a></li><li><a href=\"/deep-learning/sequence-attention-leakage-project\">Project: audit a next-event attention decoder</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/autoregressive-kv-cache-position-and-mask-parity\">Autoregressive KV cache position and mask parity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/vision-transformer-patch-grid-and-token-contract\">Vision transformer patch grids and token contracts</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7823,
+    "status": "published",
+    "published_at": "2026-10-06T08:43:23.133752+00:00",
+    "created_at": "2026-10-06T08:43:23.133752+00:00",
+    "updated_at": "2026-10-06T10:51:00.827065+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/tensor-shape-dtype-contract",
+          "title": "Tensor contracts: shape, dtype, device and mask"
+        },
+        {
+          "path": "deep-learning/train-eval-validation-loop",
+          "title": "Training and validation modes: measure the model you will serve"
+        },
+        {
+          "path": "deep-learning/causal-target-shift-and-padding-loss",
+          "title": "Causal target shifts and padding-aware loss"
+        },
+        {
+          "path": "natural-language-processing/unicode-tokenization-boundary",
+          "title": "Unicode and tokenization: preserve meaning at the text boundary"
+        },
+        {
+          "path": "deep-learning/sequence-attention-leakage-project",
+          "title": "Project: audit a next-event attention decoder"
+        },
+        {
+          "path": "deep-learning/autoregressive-kv-cache-position-and-mask-parity",
+          "title": "Autoregressive KV cache position and mask parity"
+        },
+        {
+          "path": "deep-learning/vision-transformer-patch-grid-and-token-contract",
+          "title": "Vision transformer patch grids and token contracts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "126ed026-f282-5e79-a4fb-54af44db03bb",
+    "type": "article",
+    "path": "deep-learning/service-event-lstm-project",
+    "title": "Project: predict service escalation from event histories",
+    "summary": "Build an escalation classifier for variable-length histories, then prove that padding, customer mixing and carried state cannot create false evidence.",
+    "body": "<p>Build an escalation classifier for variable-length histories, then prove that padding, customer mixing and carried state cannot create false evidence.</p><h2>Freeze the event contract</h2><p>Represent each service event by a timestamp, event type and known-at-event features. Exclude notes or outcomes recorded after the prediction time. Split 470 histories by customer and ticket before windowing; two windows from the same ticket cannot cross train and validation. Keep a label map for routine versus escalated and a count of valid events for each history. <a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Temporal target alignment</a> prevents a model from reading the answer it is supposed to predict.</p><h2>Start with packed independent histories</h2><p>Pad a batch only for storage and pack it with measured lengths before an LSTM. Score the last real hidden state with a two-class head. Compare against a simple non-recurrent baseline using the same split and threshold-selection rule. Evaluate by history length and customer cohort so an apparent gain on long tickets cannot hide failures on one-event tickets. <a href=\"/deep-learning/packed-lstm-lengths-and-last-valid-state\">The packing contract</a> makes the last event unambiguous.</p><h2>Add a stateful serving variant carefully</h2><p>If events arrive one at a time, a state cache can avoid replaying the full history. Key it by ticket identity, version it with the model and set an expiry. Replay and cached-state predictions should agree under deterministic evaluation for a controlled ticket. On handoff to a different ticket, reset both hidden and cell state. A negative test that reuses the previous customer state should fail an isolation assertion. <a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">State ownership</a> is a release gate.</p><h2>Probe leakage and padding</h2><p>Make a copy of a validation batch and replace only padded rows with extreme values; predictions should remain the same. Swap lengths between two records and confirm the test notices. Then move a post-escalation event into the input to demonstrate how a leaky pipeline can score implausibly well. Report the difference without publishing that leaky model. Keep the counterfactual tests with the data pipeline because a correct network cannot repair a future-looking input.</p><h2>Release with measured limits</h2><p>Report customer-grouped precision and recall, false alarms per hundred tickets, latency by history length, peak state-cache occupancy and restart behavior. Save feature encoding, label map, maximum history length, model weights and threshold together. If a ticket exceeds the limit, define whether to replay its latest window or to reject the request. The project is complete when a fresh process can reload the artifact and reproduce the same two fixed-ticket logits.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn.utils.rnn import pack_padded_sequence\n\nclass EscalationHistoryModel(nn.Module):\n    def __init__(self, event_width: int = 4, hidden_width: int = 9):\n        super().__init__()\n        self.encoder = nn.LSTM(event_width, hidden_width, batch_first=True)\n        self.classifier = nn.Linear(hidden_width, 2)\n\n    def forward(self, event_features: torch.Tensor,\n                valid_lengths: torch.Tensor) -&gt; torch.Tensor:\n        if bool((valid_lengths &lt; 1).any()) or bool((valid_lengths &gt; event_features.size(1)).any()):\n            raise ValueError(&quot;invalid event count&quot;)\n        packed = pack_padded_sequence(event_features, valid_lengths.cpu(),\n                                      batch_first=True, enforce_sorted=False)\n        _, (last_hidden, _) = self.encoder(packed)\n        return self.classifier(last_hidden[-1])\n\ntorch.manual_seed(59)\nescalation_model = EscalationHistoryModel().eval()\nevent_features = torch.randn(3, 5, 4)\nvalid_lengths = torch.tensor([5, 2, 4])\nchanged_padding = event_features.clone()\nchanged_padding[1, 2:] = 1000\nchanged_padding[2, 4:] = -1000\nwith torch.inference_mode():\n    baseline_logits = escalation_model(event_features, valid_lengths)\n    changed_logits = escalation_model(changed_padding, valid_lengths)\ntorch.testing.assert_close(baseline_logits, changed_logits)\nassert baseline_logits.shape == (3, 2)</code></pre><h2>Performance and operating cost</h2><p>The LSTM cost grows with valid event count and hidden width, while packing saves work on padding. Its timesteps remain dependent, so a long ticket can dominate latency even in a mixed batch. A stateful service exchanges replay cost for O(active tickets × layers × hidden width) cache memory and stricter identity handling. Measure tail latency and cache eviction, not just average batch throughput.</p><h3>Common Mistakes</h3><ul><li>Do not split windows from one ticket across train and validation.</li><li>Do not let post-escalation events into the input history.</li><li>Do not reuse cached state for a new ticket or silently ignore the supplied valid lengths.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/packed-lstm-lengths-and-last-valid-state\">Packed LSTM sequences and the last valid state</a></li><li><a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent hidden-state resets and truncated gradients</a></li><li><a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-event-decoder-parity-project\">Project: release an incremental service-event decoder</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-incident-graph-project\">Project: attribute service incidents with a time-safe graph</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/warehouse-queue-tcn-project\">Project: forecast warehouse queues with a causal temporal model</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7842,
+    "status": "published",
+    "published_at": "2026-10-06T09:23:43.915278+00:00",
+    "created_at": "2026-10-06T09:23:43.915278+00:00",
+    "updated_at": "2026-10-06T10:51:00.827065+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/packed-lstm-lengths-and-last-valid-state",
+          "title": "Packed LSTM sequences and the last valid state"
+        },
+        {
+          "path": "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients",
+          "title": "Recurrent hidden-state resets and truncated gradients"
+        },
+        {
+          "path": "deep-learning/causal-target-shift-and-padding-loss",
+          "title": "Causal target shifts and padding-aware loss"
+        },
+        {
+          "path": "deep-learning/train-eval-validation-loop",
+          "title": "Training and validation modes: measure the model you will serve"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/service-event-decoder-parity-project",
+          "title": "Project: release an incremental service-event decoder"
+        },
+        {
+          "path": "deep-learning/service-incident-graph-project",
+          "title": "Project: attribute service incidents with a time-safe graph"
+        },
+        {
+          "path": "deep-learning/warehouse-queue-tcn-project",
+          "title": "Project: forecast warehouse queues with a causal temporal model"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ae5bc5a0-d9e1-5d6d-9bd6-2ab7264b70cb",
+    "type": "article",
+    "path": "deep-learning/temperature-scaling-and-selective-risk",
+    "title": "Temperature scaling and selective risk",
+    "summary": "A classifier can rank classes correctly while expressing unsafe confidence; a held-out temperature and an explicit abstention rule address different parts of that problem.",
+    "body": "<p>A classifier can rank classes correctly while expressing unsafe confidence; a held-out temperature and an explicit abstention rule address different parts of that problem.</p><h2>Fit confidence after the model</h2><p>Freeze the trained classifier and collect logits and labels from a separate calibration split. Divide every class logit by one positive temperature and choose the temperature that reduces calibration negative log likelihood. This one-parameter map changes probability sharpness while preserving each example’s class ordering. It cannot fix a wrong top class or a missing input feature. <a href=\"/deep-learning/logits-loss-gradient\">Logits</a> must be saved before softmax so the map is applied in the intended place.</p><h2>Keep splits independent</h2><p>The calibration split cannot be the same population used to fit classifier weights if the goal is out-of-sample confidence. Avoid tuning the temperature repeatedly on the final test set, and group images from one physical receipt on one side of each split. A new acquisition device may need a fresh calibration study, but per-device fits require enough observations and a clear fallback. <a href=\"/deep-learning/staged-unfreezing-and-domain-shift-audit\">Domain-shift auditing</a> should report probability quality by source, not just average accuracy.</p><h2>Measure what a probability means</h2><p>Compare mean confidence with observed correctness in fixed or adaptive bins, and report the sample count per bin. A small expected calibration error can hide rare high-confidence failures because binning and class balance matter. Use negative log likelihood and a proper score alongside diagrams, then inspect high-impact slices. The temperature is positive; parameterizing its logarithm keeps optimization in the valid range. Fit on frozen logits, not on a model that continues to change during calibration.</p><h2>Add an abstention policy</h2><p>After calibration, accept a model answer only when its maximum probability clears a selected threshold; otherwise send it for manual review or an alternate workflow. Coverage is the share accepted. Selective risk is the error fraction among accepted cases. Raising the threshold usually lowers coverage but does not guarantee lower risk in every subgroup. Choose the threshold on validation under a stated review-capacity or error-budget rule, then report both coverage and risk on untouched data.</p><h2>Test the operating limit</h2><p>Report class-specific coverage, wrong high-confidence predictions and the number of manual reviews per hundred receipts. On an all-blurry batch, a high-confidence model can still be wrong; calibration does not certify that uncertainty reflects all unfamiliar inputs. Keep the model revision, temperature, threshold and label map together. The serving system should reject nonfinite logits and missing preprocessing fields before confidence calculation. <a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts</a> protect the output decision.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\ncalibration_logits = torch.tensor([[2.7, 0.4, -0.8], [0.3, 2.2, -0.2],\n                                   [1.8, 1.2, -0.5], [-0.2, 0.6, 1.9],\n                                   [1.4, 0.7, -0.3], [0.5, 1.3, 0.2]])\ncalibration_labels = torch.tensor([0, 1, 1, 2, 0, 1])\nlog_temperature = nn.Parameter(torch.tensor(0.0))\ntemperature_optimizer = torch.optim.Adam([log_temperature], lr=0.047)\nfor _ in range(83):\n    temperature_optimizer.zero_grad(set_to_none=True)\n    calibrated_loss = functional.cross_entropy(\n        calibration_logits / log_temperature.exp(), calibration_labels)\n    calibrated_loss.backward()\n    temperature_optimizer.step()\n\ntemperature = log_temperature.detach().exp()\ncalibrated_probabilities = functional.softmax(\n    calibration_logits / temperature, dim=1)\nassert temperature &gt; 0\nassert torch.equal(calibration_logits.argmax(dim=1),\n                   calibrated_probabilities.argmax(dim=1))\nassert torch.isfinite(calibrated_probabilities).all()</code></pre><h2>Performance and operating cost</h2><p>Fitting one temperature costs repeated softmax and loss evaluations over the calibration logits, roughly O(iterations × cases × classes), and requires storing logits and labels. Serving adds one scalar division and softmax per prediction. Abstention can reduce automated errors at the price of review workload; that workload is a system cost and must be measured at the selected coverage. This tiny six-case fit illustrates mechanics, not a reliable production calibration.</p><h3>Common Mistakes</h3><ul><li>Do not fit confidence on the untouched final test set.</li><li>Do not expect temperature scaling to change the predicted top class.</li><li>Do not quote selective risk without coverage and subgroup counts.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/staged-unfreezing-and-domain-shift-audit\">Staged unfreezing and domain-shift audits</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/post-training-quantization-calibration-contract\">Post-training quantization and calibration contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-perturbation-stress-project\">Project: stress-test receipt decisions under bounded image changes</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-incident-graph-project\">Project: attribute service incidents with a time-safe graph</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/quantile-forecast-loss-and-crossing-policy\">Quantile forecast loss and crossing policy</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7853,
+    "status": "published",
+    "published_at": "2026-10-06T09:35:24.993193+00:00",
+    "created_at": "2026-10-06T09:35:24.993193+00:00",
+    "updated_at": "2026-10-06T10:51:00.827065+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/logits-loss-gradient",
+          "title": "Logits, cross-entropy and gradients: align the training calculation"
+        },
+        {
+          "path": "deep-learning/train-eval-validation-loop",
+          "title": "Training and validation modes: measure the model you will serve"
+        },
+        {
+          "path": "deep-learning/staged-unfreezing-and-domain-shift-audit",
+          "title": "Staged unfreezing and domain-shift audits"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/receipt-confidence-audit-project",
+          "title": "Project: audit receipt confidence and review handoff"
+        },
+        {
+          "path": "deep-learning/post-training-quantization-calibration-contract",
+          "title": "Post-training quantization and calibration contracts"
+        },
+        {
+          "path": "deep-learning/receipt-perturbation-stress-project",
+          "title": "Project: stress-test receipt decisions under bounded image changes"
+        },
+        {
+          "path": "deep-learning/service-incident-graph-project",
+          "title": "Project: attribute service incidents with a time-safe graph"
+        },
+        {
+          "path": "deep-learning/quantile-forecast-loss-and-crossing-policy",
+          "title": "Quantile forecast loss and crossing policy"
+        }
+      ]
+    }
+  },
+  {
+    "id": "49a0bf00-82be-5e9f-8ebb-6a027ac7d6de",
+    "type": "article",
+    "path": "deep-learning/vision-position-grid-resizing-and-transfer",
+    "title": "Vision position grids, resolution changes and transfer",
+    "summary": "Changing a pretrained image grid changes its patch-token count; spatial position vectors need a two-dimensional resize while the class-token vector stays separate.",
+    "body": "<p>Changing a pretrained image grid changes its patch-token count; spatial position vectors need a two-dimensional resize while the class-token vector stays separate.</p><h2>Count old and new positions</h2><p>A 3-by-4 patch grid has twelve image positions plus one class position. If image height doubles with width unchanged, the new grid is 6-by-4, giving twenty-four image positions plus one class position. Copying all thirteen old vectors into a twenty-five-token sequence fails by shape; blindly repeating vectors discards spatial meaning. Record the old and new grids, patch size, and position-embedding revision with the transferred model. <a href=\"/deep-learning/vision-transformer-patch-grid-and-token-contract\">The patch contract</a> comes first.</p><h2>Interpolate only the spatial part</h2><p>Remove the class-token vector, reshape the remaining positions into their old two-dimensional grid, resize that grid, flatten in the original row-major order, then prepend the untouched class vector. The example performs this with a 3-by-4 to 6-by-4 resize and asserts both the result length and exact class-vector preservation. Its vectors are illustrative; a pretrained model also needs compatible patch projection and encoder weights. A one-dimensional interpolation over flattened positions can blend the end of one row with the start of the next.</p><h2>Revisit the visual task after resizing</h2><p>A higher input resolution changes more than positional vectors: an edge that occupied a fraction of one patch may now cross different tokens, and crop policy may expose another part of the receipt. Retrain or fine-tune under the new preprocessing and evaluate on a held-out physical-receipt set. Compare small defects, camera families and edge-of-frame cases. <a href=\"/deep-learning/staged-unfreezing-and-domain-shift-audit\">Staged unfreezing</a> offers one controlled comparison; it is not a substitute for a new test.</p><h2>Check class-head compatibility</h2><p>A transferred encoder may have an output head for different labels. Reset or replace that head if the receipt classes change, and record which parameters were initialized versus copied. Verify class ID order, image normalization and color-channel adaptation. The presence of a loaded state dictionary does not prove that every weight was compatible or that the new head was trained. Save a fixed-image embedding and logits before and after the resize operation to catch accidental shifts.</p><h2>Measure the new serving envelope</h2><p>More patches raise attention cost and may invalidate a deployment latency or memory target. Compare the same batch, precision and device at the old and new image sizes, including decode and resize. If the high-resolution model misses the latency gate, test a smaller patch grid or a localized crop path before assuming an architectural win. <a href=\"/deep-learning/receipt-vision-transformer-project\">The project</a> makes resolution and rollback part of the release decision.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch.nn import functional as functional\n\nold_rows, old_columns = 3, 4\nnew_rows, new_columns = 6, 4\nembedding_width = 8\nold_positions = torch.arange((1 + old_rows * old_columns) * embedding_width,\n                             dtype=torch.float32).view(1, 13, embedding_width)\nclass_position = old_positions[:, :1, :]\nimage_positions = old_positions[:, 1:, :].transpose(1, 2)\nimage_grid = image_positions.reshape(1, embedding_width, old_rows, old_columns)\nlarger_grid = functional.interpolate(image_grid, size=(new_rows, new_columns),\n                                     mode=&quot;bicubic&quot;, align_corners=False)\nlarger_positions = torch.cat((class_position,\n                              larger_grid.flatten(2).transpose(1, 2)), dim=1)\nassert larger_positions.shape == (1, 25, embedding_width)\ntorch.testing.assert_close(larger_positions[:, :1, :], class_position)</code></pre><h2>Performance and operating cost</h2><p>Resizing the position table costs O(ND) storage for N new patch positions and embedding width D, with interpolation work proportional to the new grid size. The dominant follow-on cost is the model: dense attention-map storage grows with the square of the new token count. A 3-by-4 to 6-by-4 grid changes image-token count from twelve to twenty-four, roughly quadrupling a dense image-token attention map before the class-token contribution. Validate exact shapes and run target-device memory and latency measurements.</p><h3>Common Mistakes</h3><ul><li>Do not interpolate the class-token vector as though it were an image patch.</li><li>Do not flatten before spatial interpolation and blend unrelated row boundaries.</li><li>Do not compare resolutions under different cropping, class maps or test receipts.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/vision-transformer-patch-grid-and-token-contract\">Vision transformer patch grids and token contracts</a></li><li><a href=\"/deep-learning/receipt-vision-transformer-project\">Project: compare receipt vision tokens with a convolutional baseline</a></li><li><a href=\"/deep-learning/frozen-features-versus-fine-tuning\">Frozen features versus fine-tuning a pretrained backbone</a></li><li><a href=\"/deep-learning/staged-unfreezing-and-domain-shift-audit\">Staged unfreezing and domain-shift audits</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7921,
+    "status": "published",
+    "published_at": "2026-10-06T10:51:51.054734+00:00",
+    "created_at": "2026-10-06T10:51:51.054734+00:00",
+    "updated_at": "2026-10-06T10:51:51.054734+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/vision-transformer-patch-grid-and-token-contract",
+          "title": "Vision transformer patch grids and token contracts"
+        },
+        {
+          "path": "deep-learning/receipt-vision-transformer-project",
+          "title": "Project: compare receipt vision tokens with a convolutional baseline"
+        },
+        {
+          "path": "deep-learning/frozen-features-versus-fine-tuning",
+          "title": "Frozen features versus fine-tuning a pretrained backbone"
+        },
+        {
+          "path": "deep-learning/staged-unfreezing-and-domain-shift-audit",
+          "title": "Staged unfreezing and domain-shift audits"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        }
+      ]
+    }
+  },
+  {
+    "id": "1b27ce04-b5f6-5323-a201-7cbef6623158",
+    "type": "article",
+    "path": "deep-learning/vision-transformer-patch-grid-and-token-contract",
+    "title": "Vision transformer patch grids and token contracts",
+    "summary": "A vision transformer receives an ordered patch sequence; image padding, patch size and class-token position determine which visual evidence reaches attention.",
+    "body": "<p>A vision transformer receives an ordered patch sequence; image padding, patch size and class-token position determine which visual evidence reaches attention.</p><h2>Compute the grid before the encoder</h2><p>A 24-by-32 receipt with 8-by-8 nonoverlapping patches produces a 3-by-4 grid, or twelve image tokens. A separate class token raises the sequence length to thirteen. Record channel count, color normalization, resize policy, patch dimensions, grid order and any padded border. A crop whose size is not divisible by the patch size needs a declared pad or crop rule. The code computes exactly this miniature grid. <a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Convolution geometry</a> predicts the projection output.</p><h2>Treat position as part of the input contract</h2><p>Self-attention alone cannot tell whether the same token content came from the top-left or bottom-right patch. Add a position representation after fixing row-major token order. If a class token is prepended, it needs its own position slot; reshaping it into the two-dimensional image grid is wrong. A token permutation with unchanged positions changes the image meaning. Tests should assert that flattening and unflattening preserve row and column identity.</p><h2>Inspect patch-size information loss</h2><p>A tiny clipped edge can occupy less than one patch. Coarse patches reduce token count and attention cost but make it easier to lose boundary detail in the projection. Smaller patches increase the number of tokens approximately with inverse patch area and can raise attention-map memory quadratically in token count. Compare patch choices on the same physical-receipt holdout, including small defects and blur. <a href=\"/deep-learning/receipt-defect-segmentation-project\">Pixel masks</a> require an additional dense-output design beyond one class token.</p><h2>Keep padding from becoming a cue</h2><p>If only one defect class tends to use padded images, a classifier may learn border geometry instead of the defect. Record valid image area and use identical resizing rules across train and evaluation. For variable aspect ratios, test whether the model supports variable grids and whether padded patch tokens must be masked in attention. A standard fixed-grid encoder may simply expect one image size. Do not infer variable-size support from a successful tensor reshape.</p><h2>Compare with a cheaper reference</h2><p>Run a convolutional classifier under the same split, preprocessing and compute budget. Report small-defect recall, false alerts, p95 preprocessing-plus-model latency and peak memory, not only aggregate accuracy. The patch sequence may be appropriate when broad context matters, but an image model earns its complexity through measured improvement. <a href=\"/deep-learning/receipt-vision-transformer-project\">The project</a> tests that decision and preserves the token contract for serving.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\n\nreceipt_images = torch.randn(2, 1, 24, 32)\npatch_size = 8\npatch_projection = nn.Conv2d(1, 16, kernel_size=patch_size,\n                             stride=patch_size)\npatch_grid = patch_projection(receipt_images)\nassert patch_grid.shape == (2, 16, 3, 4)\nimage_tokens = patch_grid.flatten(2).transpose(1, 2)\nclass_token = nn.Parameter(torch.zeros(1, 1, 16))\nposition_vectors = nn.Parameter(torch.zeros(1, 13, 16))\ntokens = torch.cat((class_token.expand(2, -1, -1), image_tokens), dim=1)\ntokens = tokens + position_vectors\nassert tokens.shape == (2, 13, 16)\nassert image_tokens.size(1) == (24 // patch_size) * (32 // patch_size)</code></pre><h2>Performance and operating cost</h2><p>Patch projection is proportional to the image area and embedding width. For B images, N tokens and embedding width D, dense self-attention has approximately O(BN²D) arithmetic and O(BN²) attention-map storage per layer before implementation-specific optimizations. Halving both patch dimensions roughly quadruples N and can increase the attention map by about sixteenfold. The small example checks dimensions only; it does not train an attention model or establish accuracy. Measure memory at the intended resolution.</p><h3>Common Mistakes</h3><ul><li>Do not forget the extra class-token position when checking sequence length.</li><li>Do not assume a patch boundary preserves a one-pixel defect.</li><li>Do not resize or pad different receipt classes with different rules.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/vision-position-grid-resizing-and-transfer\">Vision position grids, resolution changes and transfer</a></li><li><a href=\"/deep-learning/receipt-vision-transformer-project\">Project: compare receipt vision tokens with a convolutional baseline</a></li><li><a href=\"/deep-learning/scaled-dot-product-attention-mask-contract\">Scaled dot-product attention and mask contracts</a></li><li><a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Convolution output geometry and receptive fields</a></li><li><a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7920,
+    "status": "published",
+    "published_at": "2026-10-06T10:51:51.054734+00:00",
+    "created_at": "2026-10-06T10:51:51.054734+00:00",
+    "updated_at": "2026-10-06T10:51:51.054734+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/vision-position-grid-resizing-and-transfer",
+          "title": "Vision position grids, resolution changes and transfer"
+        },
+        {
+          "path": "deep-learning/receipt-vision-transformer-project",
+          "title": "Project: compare receipt vision tokens with a convolutional baseline"
+        },
+        {
+          "path": "deep-learning/scaled-dot-product-attention-mask-contract",
+          "title": "Scaled dot-product attention and mask contracts"
+        },
+        {
+          "path": "deep-learning/convolution-output-geometry-and-receptive-field",
+          "title": "Convolution output geometry and receptive fields"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "4e7416a2-3be4-5175-a33f-5c735ea7aa81",
+    "type": "article",
+    "path": "deep-learning/warehouse-queue-tcn-project",
+    "title": "Project: forecast warehouse queues with a causal temporal model",
+    "summary": "Forecast next-window order volume with a causal dilated convolution, ordered quantiles and rolling-origin evaluation that respects feature availability.",
+    "body": "<p>Forecast next-window order volume with a causal dilated convolution, ordered quantiles and rolling-origin evaluation that respects feature availability.</p><h2>Build the observation ledger</h2><p>For each warehouse and issue minute, retain event time, arrival time, queue size, worker capacity and future demand label. Split by time and warehouse identity according to the deployment question. Exclude late-arriving features from a forecast that would have run earlier. Compare against last-value and same-time-last-week baselines. Keep missing-interval and calendar rules fixed across train and test. <a href=\"/deep-learning/causal-dilated-convolution-receptive-field\">The causal lesson</a> defines the receptive field and timestamp gate.</p><h2>Train one legal forward path</h2><p>Use left padding before a dilated convolution so the final activation sees only the present and earlier measurements. The code accepts twelve observations, predicts one next-window outcome, and makes ordered lower, median and upper quantiles using positive distances. It runs a synthetic optimizer step to catch shape and gradient faults; it does not demonstrate forecast accuracy. Tune lookback, dilation and horizon on earlier validation periods only. <a href=\"/deep-learning/quantile-forecast-loss-and-crossing-policy\">The quantile lesson</a> defines the loss.</p><h2>Backtest at rolling origins</h2><p>Replay many issue times in order, building each feature window from the as-available view. Advance the origin only after predictions are stored; do not normalize using future rows. Report pinball loss by quantile and horizon, median absolute error, interval coverage and width, plus error around promotions and capacity shocks. Group uncertainty by day or warehouse rather than pretending overlapping windows are independent. Preserve forecast timestamps to investigate any too-good result.</p><h2>Evaluate the staffing decision</h2><p>Feed frozen forecasts into a staffing rule with a declared overcapacity and undercapacity cost. Replay the decision under actual capacity limits and compare service-level breaches, idle hours and emergency shifts against the seasonal baseline. A model may reduce forecast loss but worsen a thresholded decision near a staffing boundary. Inspect intervals that crossed a schedule-change deadline too late to act. Keep human override and a low-information fallback when inputs are delayed.</p><h2>Release and monitor</h2><p>Predeclare acceptable interval coverage, width, service-level outcome and p95 scoring latency. Package feature arrival policy, normalization statistics, model weights, quantile order, horizon and calendar version. Re-run fixed windows in a clean process; alarm on missing telemetry, shifted arrival delays and rising interval misses. If the model fails the gate, route to the baseline rather than quietly widening intervals. The deliverable is a reproducible backtest and operational replay.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\ntorch.manual_seed(47)\nqueue_windows = torch.rand(4, 2, 12)\nnext_window_orders = torch.tensor([43.0, 51.0, 62.0, 47.0])\nforecast_net = nn.Sequential(nn.ConstantPad1d((4, 0)),\n                             nn.Conv1d(2, 8, kernel_size=3, dilation=2),\n                             nn.ReLU(), nn.Conv1d(8, 3, kernel_size=1))\noptimizer = torch.optim.AdamW(forecast_net.parameters(), lr=0.0007)\noptimizer.zero_grad(set_to_none=True)\nraw = forecast_net(queue_windows)[:, :, -1]\nmedian = raw[:, 0]\nlower = median - functional.softplus(raw[:, 1])\nupper = median + functional.softplus(raw[:, 2])\nordered = torch.stack((lower, median, upper), dim=1)\nassert ordered.shape == (4, 3)\nassert torch.all(ordered[:, 0] &lt;= ordered[:, 1])\nassert torch.all(ordered[:, 1] &lt;= ordered[:, 2])\nquantiles = torch.tensor([0.2, 0.5, 0.8])\nerrors = next_window_orders[:, None] - ordered\nloss = torch.maximum(quantiles * errors, (quantiles - 1) * errors).mean()\nloss.backward()\noptimizer.step()\nassert torch.isfinite(loss)</code></pre><h2>Performance and operating cost</h2><p>For B windows of length T, a small width-k causal convolution costs roughly O(BTC_inC_outk), plus its activation memory and the final quantile head. The project also pays for as-available feature retrieval and rolling replay, which can dominate model inference in a warehouse system. Three quantiles require O(BQ) output values for Q quantiles; long horizons multiply that storage. The synthetic batch validates shapes and ordered outputs, not calibration or staffing value. Benchmark the full issue-time path.</p><h3>Common Mistakes</h3><ul><li>Do not let a centered or late-arriving feature into an issue-time window.</li><li>Do not report interval coverage without its width and sample count.</li><li>Do not claim an ordered synthetic output is a calibrated forecast.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/causal-dilated-convolution-receptive-field\">Causal dilated convolution and receptive field</a></li><li><a href=\"/deep-learning/quantile-forecast-loss-and-crossing-policy\">Quantile forecast loss and crossing policy</a></li><li><a href=\"/deep-learning/service-event-lstm-project\">Project: predict service escalation from event histories</a></li><li><a href=\"/deep-learning/early-stopping-best-state-and-seed-variance\">Early stopping, best-state restoration and seed variance</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7925,
+    "status": "published",
+    "published_at": "2026-10-06T10:51:51.054734+00:00",
+    "created_at": "2026-10-06T10:51:51.054734+00:00",
+    "updated_at": "2026-10-06T10:51:51.054734+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/causal-dilated-convolution-receptive-field",
+          "title": "Causal dilated convolution and receptive field"
+        },
+        {
+          "path": "deep-learning/quantile-forecast-loss-and-crossing-policy",
+          "title": "Quantile forecast loss and crossing policy"
+        },
+        {
+          "path": "deep-learning/service-event-lstm-project",
+          "title": "Project: predict service escalation from event histories"
+        },
+        {
+          "path": "deep-learning/early-stopping-best-state-and-seed-variance",
+          "title": "Early stopping, best-state restoration and seed variance"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        }
+      ]
+    }
+  }
+]

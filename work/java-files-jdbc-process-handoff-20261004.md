@@ -1,0 +1,11 @@
+# Java content handoff: filesystem, JDBC, and subprocess contracts
+
+This batch adds eleven standalone Java lessons and one 12-question quiz. The filesystem sequence covers tree traversal failure, watch-key reset, overflow reconciliation, bounded directory iteration, and symbolic-link metadata. The JDBC sequence covers batch update counts, ResultSet null state, generated-key ownership, and fetch-size limits. The subprocess sequence covers command-token boundaries and timeout cleanup. These are new routes in Advanced Java, with links from the Java root, the quiz section, and nine earlier lessons.
+
+The local fixture now has 409 Java curriculum routes: 384 articles, 10 hubs, and 15 quiz banks containing 180 questions. Every new route belongs to a section module. The new lesson bodies use semantic HTML, contain Common Mistakes, and contain no external URL or source attribution. Internal links in the new bodies resolve to local lessons and the quiz.
+
+All eleven new Java code samples compile for their declared release. A local smoke check exercises tree counting, direct-directory listing, listing and reconciliation caps, regular-file attribute rejection, and a subprocess that exits cleanly. The production build succeeds. Lint reports zero errors and nine existing warnings. A 410-record WordPress export, including the editorial profile, is saved as drafts with `seo_ready=false`.
+
+The full legacy Java program checker cannot finish in this sandbox because an existing socket lesson is denied permission to bind a local port. Its structural link allowlist was updated to accept established Java-to-DSA lesson links; the focused new-content checker verifies this batch independently. Two older Java code samples contain literal service or schema URLs needed by their examples; these are not source links. None of the new pages adds one.
+
+Editorial review, WordPress import, publication, deployment, and live-route verification remain open. The local preview on port 3000 is not reachable from the shell workspace. Broader Java coverage remains open-ended; this batch does not claim an exhaustive Java reference. No human-detection score or exclusive ownership of language and API facts was measured or certified.

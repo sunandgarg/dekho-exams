@@ -1,0 +1,1179 @@
+[
+  {
+    "id": "0da3bed2-c0c2-5e6c-b246-be4860900192",
+    "type": "article",
+    "path": "mlops/dual-label-evaluation-and-compatibility",
+    "title": "Dual-label evaluation: compare models across a target migration",
+    "summary": "During a target change, evaluate both the new task and the legacy consumer view without pretending their metrics are identical.",
+    "body": "<p>During a target change, evaluate both the new task and the legacy consumer view without pretending their metrics are identical.</p><h2>Keep two clearly named views</h2><p>The new scanner model emits torn label, blurred print, other damage and clear. The old consumer still needs a binary damaged-versus-clear route. Produce the new four-class output and a reviewed projection to the legacy route. Evaluate native class performance on adjudicated new-taxonomy examples, and evaluate the binary projection on a separate legacy-compatible frame. Do not compare four-class accuracy with old binary accuracy as a before-and-after improvement. <a href=\"/mlops/label-taxonomy-version-and-migration\">Taxonomy revisions</a> define both meanings.</p><h2>Measure migration coverage</h2><p>Count records with deterministic mapping, independently relabeled records, unresolved ambiguous records and excluded data. Report quality per new class and by acquisition channel; a strong average can conceal that rare torn labels are missed. When audit labels are selected through review routing, the observed set may be biased. <a href=\"/mlops/selective-label-observation-and-audit-sampling\">Independent audit coverage</a> helps estimate errors outside the reviewed queue.</p><h2>Test old clients explicitly</h2><p>Run output contract tests for clients that receive only the projected binary result, and new clients that need the fine-grained class and evidence. Unknown labels, low confidence and malformed outputs must take documented fallbacks. Pin client, model, taxonomy and projection revisions in each decision. <a href=\"/mlops/inference-request-response-contracts\">Response contracts</a> prevent a silent shift in field meaning, while <a href=\"/mlops/inference-client-migration-and-contract-tests\">client migration tests</a> cover mixed deployments.</p><h2>Cut over only with two passing gates</h2><p>Require acceptable new-class quality and stable legacy route behavior before expanding. The new model can improve fine-grained reporting yet still change the binary review route for older consumers; that is a release failure until examined. Keep the prior model and projection available through the cutover, then retire them only after consumer inventory confirms nobody needs them. <a href=\"/mlops/model-consumer-inventory-and-retirement-gates\">Retirement gates</a> close the migration safely; <a href=\"/mlops/scanner-label-taxonomy-migration-project\">the project</a> runs the full dual view.</p><h2>Implementation</h2><pre><code class=\"language-python\">def legacy_damage_route(new_label, projection):\n    if new_label not in projection:\n        return &quot;manual-review:unknown-label&quot;\n    return &quot;review&quot; if projection[new_label] else &quot;release&quot;\n\nprojection = {&quot;clear&quot;: False, &quot;torn-label&quot;: True,\n              &quot;blurred-print&quot;: True, &quot;other-damage&quot;: True}\nassert legacy_damage_route(&quot;torn-label&quot;, projection) == &quot;review&quot;\nassert legacy_damage_route(&quot;clear&quot;, projection) == &quot;release&quot;\nassert legacy_damage_route(&quot;possible-tear&quot;, projection) ==        &quot;manual-review:unknown-label&quot;\n</code></pre><h2>Performance and operating cost</h2><p>Projection lookup is O(1) expected time and space. Dual evaluation runs two metric suites and may require extra adjudication and storage for newly labeled records. The cost is temporary but necessary: a single aggregate score cannot establish both new-task quality and compatibility with the old decision route.</p><h3>Common Mistakes</h3><ul><li>Comparing old binary accuracy directly with new four-class accuracy.</li><li>Using ambiguous mapped records as if they were adjudicated labels.</li><li>Testing the new model without exercising older clients.</li><li>Retiring the binary projection before consumer inventory reaches zero.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/label-taxonomy-version-and-migration\">Label taxonomy migrations: preserve meaning across retraining</a></li><li><a href=\"/mlops/scanner-label-taxonomy-migration-project\">Project: split scanner defect labels without breaking old clients</a></li><li><a href=\"/mlops/selective-label-observation-and-audit-sampling\">Selective labels: measure what the model never lets reviewers see</a></li><li><a href=\"/mlops/inference-client-migration-and-contract-tests\">Migrate inference clients with compatibility tests and usage evidence</a></li><li><a href=\"/mlops/model-consumer-inventory-and-retirement-gates\">Model retirement: find consumers before removing a version</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6206,
+    "status": "published",
+    "published_at": "2026-10-06T17:12:52.013057+00:00",
+    "created_at": "2026-10-06T17:12:52.013057+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/label-taxonomy-version-and-migration",
+          "title": "Label taxonomy migrations: preserve meaning across retraining"
+        },
+        {
+          "path": "mlops/scanner-label-taxonomy-migration-project",
+          "title": "Project: split scanner defect labels without breaking old clients"
+        },
+        {
+          "path": "mlops/selective-label-observation-and-audit-sampling",
+          "title": "Selective labels: measure what the model never lets reviewers see"
+        },
+        {
+          "path": "mlops/inference-client-migration-and-contract-tests",
+          "title": "Migrate inference clients with compatibility tests and usage evidence"
+        },
+        {
+          "path": "mlops/model-consumer-inventory-and-retirement-gates",
+          "title": "Model retirement: find consumers before removing a version"
+        }
+      ]
+    }
+  },
+  {
+    "id": "37bd135b-1598-55dc-a90b-6cc4746ae125",
+    "type": "article",
+    "path": "mlops/inference-client-migration-and-contract-tests",
+    "title": "Migrate inference clients with compatibility tests and usage evidence",
+    "summary": "A model endpoint is safe to change only when its registered callers have proved the new contract and stopped relying on the old one.",
+    "body": "<p>A model endpoint is safe to change only when its registered callers have proved the new contract and stopped relying on the old one.</p><h2>Inventory who actually calls the endpoint</h2><p>List each client, owner, environment, API version, request shape, response fields read and retry policy. Add traffic evidence from the gateway because a repository search misses scheduled jobs and old mobile builds. A consumer can depend on a route enum even if it ignores the score. <a href=\"/mlops/model-consumer-inventory-and-retirement-gates\">Consumer inventory</a> supplies the owner and retirement process; this migration adds concrete protocol assertions and a per-client cutover state.</p><h2>Build a compatibility matrix</h2><p>Replay redacted request fixtures from each caller against the old and candidate endpoint. Assert stable interpretation, not byte-for-byte equality when scores legitimately change. Test missing optional fields, unknown response fields, 4xx validation, 5xx retry, timeout, idempotency and fallback. If a caller assumes a route enum is exhaustive, a new value can crash it despite a valid schema. <a href=\"/mlops/inference-request-response-contracts\">The API contract</a> names these visible behaviors, while <a href=\"/mlops/ml-test-pyramid-and-data-fixtures\">test fixtures</a> make them repeatable in CI.</p><h2>Move callers in measured stages</h2><p>Deploy a compatible adapter or explicit v2 route, send a small registered client cohort to it and record version in request traces. Watch rejected requests, fallback, latency and caller retries by client ID. Distinguish “no old traffic observed” from “all old clients migrated”; intermittent batch jobs need a window spanning their schedule. Do not retire v1 while an unowned client still sends production traffic. A staged gateway switch should have a reversible route pointer and a response sample that proves which contract served.</p><h2>Retire with an evidence trail</h2><p>Record client sign-offs, last observed v1 call, scheduled-job coverage, rollback route and expiry for the adapter. Retest old and new versions after a model promotion, because a changed model can alter a response policy without changing an API schema. <a href=\"/mlops/receipt-inference-api-migration-project\">The applied migration</a> runs a mobile reviewer and a nightly reconciliation job through different upgrade clocks. A safe deprecation is a measured state transition, not a date written in a ticket.</p><h2>Implementation</h2><pre><code class=\"language-python\">def retire_contract(registered, observed, required_window_days=35):\n    blockers = []\n    for client_id, record in registered.items():\n        traffic = observed.get(client_id, {})\n        if not record[&quot;signed_off&quot;]:\n            blockers.append((client_id, &quot;unsigned&quot;))\n        elif traffic.get(&quot;v1_calls&quot;, 0) &gt; 0:\n            blockers.append((client_id, &quot;old-traffic&quot;))\n        elif traffic.get(&quot;observed_days&quot;, 0) &lt; required_window_days:\n            blockers.append((client_id, &quot;short-window&quot;))\n    return {&quot;state&quot;: &quot;hold&quot; if blockers else &quot;retire&quot;, &quot;blockers&quot;: blockers}\n\nclients = {&quot;review-ui&quot;: {&quot;signed_off&quot;: True},\n           &quot;nightly-ledger&quot;: {&quot;signed_off&quot;: True}}\nusage = {&quot;review-ui&quot;: {&quot;v1_calls&quot;: 0, &quot;observed_days&quot;: 47},\n         &quot;nightly-ledger&quot;: {&quot;v1_calls&quot;: 1, &quot;observed_days&quot;: 47}}\nassert retire_contract(clients, usage)[&quot;state&quot;] == &quot;hold&quot;\nassert retire_contract(clients, {**usage, &quot;nightly-ledger&quot;:\n       {&quot;v1_calls&quot;: 0, &quot;observed_days&quot;: 47}})[&quot;state&quot;] == &quot;retire&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The retirement check is O(c) time and O(c) output space for c clients. Contract replay costs more: fixture maintenance, deployed-environment access and at least one full cycle of rare callers. The example counts observed days; production evidence also needs traffic completeness, known caller IDs and a schedule long enough to cover infrequent jobs.</p><h3>Common Mistakes</h3><ul><li>Retiring after a short quiet interval that misses monthly jobs.</li><li>Assuming schema validation proves semantic response compatibility.</li><li>Migrating a client without watching retry and fallback rates.</li><li>Ignoring an unknown caller because it has no owner entry.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/inference-request-response-contracts\">Inference API contracts: version the decision, not only the payload</a></li><li><a href=\"/mlops/receipt-inference-api-migration-project\">Project: migrate receipt inference callers without breaking decisions</a></li><li><a href=\"/mlops/model-consumer-inventory-and-retirement-gates\">Model retirement: find consumers before removing a version</a></li><li><a href=\"/mlops/ml-test-pyramid-and-data-fixtures\">ML tests: separate code, data, model and service failures</a></li><li><a href=\"/mlops/promotion-attestation-and-reversible-pointer\">Promotion evidence: bind evaluation, contract and rollback to one digest</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/dual-label-evaluation-and-compatibility\">Dual-label evaluation: compare models across a target migration</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6140,
+    "status": "published",
+    "published_at": "2026-10-06T16:20:37.956732+00:00",
+    "created_at": "2026-10-06T16:20:37.956732+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/inference-request-response-contracts",
+          "title": "Inference API contracts: version the decision, not only the payload"
+        },
+        {
+          "path": "mlops/receipt-inference-api-migration-project",
+          "title": "Project: migrate receipt inference callers without breaking decisions"
+        },
+        {
+          "path": "mlops/model-consumer-inventory-and-retirement-gates",
+          "title": "Model retirement: find consumers before removing a version"
+        },
+        {
+          "path": "mlops/ml-test-pyramid-and-data-fixtures",
+          "title": "ML tests: separate code, data, model and service failures"
+        },
+        {
+          "path": "mlops/promotion-attestation-and-reversible-pointer",
+          "title": "Promotion evidence: bind evaluation, contract and rollback to one digest"
+        },
+        {
+          "path": "mlops/dual-label-evaluation-and-compatibility",
+          "title": "Dual-label evaluation: compare models across a target migration"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9896732c-d319-5ead-aab2-7a3316d3ee87",
+    "type": "article",
+    "path": "mlops/label-corrections-and-evaluation-ledger",
+    "title": "Label corrections: version outcomes before rebuilding quality metrics",
+    "summary": "A corrected outcome changes an evaluation result; retaining revision history makes the change explainable and reproducible.",
+    "body": "<p>A corrected outcome changes an evaluation result; retaining revision history makes the change explainable and reproducible.</p><h2>Keep a ledger, not a mutable label cell</h2><p>A receipt initially marked fraudulent may later be cleared. Store each label revision with prediction ID, event time, recorded time, reviewer or source class, reason and superseded revision. A current view can select the latest approved revision, while a historical report should state the revision cutoff it used. <a href=\"/mlops/prediction-outcome-join-and-maturity\">Prediction-outcome joins</a> need this selection rule before calculating a confusion matrix.</p><h2>Separate real changes from processing errors</h2><p>A correction can reflect new evidence, a clerical fix, a taxonomy change or a bad join. These cases have different implications. A taxonomy change may require recomputing the full evaluation cohort; a bad join may require withdrawing a prior report. Do not trigger retraining automatically because one metric moved after a data repair. <a href=\"/mlops/retraining-trigger-and-challenger\">Retraining decisions</a> should examine the corrected cohort and compare the same frozen population.</p><h2>Recompute dependent evidence</h2><p>When an approved label revision changes, identify which evaluation windows, slice dashboards and model-comparison reports depend on that prediction. Mark stale reports, recompute them under their original cohort definitions and show the delta with counts. Avoid silently replacing a published metric, since an operator may need to explain why yesterday’s alert disappeared. The report should carry model digest, cohort cutoff, label revision cutoff and metric-code revision.</p><h2>Control conflicts and access</h2><p>Two reviewers may submit conflicting labels. Require an adjudication state and leave the prediction out of final quality scoring until it resolves, rather than choosing the latest timestamp blindly. Restrict sensitive adjudication notes; aggregate metrics need only label, scope and revision identity. The <a href=\"/mlops/receipt-outcome-feedback-project\">feedback project</a> tests conflicting revisions and reproduces both old and current reports.</p><h2>Implementation</h2><pre><code class=\"language-python\">def active_labels(revisions, cutoff):\n    selected = {}\n    for row in revisions:\n        if row[&quot;recorded_at&quot;] &gt; cutoff or row[&quot;state&quot;] != &quot;approved&quot;:\n            continue\n        key = row[&quot;prediction_id&quot;]\n        previous = selected.get(key)\n        if previous is None or row[&quot;revision&quot;] &gt; previous[&quot;revision&quot;]:\n            selected[key] = row\n    return {key: row[&quot;label&quot;] for key, row in selected.items()}\n\nhistory = [\n    {&quot;prediction_id&quot;: &quot;decision-47&quot;, &quot;revision&quot;: 1,\n     &quot;recorded_at&quot;: 3, &quot;state&quot;: &quot;approved&quot;, &quot;label&quot;: &quot;fraud&quot;},\n    {&quot;prediction_id&quot;: &quot;decision-47&quot;, &quot;revision&quot;: 2,\n     &quot;recorded_at&quot;: 8, &quot;state&quot;: &quot;approved&quot;, &quot;label&quot;: &quot;clear&quot;},\n    {&quot;prediction_id&quot;: &quot;decision-82&quot;, &quot;revision&quot;: 1,\n     &quot;recorded_at&quot;: 7, &quot;state&quot;: &quot;disputed&quot;, &quot;label&quot;: &quot;fraud&quot;},\n]\nassert active_labels(history, 5) == {&quot;decision-47&quot;: &quot;fraud&quot;}\nassert active_labels(history, 9) == {&quot;decision-47&quot;: &quot;clear&quot;}\n</code></pre><h2>Performance and operating cost</h2><p>Scanning r label revisions takes O(r) expected time and O(u) space for u unique prediction IDs. An indexed ledger can query only revised decisions for an incremental rebuild. This compact selector assumes strictly increasing revision numbers per prediction; a production ledger must enforce uniqueness and resolve conflicting writers transactionally.</p><h3>Common Mistakes</h3><ul><li>Overwriting a label and losing the prior report’s evidence.</li><li>Choosing the newest conflicting label without adjudication.</li><li>Changing a dashboard number without identifying the report revision.</li><li>Triggering retraining on a correction caused by a broken join.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/prediction-outcome-join-and-maturity\">Prediction-outcome joins: evaluate only mature, matched decisions</a></li><li><a href=\"/mlops/receipt-outcome-feedback-project\">Project: build a versioned receipt outcome feedback loop</a></li><li><a href=\"/mlops/retraining-trigger-and-challenger\">Retraining decisions: require a reason and a challenger comparison</a></li><li><a href=\"/mlops/drift-delayed-label-monitoring\">Model monitoring: separate input drift, data faults and delayed outcomes</a></li><li><a href=\"/data-annotation/label-drift-and-audit-sampling\">Label drift: delayed outcomes and sampled quality audits</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/human-override-and-adjudication-ledger\">Human overrides: keep decisions, reasons and labels distinct</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/label-taxonomy-version-and-migration\">Label taxonomy migrations: preserve meaning across retraining</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6110,
+    "status": "published",
+    "published_at": "2026-10-06T15:51:37.820263+00:00",
+    "created_at": "2026-10-06T15:51:37.820263+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/prediction-outcome-join-and-maturity",
+          "title": "Prediction-outcome joins: evaluate only mature, matched decisions"
+        },
+        {
+          "path": "mlops/receipt-outcome-feedback-project",
+          "title": "Project: build a versioned receipt outcome feedback loop"
+        },
+        {
+          "path": "mlops/retraining-trigger-and-challenger",
+          "title": "Retraining decisions: require a reason and a challenger comparison"
+        },
+        {
+          "path": "mlops/drift-delayed-label-monitoring",
+          "title": "Model monitoring: separate input drift, data faults and delayed outcomes"
+        },
+        {
+          "path": "data-annotation/label-drift-and-audit-sampling",
+          "title": "Label drift: delayed outcomes and sampled quality audits"
+        },
+        {
+          "path": "mlops/human-override-and-adjudication-ledger",
+          "title": "Human overrides: keep decisions, reasons and labels distinct"
+        },
+        {
+          "path": "mlops/label-taxonomy-version-and-migration",
+          "title": "Label taxonomy migrations: preserve meaning across retraining"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9d30afa4-beb8-591e-9391-8c99aff304a7",
+    "type": "article",
+    "path": "mlops/label-taxonomy-version-and-migration",
+    "title": "Label taxonomy migrations: preserve meaning across retraining",
+    "summary": "Changing the names or boundaries of target classes changes the learning problem and its evaluation contract.",
+    "body": "<p>Changing the names or boundaries of target classes changes the learning problem and its evaluation contract.</p><h2>Version meaning, not just spelling</h2><p>A scanner defect classifier originally labels “damaged” or “clear.” The team now needs “torn label,” “blurred print” and “other damage.” This is not a cosmetic rename: an old positive example may fit several new classes and cannot always be mapped without reinspection. Create a taxonomy revision with definitions, examples, exclusion rules and effective date. Pin the revision to every annotation batch, training snapshot, model output and consumer contract. <a href=\"/mlops/label-corrections-and-evaluation-ledger\">Label corrections</a> modify judgments within a taxonomy; migration changes the taxonomy itself.</p><h2>Build a mapping with an unknown state</h2><p>Define which old labels map deterministically and which require adjudication. Preserve raw original labels and provenance, then write migrated labels as new records linked to the originals. Do not fill ambiguous cases by guessing from the old class or from model predictions. Track mapping coverage and unresolved counts by source and cohort. <a href=\"/mlops/training-source-admission-and-quarantine\">Source admission</a> can hold batches whose taxonomy is missing or inconsistent.</p><h2>Plan consumers and score outputs</h2><p>The new model may emit three damage classes while older clients expect one Boolean. Decide whether a temporary compatibility projection is valid; “any damage” may be safe for manual review but loses the distinction a downstream repair workflow needs. Version the output schema and reject clients that interpret the new class index as the old Boolean. <a href=\"/mlops/inference-client-migration-and-contract-tests\">Client contract tests</a> exercise the mixed-version period.</p><h2>Rebuild evaluation evidence</h2><p>Historical quality measured against the binary target cannot be directly compared to three-class quality. Maintain an old-label evaluation view for compatibility, create adjudicated examples for new classes and report both with separate denominators. Stage the migration by consumer readiness and outcome maturity. <a href=\"/mlops/dual-label-evaluation-and-compatibility\">Dual evaluation</a> protects the transition; <a href=\"/mlops/scanner-label-taxonomy-migration-project\">the project</a> catches an ambiguous legacy class that would otherwise be auto-mapped.</p><h2>Implementation</h2><pre><code class=\"language-python\">def migrate_defect_label(old_label, mapping):\n    if old_label not in mapping:\n        return {&quot;state&quot;: &quot;hold:unknown-old-label&quot;, &quot;new_label&quot;: None}\n    proposed = mapping[old_label]\n    if proposed is None:\n        return {&quot;state&quot;: &quot;review:ambiguous&quot;, &quot;new_label&quot;: None}\n    return {&quot;state&quot;: &quot;mapped&quot;, &quot;new_label&quot;: proposed}\n\nmapping = {&quot;clear&quot;: &quot;clear&quot;, &quot;damaged&quot;: None,\n           &quot;unreadable&quot;: &quot;blurred-print&quot;}\nassert migrate_defect_label(&quot;clear&quot;, mapping)[&quot;new_label&quot;] == &quot;clear&quot;\nassert migrate_defect_label(&quot;damaged&quot;, mapping)[&quot;state&quot;] == &quot;review:ambiguous&quot;\nassert migrate_defect_label(&quot;torn&quot;, mapping)[&quot;state&quot;] == &quot;hold:unknown-old-label&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The mapping lookup is O(1) expected time and space per label. Adjudication cost scales with ambiguous legacy records; storing both revisions increases dataset and lineage storage. Automatic mapping is cheap but incorrect for split classes, so budget human review where old information cannot distinguish the new targets.</p><h3>Common Mistakes</h3><ul><li>Treating a class split as a string rename.</li><li>Overwriting historical labels without preserving their taxonomy revision.</li><li>Guessing a new subclass from an ambiguous old positive label.</li><li>Sending new class indices to an old Boolean consumer.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/dual-label-evaluation-and-compatibility\">Dual-label evaluation: compare models across a target migration</a></li><li><a href=\"/mlops/scanner-label-taxonomy-migration-project\">Project: split scanner defect labels without breaking old clients</a></li><li><a href=\"/mlops/label-corrections-and-evaluation-ledger\">Label corrections: version outcomes before rebuilding quality metrics</a></li><li><a href=\"/mlops/training-source-admission-and-quarantine\">Training source admission: provenance, trust tiers and quarantine</a></li><li><a href=\"/mlops/inference-client-migration-and-contract-tests\">Migrate inference clients with compatibility tests and usage evidence</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6205,
+    "status": "published",
+    "published_at": "2026-10-06T17:12:52.013057+00:00",
+    "created_at": "2026-10-06T17:12:52.013057+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/dual-label-evaluation-and-compatibility",
+          "title": "Dual-label evaluation: compare models across a target migration"
+        },
+        {
+          "path": "mlops/scanner-label-taxonomy-migration-project",
+          "title": "Project: split scanner defect labels without breaking old clients"
+        },
+        {
+          "path": "mlops/label-corrections-and-evaluation-ledger",
+          "title": "Label corrections: version outcomes before rebuilding quality metrics"
+        },
+        {
+          "path": "mlops/training-source-admission-and-quarantine",
+          "title": "Training source admission: provenance, trust tiers and quarantine"
+        },
+        {
+          "path": "mlops/inference-client-migration-and-contract-tests",
+          "title": "Migrate inference clients with compatibility tests and usage evidence"
+        }
+      ]
+    }
+  },
+  {
+    "id": "33aa6f06-5936-5e9d-b054-8ec571f92c61",
+    "type": "subject",
+    "path": "mlops/mlops-tutorial",
+    "title": "MLOps Tutorial",
+    "summary": "Release models through traceable artifacts, feature parity, promotion gates, staged rollout, monitoring and rollback.",
+    "body": "<p>Release models through traceable artifacts, feature parity, promotion gates, staged rollout, monitoring and rollback.</p><h2>Learning path</h2><ul><li><a href=\"/mlops/run-manifest-and-artifact-lineage\">Training manifests: link data, code, configuration and artifact</a></li><li><a href=\"/mlops/feature-training-serving-parity\">Training-serving parity: compare feature values at one prediction clock</a></li><li><a href=\"/mlops/model-registry-promotion-gates\">Model promotion: require evidence before changing the serving pointer</a></li><li><a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a></li><li><a href=\"/mlops/drift-delayed-label-monitoring\">Model monitoring: separate input drift, data faults and delayed outcomes</a></li><li><a href=\"/mlops/retraining-trigger-and-challenger\">Retraining decisions: require a reason and a challenger comparison</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li><li><a href=\"/mlops/receipt-triage-release-project\">Project: release receipt triage with lineage, canary checks and rollback</a></li></ul><h2>Connected foundations</h2><p>Use the earlier data and model boundaries as prerequisites.</p><ul><li><a href=\"/data-engineering/data-engineering-tutorial\">Data Engineering Tutorial</a></li><li><a href=\"/machine-learning/machine-learning-tutorial\">Machine Learning Tutorial</a></li></ul><h2>Practice</h2><ul><li><a href=\"/mlops/mlops-tutorial/project\">MLOps: Projects</a></li></ul><p><strong>Continue into another subject:</strong> <a href=\"/computer-vision/computer-vision-tutorial\">Computer Vision Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/feature-stores/feature-stores-tutorial\">Feature Stores Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/privacy-aware-ml/privacy-aware-ml-tutorial\">Privacy-Aware ML Tutorial</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a>.</p><h2>Feature contracts and data admission</h2><ul><li><a href=\"/mlops/feature-contract-and-admission-gates\">Feature contracts: admit only usable inference records</a></li><li><a href=\"/mlops/feature-schema-evolution-and-consumers\">Feature schema evolution: keep producers and rollback models compatible</a></li></ul><h2>Feature contracts and data admission project</h2><ul><li><a href=\"/mlops/receipt-feature-admission-project\">Project: release a versioned receipt feature admission gate</a></li></ul><h2>Serving reliability and capacity</h2><ul><li><a href=\"/mlops/inference-latency-budget-and-tail-observation\">Inference latency budgets: measure queue, feature and model time</a></li><li><a href=\"/mlops/queue-saturation-and-fallback-policy\">Serving overload: bound queues and choose a fallback before time runs out</a></li></ul><h2>Serving reliability and capacity project</h2><ul><li><a href=\"/mlops/receipt-serving-slo-project\">Project: operate receipt scoring with a deadline and overload path</a></li></ul><h2>Model artifact trust and release evidence</h2><ul><li><a href=\"/mlops/model-artifact-digest-and-safe-loading\">Model artifacts: verify digest, origin and loading format</a></li><li><a href=\"/mlops/promotion-attestation-and-reversible-pointer\">Promotion evidence: bind evaluation, contract and rollback to one digest</a></li></ul><h2>Model artifact trust and release evidence project</h2><ul><li><a href=\"/mlops/trusted-model-promotion-project\">Project: promote a receipt model with artifact and rollback evidence</a></li></ul><h2>Outcome feedback and label lineage</h2><ul><li><a href=\"/mlops/prediction-outcome-join-and-maturity\">Prediction-outcome joins: evaluate only mature, matched decisions</a></li><li><a href=\"/mlops/label-corrections-and-evaluation-ledger\">Label corrections: version outcomes before rebuilding quality metrics</a></li></ul><h2>Outcome feedback and label lineage project</h2><ul><li><a href=\"/mlops/receipt-outcome-feedback-project\">Project: build a versioned receipt outcome feedback loop</a></li></ul><h2>Reproducible training pipelines</h2><ul><li><a href=\"/mlops/pipeline-stage-inputs-and-cache-identity\">Pipeline stages: cache by complete input identity</a></li><li><a href=\"/mlops/snapshot-split-and-environment-replay\">Training replay: freeze the cohort, split and runtime</a></li></ul><h2>Reproducible training pipelines project</h2><ul><li><a href=\"/mlops/reproducible-training-run-project\">Project: replay a receipt model from frozen training evidence</a></li></ul><h2>Batch inference and replay</h2><ul><li><a href=\"/mlops/batch-inference-partition-and-idempotency\">Batch inference: make partitions idempotent and outputs identifiable</a></li><li><a href=\"/mlops/batch-replay-versioning-and-consumer-reconciliation\">Batch replay: supersede outputs without duplicating downstream actions</a></li></ul><h2>Batch inference and replay project</h2><ul><li><a href=\"/mlops/nightly-receipt-batch-project\">Project: publish and replay a nightly receipt scoring partition</a></li></ul><h2>Monitoring alerts and incident response</h2><ul><li><a href=\"/mlops/model-alert-symptoms-ownership-and-noise\">Model alerts: page on customer symptoms with a named owner</a></li><li><a href=\"/mlops/incident-triage-and-evidence-timeline\">Model incidents: build a release and evidence timeline before rollback</a></li></ul><h2>Monitoring alerts and incident response project</h2><ul><li><a href=\"/mlops/receipt-model-incident-drill-project\">Project: run a receipt-model incident drill with honest mitigation</a></li></ul><h2>Model retirement and retained evidence</h2><ul><li><a href=\"/mlops/model-consumer-inventory-and-retirement-gates\">Model retirement: find consumers before removing a version</a></li><li><a href=\"/mlops/retention-and-derivative-deletion-boundary\">MLOps retention: trace source deletion into features and training artifacts</a></li></ul><h2>Model retirement and retained evidence project</h2><ul><li><a href=\"/mlops/receipt-model-retirement-project\">Project: retire a receipt model without breaking batch or audit</a></li></ul><h2>ML release testing and environment gates</h2><ul><li><a href=\"/mlops/ml-test-pyramid-and-data-fixtures\">ML tests: separate code, data, model and service failures</a></li><li><a href=\"/mlops/environment-promotion-and-smoke-contracts\">Environment promotion: keep the tested artifact and contract together</a></li></ul><h2>ML release testing and environment gates project</h2><ul><li><a href=\"/mlops/receipt-ci-release-gate-project\">Project: gate a receipt model through CI and staging</a></li></ul><h2>Online feature freshness</h2><ul><li><a href=\"/mlops/online-feature-freshness-budget-and-ttl\">Online feature freshness: use event and availability clocks</a></li><li><a href=\"/mlops/late-feature-materialization-and-read-repair\">Feature materialization lag: detect stuck updates and repair safely</a></li></ul><h2>Online feature freshness project</h2><ul><li><a href=\"/mlops/receipt-feature-freshness-project\">Project: keep receipt scoring safe during feature publication lag</a></li></ul><h2>Live model experiments and exposure evidence</h2><ul><li><a href=\"/mlops/sticky-model-assignment-and-exposure-logging\">Model experiments: separate assignment from actual exposure</a></li><li><a href=\"/mlops/experiment-guardrails-and-interference\">Model experiment guardrails: stop harm without misreading the sample</a></li></ul><h2>Live model experiments and exposure evidence project</h2><ul><li><a href=\"/mlops/receipt-model-experiment-project\">Project: run a receipt-model experiment with exposure evidence</a></li></ul><h2>Training capacity and interruption recovery</h2><ul><li><a href=\"/mlops/training-checkpoints-and-preemption-recovery\">Training checkpoints: resume state after interruption</a></li><li><a href=\"/mlops/training-budget-and-resource-admission\">Training resource gates: bound cost before starting a run</a></li></ul><h2>Training capacity and interruption recovery project</h2><ul><li><a href=\"/mlops/receipt-training-recovery-project\">Project: resume receipt-model training under a compute budget</a></li></ul><h2>Model risk evidence and release scope</h2><ul><li><a href=\"/mlops/model-card-scope-and-limitation-register\">Model cards as operating contracts: scope, evidence and limits</a></li><li><a href=\"/mlops/slice-quality-gates-and-uncertainty\">Slice quality gates when labels are sparse or delayed</a></li></ul><h2>Model risk evidence and release scope project</h2><ul><li><a href=\"/mlops/receipt-model-card-review-project\">Project: approve a receipt model with a scoped evidence dossier</a></li></ul><h2>Inference API compatibility and caller migration</h2><ul><li><a href=\"/mlops/inference-request-response-contracts\">Inference API contracts: version the decision, not only the payload</a></li><li><a href=\"/mlops/inference-client-migration-and-contract-tests\">Migrate inference clients with compatibility tests and usage evidence</a></li></ul><h2>Inference API compatibility and caller migration project</h2><ul><li><a href=\"/mlops/receipt-inference-api-migration-project\">Project: migrate receipt inference callers without breaking decisions</a></li></ul><h2>Inference failover and recovery identity</h2><ul><li><a href=\"/mlops/region-failover-model-and-feature-identity\">Region failover for inference: match model and feature state</a></li><li><a href=\"/mlops/failover-drills-and-decision-reconciliation\">Failover drills: reconcile decisions across regions</a></li></ul><h2>Inference failover and recovery identity project</h2><ul><li><a href=\"/mlops/receipt-region-failover-project\">Project: fail over receipt inference and reconcile every decision</a></li></ul><h2>Shared model serving and capacity isolation</h2><ul><li><a href=\"/mlops/multi-model-admission-and-noisy-neighbors\">Multi-model serving: admission control for noisy neighbors</a></li><li><a href=\"/mlops/model-cache-warmup-and-capacity-planning\">Model cache warmup and memory planning for shared inference</a></li></ul><h2>Shared model serving and capacity isolation project</h2><ul><li><a href=\"/mlops/receipt-shared-serving-capacity-project\">Project: protect receipt inference in a shared model pool</a></li></ul><h2>Score policy and human review controls</h2><ul><li><a href=\"/mlops/score-threshold-policy-and-change-control\">Score thresholds are release policy, not model metadata</a></li><li><a href=\"/mlops/human-override-and-adjudication-ledger\">Human overrides: keep decisions, reasons and labels distinct</a></li></ul><h2>Score policy and human review controls project</h2><ul><li><a href=\"/mlops/receipt-score-policy-project\">Project: release a receipt threshold with review evidence</a></li></ul><h2>Monitoring evidence and telemetry limits</h2><ul><li><a href=\"/mlops/monitoring-cardinality-and-metric-identities\">Model monitoring dimensions without metric-cardinality failure</a></li><li><a href=\"/mlops/trace-sampling-and-coverage-ledger\">Trace sampling and coverage: know what production evidence misses</a></li></ul><h2>Monitoring evidence and telemetry limits project</h2><ul><li><a href=\"/mlops/receipt-monitoring-evidence-project\">Project: measure receipt inference without losing the denominator</a></li></ul><h2>Multi-stage inference and dependency failure</h2><ul><li><a href=\"/mlops/inference-chain-contracts-and-stage-identity\">Multi-stage inference: pin each stage and its contract</a></li><li><a href=\"/mlops/stage-deadline-and-degraded-path-tests\">Test partial failure and deadline exhaustion in model chains</a></li></ul><h2>Multi-stage inference and dependency failure project</h2><ul><li><a href=\"/mlops/receipt-inference-chain-project\">Project: verify a receipt extraction-to-decision chain</a></li></ul><h2>Inference resource protection and request identity</h2><ul><li><a href=\"/mlops/inference-payload-and-compute-admission\">Inference ingress: bound payload size and compute before model work</a></li><li><a href=\"/mlops/idempotent-inference-retries-and-quotas\">Inference retries: bound repeated work and preserve one decision</a></li></ul><h2>Inference resource protection and request identity project</h2><ul><li><a href=\"/mlops/receipt-endpoint-resource-guard-project\">Project: protect receipt inference from expensive and repeated input</a></li></ul><h2>Edge model release and offline recovery</h2><ul><li><a href=\"/mlops/edge-model-manifests-and-cohort-rollouts\">Edge model releases: pin runtime, preprocessing and cohort</a></li><li><a href=\"/mlops/edge-offline-telemetry-and-rollback\">Offline edge telemetry: late events, coverage and rollback</a></li></ul><h2>Edge model release and offline recovery project</h2><ul><li><a href=\"/mlops/handheld-receipt-edge-release-project\">Project: stage a receipt-quality model on offline handhelds</a></li></ul><h2>Production explanations and review evidence</h2><ul><li><a href=\"/mlops/explanation-provenance-and-validity-boundary\">Production explanations: pin the exact decision and method</a></li><li><a href=\"/mlops/explanation-stability-and-reviewer-use\">Explanation quality gates: stability, reference data and reviewer use</a></li></ul><h2>Production explanations and review evidence project</h2><ul><li><a href=\"/mlops/receipt-explanation-audit-project\">Project: audit an explanation for a disputed receipt decision</a></li></ul><h2>Asynchronous inference and result reconciliation</h2><ul><li><a href=\"/mlops/async-inference-job-contract-and-expiry\">Asynchronous inference: bind a queued job to immutable inputs</a></li><li><a href=\"/mlops/async-result-ledger-and-replay\">Async result ledgers: reconcile output, failure and notification</a></li></ul><h2>Asynchronous inference and result reconciliation project</h2><ul><li><a href=\"/mlops/receipt-async-inference-project\">Project: reconcile a queued receipt classification job</a></li></ul><h2>Prediction cache identity and expiry</h2><ul><li><a href=\"/mlops/prediction-cache-key-and-version-identity\">Prediction caches: key by every input that changes the decision</a></li><li><a href=\"/mlops/prediction-cache-invalidation-and-audit\">Cache invalidation tests for model, feature and policy changes</a></li></ul><h2>Prediction cache identity and expiry project</h2><ul><li><a href=\"/mlops/receipt-cache-consistency-project\">Project: prove receipt prediction-cache identity across releases</a></li></ul><h2>Optimized model releases and numerical parity</h2><ul><li><a href=\"/mlops/optimized-model-calibration-and-parity\">Optimized model release: calibration, score drift and parity</a></li><li><a href=\"/mlops/optimized-model-hardware-matrix-and-fallback\">Hardware matrix for optimized models: provider support and fallback</a></li></ul><h2>Optimized model releases and numerical parity project</h2><ul><li><a href=\"/mlops/receipt-optimized-inference-project\">Project: release a faster receipt model without changing review routes</a></li></ul><h2>Training-data poisoning and recovery</h2><ul><li><a href=\"/mlops/training-source-admission-and-quarantine\">Training source admission: provenance, trust tiers and quarantine</a></li><li><a href=\"/mlops/poisoning-signal-triage-and-clean-retrain\">Poisoning signal triage: isolate influence and recover a clean model</a></li></ul><h2>Training-data poisoning and recovery project</h2><ul><li><a href=\"/mlops/receipt-training-source-incident-project\">Project: investigate suspect receipt labels and rebuild safely</a></li></ul><h2>Model runtime dependencies and patch response</h2><ul><li><a href=\"/mlops/model-runtime-dependency-inventory\">Model runtime inventory: packages, loaders and execution providers</a></li><li><a href=\"/mlops/runtime-patch-canary-and-rollback\">Runtime patch canaries: security fix without model drift</a></li></ul><h2>Model runtime dependencies and patch response project</h2><ul><li><a href=\"/mlops/receipt-runtime-patch-project\">Project: patch a receipt-model loader across mixed hosts</a></li></ul><h2>Inference cost attribution and budget gates</h2><ul><li><a href=\"/mlops/inference-cost-ledger-and-allocation\">Inference cost ledger: allocate shared capacity without false precision</a></li><li><a href=\"/mlops/inference-budget-gates-and-capacity-tradeoffs\">Inference budget gates: cost, latency and quality together</a></li></ul><h2>Inference cost attribution and budget gates project</h2><ul><li><a href=\"/mlops/receipt-inference-cost-project\">Project: explain a receipt-model serving cost spike</a></li></ul><h2>Stateful stream inference and event-time recovery</h2><ul><li><a href=\"/mlops/stream-inference-event-time-and-state-contract\">Stream inference: event time, feature state and decision identity</a></li><li><a href=\"/mlops/stream-scoring-replay-and-output-reconciliation\">Stream scoring replay: checkpoints, duplicates and output reconciliation</a></li></ul><h2>Stateful stream inference and event-time recovery project</h2><ul><li><a href=\"/mlops/receipt-stream-scoring-project\">Project: recover a receipt stream scorer after offline uploads</a></li></ul><h2>Selective feedback and evaluation coverage</h2><ul><li><a href=\"/mlops/selective-label-observation-and-audit-sampling\">Selective labels: measure what the model never lets reviewers see</a></li><li><a href=\"/mlops/feedback-policy-shift-and-offline-comparison\">Feedback policy shift: compare models when labels depend on routing</a></li></ul><h2>Selective feedback and evaluation coverage project</h2><ul><li><a href=\"/mlops/receipt-feedback-coverage-project\">Project: audit blind spots in receipt-risk feedback</a></li></ul><h2>Registry recovery and artifact restore</h2><ul><li><a href=\"/mlops/registry-backup-artifact-and-metadata-consistency\">Model registry backups: keep metadata and artifact bytes consistent</a></li><li><a href=\"/mlops/registry-restore-and-promotion-reconciliation\">Registry restore: reconcile aliases, approvals and serving pointers</a></li></ul><h2>Registry recovery and artifact restore project</h2><ul><li><a href=\"/mlops/receipt-registry-disaster-drill-project\">Project: restore a receipt-model registry without changing live decisions</a></li></ul><h2>Model cascades and component release contracts</h2><ul><li><a href=\"/mlops/cascade-model-version-manifest-and-routing\">Model cascades: pin component versions and route decisions</a></li><li><a href=\"/mlops/cascade-budget-and-degraded-path-gates\">Cascade release gates: branch quality, deadlines and cost</a></li></ul><h2>Model cascades and component release contracts project</h2><ul><li><a href=\"/mlops/receipt-cascade-release-project\">Project: release a receipt-quality and risk-model cascade</a></li></ul><h2>Federated training round operations</h2><ul><li><a href=\"/mlops/federated-round-eligibility-and-update-identity\">Federated rounds: eligible clients, base models and update identity</a></li><li><a href=\"/mlops/federated-aggregation-dropout-and-privacy-boundary\">Federated aggregation: dropout, contribution caps and privacy limits</a></li></ul><h2>Federated training round operations project</h2><ul><li><a href=\"/mlops/scanner-federated-round-project\">Project: coordinate a field-scanner federated training round</a></li></ul><h2>Generative application release contracts</h2><ul><li><a href=\"/mlops/generative-release-manifest-and-prompt-model-binding\">Generative releases: bind prompt, model, tools and output contract</a></li><li><a href=\"/mlops/generative-evaluation-and-abstention-gates\">Generative evaluation gates: grounded claims, schemas and abstention</a></li></ul><h2>Generative application release contracts project</h2><ul><li><a href=\"/mlops/maintenance-summary-release-project\">Project: release a maintenance-ticket summarizer with evidence gates</a></li></ul><h2>Distributed experiment search governance</h2><ul><li><a href=\"/mlops/search-trial-lineage-and-resource-isolation\">Distributed model search: trial lineage and resource isolation</a></li><li><a href=\"/mlops/pruning-budgets-and-fair-trial-comparison\">Trial pruning: spend less compute without biasing model selection</a></li></ul><h2>Distributed experiment search governance project</h2><ul><li><a href=\"/mlops/parcel-model-search-project\">Project: govern a distributed parcel-damage model search</a></li></ul><h2>Label taxonomy migrations and dual evaluation</h2><ul><li><a href=\"/mlops/label-taxonomy-version-and-migration\">Label taxonomy migrations: preserve meaning across retraining</a></li><li><a href=\"/mlops/dual-label-evaluation-and-compatibility\">Dual-label evaluation: compare models across a target migration</a></li></ul><h2>Label taxonomy migrations and dual evaluation project</h2><ul><li><a href=\"/mlops/scanner-label-taxonomy-migration-project\">Project: split scanner defect labels without breaking old clients</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8000,
+    "status": "published",
+    "published_at": "2026-10-04T20:58:23.502482+00:00",
+    "created_at": "2026-10-04T20:58:23.502482+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Build and promotion",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "mlops/run-manifest-and-artifact-lineage",
+            "mlops/feature-training-serving-parity",
+            "mlops/model-registry-promotion-gates"
+          ]
+        },
+        {
+          "title": "Release and operate",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "mlops/shadow-canary-and-rollback",
+            "mlops/drift-delayed-label-monitoring",
+            "mlops/retraining-trigger-and-challenger",
+            "mlops/inference-logging-privacy"
+          ]
+        },
+        {
+          "title": "Feature contracts and data admission",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/feature-contract-and-admission-gates",
+            "mlops/feature-schema-evolution-and-consumers"
+          ]
+        },
+        {
+          "title": "Serving reliability and capacity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/inference-latency-budget-and-tail-observation",
+            "mlops/queue-saturation-and-fallback-policy"
+          ]
+        },
+        {
+          "title": "Model artifact trust and release evidence",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/model-artifact-digest-and-safe-loading",
+            "mlops/promotion-attestation-and-reversible-pointer"
+          ]
+        },
+        {
+          "title": "Outcome feedback and label lineage",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/prediction-outcome-join-and-maturity",
+            "mlops/label-corrections-and-evaluation-ledger"
+          ]
+        },
+        {
+          "title": "Reproducible training pipelines",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/pipeline-stage-inputs-and-cache-identity",
+            "mlops/snapshot-split-and-environment-replay"
+          ]
+        },
+        {
+          "title": "Batch inference and replay",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/batch-inference-partition-and-idempotency",
+            "mlops/batch-replay-versioning-and-consumer-reconciliation"
+          ]
+        },
+        {
+          "title": "Monitoring alerts and incident response",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/model-alert-symptoms-ownership-and-noise",
+            "mlops/incident-triage-and-evidence-timeline"
+          ]
+        },
+        {
+          "title": "Model retirement and retained evidence",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/model-consumer-inventory-and-retirement-gates",
+            "mlops/retention-and-derivative-deletion-boundary"
+          ]
+        },
+        {
+          "title": "ML release testing and environment gates",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/ml-test-pyramid-and-data-fixtures",
+            "mlops/environment-promotion-and-smoke-contracts"
+          ]
+        },
+        {
+          "title": "Online feature freshness",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/online-feature-freshness-budget-and-ttl",
+            "mlops/late-feature-materialization-and-read-repair"
+          ]
+        },
+        {
+          "title": "Live model experiments and exposure evidence",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/sticky-model-assignment-and-exposure-logging",
+            "mlops/experiment-guardrails-and-interference"
+          ]
+        },
+        {
+          "title": "Training capacity and interruption recovery",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/training-checkpoints-and-preemption-recovery",
+            "mlops/training-budget-and-resource-admission"
+          ]
+        },
+        {
+          "title": "Model risk evidence and release scope",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/model-card-scope-and-limitation-register",
+            "mlops/slice-quality-gates-and-uncertainty"
+          ]
+        },
+        {
+          "title": "Inference API compatibility and caller migration",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/inference-request-response-contracts",
+            "mlops/inference-client-migration-and-contract-tests"
+          ]
+        },
+        {
+          "title": "Inference failover and recovery identity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/region-failover-model-and-feature-identity",
+            "mlops/failover-drills-and-decision-reconciliation"
+          ]
+        },
+        {
+          "title": "Shared model serving and capacity isolation",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/multi-model-admission-and-noisy-neighbors",
+            "mlops/model-cache-warmup-and-capacity-planning"
+          ]
+        },
+        {
+          "title": "Score policy and human review controls",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/score-threshold-policy-and-change-control",
+            "mlops/human-override-and-adjudication-ledger"
+          ]
+        },
+        {
+          "title": "Monitoring evidence and telemetry limits",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/monitoring-cardinality-and-metric-identities",
+            "mlops/trace-sampling-and-coverage-ledger"
+          ]
+        },
+        {
+          "title": "Multi-stage inference and dependency failure",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/inference-chain-contracts-and-stage-identity",
+            "mlops/stage-deadline-and-degraded-path-tests"
+          ]
+        },
+        {
+          "title": "Inference resource protection and request identity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/inference-payload-and-compute-admission",
+            "mlops/idempotent-inference-retries-and-quotas"
+          ]
+        },
+        {
+          "title": "Edge model release and offline recovery",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/edge-model-manifests-and-cohort-rollouts",
+            "mlops/edge-offline-telemetry-and-rollback"
+          ]
+        },
+        {
+          "title": "Production explanations and review evidence",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/explanation-provenance-and-validity-boundary",
+            "mlops/explanation-stability-and-reviewer-use"
+          ]
+        },
+        {
+          "title": "Asynchronous inference and result reconciliation",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/async-inference-job-contract-and-expiry",
+            "mlops/async-result-ledger-and-replay"
+          ]
+        },
+        {
+          "title": "Prediction cache identity and expiry",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/prediction-cache-key-and-version-identity",
+            "mlops/prediction-cache-invalidation-and-audit"
+          ]
+        },
+        {
+          "title": "Optimized model releases and numerical parity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/optimized-model-calibration-and-parity",
+            "mlops/optimized-model-hardware-matrix-and-fallback"
+          ]
+        },
+        {
+          "title": "Training-data poisoning and recovery",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/training-source-admission-and-quarantine",
+            "mlops/poisoning-signal-triage-and-clean-retrain"
+          ]
+        },
+        {
+          "title": "Model runtime dependencies and patch response",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/model-runtime-dependency-inventory",
+            "mlops/runtime-patch-canary-and-rollback"
+          ]
+        },
+        {
+          "title": "Inference cost attribution and budget gates",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/inference-cost-ledger-and-allocation",
+            "mlops/inference-budget-gates-and-capacity-tradeoffs"
+          ]
+        },
+        {
+          "title": "Stateful stream inference and event-time recovery",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/stream-inference-event-time-and-state-contract",
+            "mlops/stream-scoring-replay-and-output-reconciliation"
+          ]
+        },
+        {
+          "title": "Selective feedback and evaluation coverage",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/selective-label-observation-and-audit-sampling",
+            "mlops/feedback-policy-shift-and-offline-comparison"
+          ]
+        },
+        {
+          "title": "Registry recovery and artifact restore",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/registry-backup-artifact-and-metadata-consistency",
+            "mlops/registry-restore-and-promotion-reconciliation"
+          ]
+        },
+        {
+          "title": "Model cascades and component release contracts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/cascade-model-version-manifest-and-routing",
+            "mlops/cascade-budget-and-degraded-path-gates"
+          ]
+        },
+        {
+          "title": "Federated training round operations",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/federated-round-eligibility-and-update-identity",
+            "mlops/federated-aggregation-dropout-and-privacy-boundary"
+          ]
+        },
+        {
+          "title": "Generative application release contracts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/generative-release-manifest-and-prompt-model-binding",
+            "mlops/generative-evaluation-and-abstention-gates"
+          ]
+        },
+        {
+          "title": "Distributed experiment search governance",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/search-trial-lineage-and-resource-isolation",
+            "mlops/pruning-budgets-and-fair-trial-comparison"
+          ]
+        },
+        {
+          "title": "Label taxonomy migrations and dual evaluation",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "mlops/label-taxonomy-version-and-migration",
+            "mlops/dual-label-evaluation-and-compatibility"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "mlops/receipt-triage-release-project",
+            "mlops/receipt-feature-admission-project",
+            "mlops/receipt-serving-slo-project",
+            "mlops/trusted-model-promotion-project",
+            "mlops/receipt-outcome-feedback-project",
+            "mlops/reproducible-training-run-project",
+            "mlops/nightly-receipt-batch-project",
+            "mlops/receipt-model-incident-drill-project",
+            "mlops/receipt-model-retirement-project",
+            "mlops/receipt-ci-release-gate-project",
+            "mlops/receipt-feature-freshness-project",
+            "mlops/receipt-model-experiment-project",
+            "mlops/receipt-training-recovery-project",
+            "mlops/receipt-model-card-review-project",
+            "mlops/receipt-inference-api-migration-project",
+            "mlops/receipt-region-failover-project",
+            "mlops/receipt-shared-serving-capacity-project",
+            "mlops/receipt-score-policy-project",
+            "mlops/receipt-monitoring-evidence-project",
+            "mlops/receipt-inference-chain-project",
+            "mlops/receipt-endpoint-resource-guard-project",
+            "mlops/handheld-receipt-edge-release-project",
+            "mlops/receipt-explanation-audit-project",
+            "mlops/receipt-async-inference-project",
+            "mlops/receipt-cache-consistency-project",
+            "mlops/receipt-optimized-inference-project",
+            "mlops/receipt-training-source-incident-project",
+            "mlops/receipt-runtime-patch-project",
+            "mlops/receipt-inference-cost-project",
+            "mlops/receipt-stream-scoring-project",
+            "mlops/receipt-feedback-coverage-project",
+            "mlops/receipt-registry-disaster-drill-project",
+            "mlops/receipt-cascade-release-project",
+            "mlops/scanner-federated-round-project",
+            "mlops/maintenance-summary-release-project",
+            "mlops/parcel-model-search-project",
+            "mlops/scanner-label-taxonomy-migration-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "MLOps",
+          "path": "mlops/mlops-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "mlops/mlops-tutorial/project"
+        }
+      ],
+      "related": [
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        }
+      ]
+    }
+  },
+  {
+    "id": "892521e9-66fd-5c97-8904-f46ba14951db",
+    "type": "subject",
+    "path": "mlops/mlops-tutorial/project",
+    "title": "MLOps: Projects",
+    "summary": "A checked project for the MLOps curriculum.",
+    "body": "<p>Apply the MLOps curriculum to a checked project.</p><h2>Project brief</h2><ul><li><a href=\"/mlops/receipt-triage-release-project\">Project: release receipt triage with lineage, canary checks and rollback</a></li></ul><h2>Required concepts</h2><ul><li><a href=\"/mlops/run-manifest-and-artifact-lineage\">Training manifests: link data, code, configuration and artifact</a></li><li><a href=\"/mlops/feature-training-serving-parity\">Training-serving parity: compare feature values at one prediction clock</a></li><li><a href=\"/mlops/model-registry-promotion-gates\">Model promotion: require evidence before changing the serving pointer</a></li><li><a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a></li><li><a href=\"/mlops/drift-delayed-label-monitoring\">Model monitoring: separate input drift, data faults and delayed outcomes</a></li><li><a href=\"/mlops/retraining-trigger-and-challenger\">Retraining decisions: require a reason and a challenger comparison</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li></ul><h2>Completion standard</h2><p>Submit runnable work, a data or run manifest, measured results and failure-case evidence.</p><h2>Feature contracts and data admission</h2><ul><li><a href=\"/mlops/receipt-feature-admission-project\">Project: release a versioned receipt feature admission gate</a></li></ul><h2>Serving reliability and capacity</h2><ul><li><a href=\"/mlops/receipt-serving-slo-project\">Project: operate receipt scoring with a deadline and overload path</a></li></ul><h2>Model artifact trust and release evidence</h2><ul><li><a href=\"/mlops/trusted-model-promotion-project\">Project: promote a receipt model with artifact and rollback evidence</a></li></ul><h2>Outcome feedback and label lineage</h2><ul><li><a href=\"/mlops/receipt-outcome-feedback-project\">Project: build a versioned receipt outcome feedback loop</a></li></ul><h2>Reproducible training pipelines</h2><ul><li><a href=\"/mlops/reproducible-training-run-project\">Project: replay a receipt model from frozen training evidence</a></li></ul><h2>Batch inference and replay</h2><ul><li><a href=\"/mlops/nightly-receipt-batch-project\">Project: publish and replay a nightly receipt scoring partition</a></li></ul><h2>Monitoring alerts and incident response</h2><ul><li><a href=\"/mlops/receipt-model-incident-drill-project\">Project: run a receipt-model incident drill with honest mitigation</a></li></ul><h2>Model retirement and retained evidence</h2><ul><li><a href=\"/mlops/receipt-model-retirement-project\">Project: retire a receipt model without breaking batch or audit</a></li></ul><h2>ML release testing and environment gates</h2><ul><li><a href=\"/mlops/receipt-ci-release-gate-project\">Project: gate a receipt model through CI and staging</a></li></ul><h2>Online feature freshness</h2><ul><li><a href=\"/mlops/receipt-feature-freshness-project\">Project: keep receipt scoring safe during feature publication lag</a></li></ul><h2>Live model experiments and exposure evidence</h2><ul><li><a href=\"/mlops/receipt-model-experiment-project\">Project: run a receipt-model experiment with exposure evidence</a></li></ul><h2>Training capacity and interruption recovery</h2><ul><li><a href=\"/mlops/receipt-training-recovery-project\">Project: resume receipt-model training under a compute budget</a></li></ul><h2>Model risk evidence and release scope</h2><ul><li><a href=\"/mlops/receipt-model-card-review-project\">Project: approve a receipt model with a scoped evidence dossier</a></li></ul><h2>Inference API compatibility and caller migration</h2><ul><li><a href=\"/mlops/receipt-inference-api-migration-project\">Project: migrate receipt inference callers without breaking decisions</a></li></ul><h2>Inference failover and recovery identity</h2><ul><li><a href=\"/mlops/receipt-region-failover-project\">Project: fail over receipt inference and reconcile every decision</a></li></ul><h2>Shared model serving and capacity isolation</h2><ul><li><a href=\"/mlops/receipt-shared-serving-capacity-project\">Project: protect receipt inference in a shared model pool</a></li></ul><h2>Score policy and human review controls</h2><ul><li><a href=\"/mlops/receipt-score-policy-project\">Project: release a receipt threshold with review evidence</a></li></ul><h2>Monitoring evidence and telemetry limits</h2><ul><li><a href=\"/mlops/receipt-monitoring-evidence-project\">Project: measure receipt inference without losing the denominator</a></li></ul><h2>Multi-stage inference and dependency failure</h2><ul><li><a href=\"/mlops/receipt-inference-chain-project\">Project: verify a receipt extraction-to-decision chain</a></li></ul><h2>Inference resource protection and request identity</h2><ul><li><a href=\"/mlops/receipt-endpoint-resource-guard-project\">Project: protect receipt inference from expensive and repeated input</a></li></ul><h2>Edge model release and offline recovery</h2><ul><li><a href=\"/mlops/handheld-receipt-edge-release-project\">Project: stage a receipt-quality model on offline handhelds</a></li></ul><h2>Production explanations and review evidence</h2><ul><li><a href=\"/mlops/receipt-explanation-audit-project\">Project: audit an explanation for a disputed receipt decision</a></li></ul><h2>Asynchronous inference and result reconciliation</h2><ul><li><a href=\"/mlops/receipt-async-inference-project\">Project: reconcile a queued receipt classification job</a></li></ul><h2>Prediction cache identity and expiry</h2><ul><li><a href=\"/mlops/receipt-cache-consistency-project\">Project: prove receipt prediction-cache identity across releases</a></li></ul><h2>Optimized model releases and numerical parity</h2><ul><li><a href=\"/mlops/receipt-optimized-inference-project\">Project: release a faster receipt model without changing review routes</a></li></ul><h2>Training-data poisoning and recovery</h2><ul><li><a href=\"/mlops/receipt-training-source-incident-project\">Project: investigate suspect receipt labels and rebuild safely</a></li></ul><h2>Model runtime dependencies and patch response</h2><ul><li><a href=\"/mlops/receipt-runtime-patch-project\">Project: patch a receipt-model loader across mixed hosts</a></li></ul><h2>Inference cost attribution and budget gates</h2><ul><li><a href=\"/mlops/receipt-inference-cost-project\">Project: explain a receipt-model serving cost spike</a></li></ul><h2>Stateful stream inference and event-time recovery</h2><ul><li><a href=\"/mlops/receipt-stream-scoring-project\">Project: recover a receipt stream scorer after offline uploads</a></li></ul><h2>Selective feedback and evaluation coverage</h2><ul><li><a href=\"/mlops/receipt-feedback-coverage-project\">Project: audit blind spots in receipt-risk feedback</a></li></ul><h2>Registry recovery and artifact restore</h2><ul><li><a href=\"/mlops/receipt-registry-disaster-drill-project\">Project: restore a receipt-model registry without changing live decisions</a></li></ul><h2>Model cascades and component release contracts</h2><ul><li><a href=\"/mlops/receipt-cascade-release-project\">Project: release a receipt-quality and risk-model cascade</a></li></ul><h2>Federated training round operations</h2><ul><li><a href=\"/mlops/scanner-federated-round-project\">Project: coordinate a field-scanner federated training round</a></li></ul><h2>Generative application release contracts</h2><ul><li><a href=\"/mlops/maintenance-summary-release-project\">Project: release a maintenance-ticket summarizer with evidence gates</a></li></ul><h2>Distributed experiment search governance</h2><ul><li><a href=\"/mlops/parcel-model-search-project\">Project: govern a distributed parcel-damage model search</a></li></ul><h2>Label taxonomy migrations and dual evaluation</h2><ul><li><a href=\"/mlops/scanner-label-taxonomy-migration-project\">Project: split scanner defect labels without breaking old clients</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "mlops-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8001,
+    "status": "published",
+    "published_at": "2026-10-04T20:58:23.502482+00:00",
+    "created_at": "2026-10-04T20:58:23.502482+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Projects",
+          "lessons": [
+            "mlops/receipt-triage-release-project",
+            "mlops/receipt-feature-admission-project",
+            "mlops/receipt-serving-slo-project",
+            "mlops/trusted-model-promotion-project",
+            "mlops/receipt-outcome-feedback-project",
+            "mlops/reproducible-training-run-project",
+            "mlops/nightly-receipt-batch-project",
+            "mlops/receipt-model-incident-drill-project",
+            "mlops/receipt-model-retirement-project",
+            "mlops/receipt-ci-release-gate-project",
+            "mlops/receipt-feature-freshness-project",
+            "mlops/receipt-model-experiment-project",
+            "mlops/receipt-training-recovery-project",
+            "mlops/receipt-model-card-review-project",
+            "mlops/receipt-inference-api-migration-project",
+            "mlops/receipt-region-failover-project",
+            "mlops/receipt-shared-serving-capacity-project",
+            "mlops/receipt-score-policy-project",
+            "mlops/receipt-monitoring-evidence-project",
+            "mlops/receipt-inference-chain-project",
+            "mlops/receipt-endpoint-resource-guard-project",
+            "mlops/handheld-receipt-edge-release-project",
+            "mlops/receipt-explanation-audit-project",
+            "mlops/receipt-async-inference-project",
+            "mlops/receipt-cache-consistency-project",
+            "mlops/receipt-optimized-inference-project",
+            "mlops/receipt-training-source-incident-project",
+            "mlops/receipt-runtime-patch-project",
+            "mlops/receipt-inference-cost-project",
+            "mlops/receipt-stream-scoring-project",
+            "mlops/receipt-feedback-coverage-project",
+            "mlops/receipt-registry-disaster-drill-project",
+            "mlops/receipt-cascade-release-project",
+            "mlops/scanner-federated-round-project",
+            "mlops/maintenance-summary-release-project",
+            "mlops/parcel-model-search-project",
+            "mlops/scanner-label-taxonomy-migration-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "MLOps",
+          "path": "mlops/mlops-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "mlops/mlops-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "333cd66a-ce44-5239-8ca5-1423e8246541",
+    "type": "article",
+    "path": "mlops/model-consumer-inventory-and-retirement-gates",
+    "title": "Model retirement: find consumers before removing a version",
+    "summary": "A model version can be removed only after serving, batch, rollback, audit and replay consumers have explicit replacements or retention decisions.",
+    "body": "<p>A model version can be removed only after serving, batch, rollback, audit and replay consumers have explicit replacements or retention decisions.</p><h2>Inventory live and latent consumers</h2><p>The current endpoint is only one consumer. Nightly scoring may pin an old digest, a canary may still receive traffic, and incident rollback may depend on an earlier package. Historical replay, audit investigations and saved evaluation reports may also reference the artifact. List every alias, deployment, scheduled job, workflow and retention obligation by immutable digest. <a href=\"/mlops/promotion-attestation-and-reversible-pointer\">Reversible promotion</a> assumes the old artifact remains loadable during the observation window.</p><h2>Separate stop-serving from deletion</h2><p>First stop new traffic and batch jobs from selecting the old version, then verify no hidden consumer resolves its alias. Mark it retired for new work but retain the package and manifest until rollback and evidence windows close. Deletion may be irreversible in a registry, and a renamed pointer can still be used by a worker that cached the old digest. Check actual invocation logs and scheduled definitions rather than assuming an empty dashboard means no dependency.</p><h2>Preserve enough evidence to explain past decisions</h2><p>A historical customer decision may need its model digest, feature contract, training manifest and decision record even if the raw training data reaches its retention limit. Retention rules differ for model packages, personal data and aggregated metrics. Keep the minimal lawful evidence and delete data under the applicable policy; an audit requirement is not a reason to keep unrestricted raw payloads forever. <a href=\"/mlops/inference-logging-privacy\">Inference privacy</a> and <a href=\"/mlops/run-manifest-and-artifact-lineage\">lineage</a> define what each record contributes.</p><h2>Test a no-consumer state</h2><p>Disable the old alias in staging, run endpoint and batch smoke tests, verify rollback now points to an approved successor and scan scheduled jobs for pinned digests. Require a grace period with zero observed use and an owner sign-off before deleting a package. The <a href=\"/mlops/receipt-model-retirement-project\">retirement project</a> includes a hidden nightly batch consumer so the first deletion attempt must hold.</p><h2>Implementation</h2><pre><code class=\"language-python\">def retirement_gate(model_digest, consumers, rollback_digests,\n                    retention_hold):\n    active = sorted(name for name, digest in consumers.items()\n                    if digest == model_digest)\n    if active:\n        return {&quot;state&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;active-consumers&quot;, &quot;names&quot;: active}\n    if model_digest in rollback_digests:\n        return {&quot;state&quot;: &quot;hold&quot;, &quot;reason&quot;: &quot;rollback-target&quot;}\n    if retention_hold:\n        return {&quot;state&quot;: &quot;retain&quot;, &quot;reason&quot;: &quot;evidence-window&quot;}\n    return {&quot;state&quot;: &quot;eligible-for-review&quot;}\n\njobs = {&quot;online&quot;: &quot;sha256:r8&quot;, &quot;nightly&quot;: &quot;sha256:r7&quot;}\nassert retirement_gate(&quot;sha256:r7&quot;, jobs, set(), False)[&quot;state&quot;] == &quot;hold&quot;\nassert retirement_gate(&quot;sha256:r7&quot;, {&quot;online&quot;: &quot;sha256:r8&quot;},\n                       set(), True)[&quot;state&quot;] == &quot;retain&quot;\n</code></pre><h2>Performance and operating cost</h2><p>Scanning c declared consumers takes O(c) time and O(a log a) for sorting a active names, with O(a) space. The hard part is inventory completeness: a stale configuration outside the registry may still load the artifact. Treat this function as one gate in an observed-use and retention review, not as deletion authorization.</p><h3>Common Mistakes</h3><ul><li>Deleting a version because the main endpoint no longer uses it.</li><li>Removing an artifact still needed for rollback.</li><li>Keeping raw personal data indefinitely because the model package has an audit hold.</li><li>Assuming a registry alias inventory includes every pinned batch job.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/retention-and-derivative-deletion-boundary\">MLOps retention: trace source deletion into features and training artifacts</a></li><li><a href=\"/mlops/receipt-model-retirement-project\">Project: retire a receipt model without breaking batch or audit</a></li><li><a href=\"/mlops/promotion-attestation-and-reversible-pointer\">Promotion evidence: bind evaluation, contract and rollback to one digest</a></li><li><a href=\"/mlops/batch-inference-partition-and-idempotency\">Batch inference: make partitions idempotent and outputs identifiable</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/scanner-label-taxonomy-migration-project\">Project: split scanner defect labels without breaking old clients</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6121,
+    "status": "published",
+    "published_at": "2026-10-06T16:01:38.255226+00:00",
+    "created_at": "2026-10-06T16:01:38.255226+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/retention-and-derivative-deletion-boundary",
+          "title": "MLOps retention: trace source deletion into features and training artifacts"
+        },
+        {
+          "path": "mlops/receipt-model-retirement-project",
+          "title": "Project: retire a receipt model without breaking batch or audit"
+        },
+        {
+          "path": "mlops/promotion-attestation-and-reversible-pointer",
+          "title": "Promotion evidence: bind evaluation, contract and rollback to one digest"
+        },
+        {
+          "path": "mlops/batch-inference-partition-and-idempotency",
+          "title": "Batch inference: make partitions idempotent and outputs identifiable"
+        },
+        {
+          "path": "mlops/inference-logging-privacy",
+          "title": "Inference logs: keep diagnostic joins without copying sensitive payloads"
+        },
+        {
+          "path": "mlops/scanner-label-taxonomy-migration-project",
+          "title": "Project: split scanner defect labels without breaking old clients"
+        }
+      ]
+    }
+  },
+  {
+    "id": "6fe458cc-3fe8-5a41-839c-956c2383a367",
+    "type": "article",
+    "path": "mlops/parcel-model-search-project",
+    "title": "Project: govern a distributed parcel-damage model search",
+    "summary": "Run a bounded search, reject incomparable trials and evaluate the winner without leaking the final holdout.",
+    "body": "<p>Run a bounded search, reject incomparable trials and evaluate the winner without leaking the final holdout.</p><h2>Freeze the parcel problem</h2><p>The task predicts whether a parcel image needs manual damage review. Group images by shipment so frames from one parcel never appear in both training and validation. Pin the snapshot, group split, feature preprocessing, miss-cost metric, search space and worker image. Set a budget of 82 trials and a finite accelerator-hour cap before dispatch. <a href=\"/mlops/search-trial-lineage-and-resource-isolation\">Trial identity</a> rejects workers pointed at a newer image archive or a random split.</p><h2>Exercise worker failure</h2><p>Launch workers with unique trial and checkpoint prefixes. Two accidentally share a prefix; the second resumes a first trial’s checkpoint and emits a plausible metric. Detect the mismatch through trial ID and checkpoint metadata, quarantine both outputs and rerun them cleanly. Another worker reports at step 39 while peers report at step 82; it cannot be pruned by direct score comparison. <a href=\"/mlops/pruning-budgets-and-fair-trial-comparison\">Comparable milestones</a> define the stop rule.</p><h2>Select once, then evaluate</h2><p>At the budget cap, freeze the completed trial list and rerun the chosen configuration from the pinned snapshot. Inspect damage types, camera classes and shipment groups. The top validation candidate improves the global miss-cost objective but loses on crushed-corner parcels; hold it pending a documented quality decision rather than using the untouched final set to pick a different trial. After selection is fixed, evaluate once on the protected final set and record the result without further search.</p><h2>Deliver the release packet</h2><p>Publish trial counts by completed, pruned, failed and quarantined states; total compute, winner lineage, rerun tolerance, slice report and serving-resource estimate. A later search needs a new search revision and its own final evaluation plan. <a href=\"/mlops/model-registry-promotion-gates\">Registry gates</a> should receive the selected artifact only after data, performance and slice checks pass. The project is not complete merely because a scheduler returned a best-trial number.</p><h2>Implementation</h2><pre><code class=\"language-python\">def parcel_search_disposition(trials, budget, selected_trial):\n    if budget &lt;= 0 or len(trials) &gt; budget:\n        return &quot;hold:budget&quot;\n    valid = [trial for trial in trials if trial[&quot;state&quot;] == &quot;completed&quot;\n             and trial[&quot;lineage_ok&quot;]]\n    selected = next((trial for trial in valid\n                     if trial[&quot;trial_id&quot;] == selected_trial), None)\n    if selected is None:\n        return &quot;hold:invalid-winner&quot;\n    if not selected[&quot;slice_gate_passed&quot;]:\n        return &quot;hold:slice-quality&quot;\n    return &quot;evaluate:final-holdout&quot;\n\ntrials = [{&quot;trial_id&quot;: &quot;parcel-47&quot;, &quot;state&quot;: &quot;completed&quot;,\n           &quot;lineage_ok&quot;: True, &quot;slice_gate_passed&quot;: False},\n          {&quot;trial_id&quot;: &quot;parcel-82&quot;, &quot;state&quot;: &quot;completed&quot;,\n           &quot;lineage_ok&quot;: True, &quot;slice_gate_passed&quot;: True}]\nassert parcel_search_disposition(trials, 82, &quot;parcel-47&quot;) == &quot;hold:slice-quality&quot;\nassert parcel_search_disposition(trials, 82, &quot;parcel-82&quot;) ==        &quot;evaluate:final-holdout&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The gate is O(t) time and O(t) temporary space for t trial records. Training dominates cost; the fixed budget makes it visible before results tempt expansion. Retrying corrupted trials adds compute, but accepting mixed checkpoints would make the comparison invalid and could waste a later production rollout.</p><h3>Common Mistakes</h3><ul><li>Sharing checkpoint paths between concurrent trials.</li><li>Pruning a trial from a metric reported at an earlier step.</li><li>Using the final holdout to select among the top search trials.</li><li>Ignoring rare-damage failures because the global objective improved.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/search-trial-lineage-and-resource-isolation\">Distributed model search: trial lineage and resource isolation</a></li><li><a href=\"/mlops/pruning-budgets-and-fair-trial-comparison\">Trial pruning: spend less compute without biasing model selection</a></li><li><a href=\"/mlops/model-registry-promotion-gates\">Model promotion: require evidence before changing the serving pointer</a></li><li><a href=\"/mlops/slice-quality-gates-and-uncertainty\">Slice quality gates when labels are sparse or delayed</a></li><li><a href=\"/mlops/snapshot-split-and-environment-replay\">Training replay: freeze the cohort, split and runtime</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6204,
+    "status": "published",
+    "published_at": "2026-10-06T17:12:52.013057+00:00",
+    "created_at": "2026-10-06T17:12:52.013057+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/search-trial-lineage-and-resource-isolation",
+          "title": "Distributed model search: trial lineage and resource isolation"
+        },
+        {
+          "path": "mlops/pruning-budgets-and-fair-trial-comparison",
+          "title": "Trial pruning: spend less compute without biasing model selection"
+        },
+        {
+          "path": "mlops/model-registry-promotion-gates",
+          "title": "Model promotion: require evidence before changing the serving pointer"
+        },
+        {
+          "path": "mlops/slice-quality-gates-and-uncertainty",
+          "title": "Slice quality gates when labels are sparse or delayed"
+        },
+        {
+          "path": "mlops/snapshot-split-and-environment-replay",
+          "title": "Training replay: freeze the cohort, split and runtime"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f42aaacc-56b2-5329-b8c1-ee02f3cd2bbb",
+    "type": "article",
+    "path": "mlops/pruning-budgets-and-fair-trial-comparison",
+    "title": "Trial pruning: spend less compute without biasing model selection",
+    "summary": "Early stopping saves resources only when comparable trials report the same metric at the same resource milestones.",
+    "body": "<p>Early stopping saves resources only when comparable trials report the same metric at the same resource milestones.</p><h2>Define comparable milestones</h2><p>A search scheduler may stop a parcel classifier after a few training epochs if it appears weak. Compare trials after the same examples, epochs or compute budget, not whichever metric arrived first. Record validation split, metric revision and milestone with every report. A worker that processes fewer rows before reporting looks artificially fast. Define how missing metrics and crashes are represented; neither is a zero score. <a href=\"/mlops/search-trial-lineage-and-resource-isolation\">Trial lineage</a> keeps the comparison on one frozen problem.</p><h2>Avoid pruning slow starters blindly</h2><p>Some configurations improve late. A strict early cutoff can favor models that learn quickly but plateau below slower candidates. Use a warm-up period and a minimum comparison pool, then inspect how often eventual strong candidates would have been pruned in retrospective experiments. Pruning changes the population from which the winner is chosen; report both the saved compute and the selection risk. <a href=\"/mlops/training-checkpoints-and-preemption-recovery\">Checkpoint recovery</a> helps distinguish a slow trial from one repeatedly preempted.</p><h2>Cap the whole search</h2><p>Set a maximum number of trials, total accelerator-hours, wall time and parallel workers before the first result appears. A high metric is not a reason to keep an unbounded search alive. When the cap arrives, stop new trials, retain completed evidence and decide whether more search is justified. Do not silently raise the cap after seeing the final holdout. <a href=\"/mlops/training-budget-and-resource-admission\">Resource admission</a> protects the wider fleet while the search is active.</p><h2>Evaluate the winner independently</h2><p>The best validation score among many trials is selection-biased. Rerun the chosen configuration, inspect slices, then measure once on an untouched final set. A deployment decision also needs latency, memory and threshold behavior, not merely the search objective. <a href=\"/mlops/optimized-model-hardware-matrix-and-fallback\">Hardware qualification</a> tests the serving path. <a href=\"/mlops/parcel-model-search-project\">The project</a> rejects a pruned trial whose metric arrived at an incomparable step and holds a winner with weak rare-damage performance.</p><h2>Implementation</h2><pre><code class=\"language-python\">def prune_trial(report, reference, minimum_step, allowed_gap):\n    if report[&quot;metric_revision&quot;] != reference[&quot;metric_revision&quot;]:\n        return &quot;hold:metric-mismatch&quot;\n    if report[&quot;step&quot;] != reference[&quot;step&quot;]:\n        return &quot;hold:step-mismatch&quot;\n    if report[&quot;step&quot;] &lt; minimum_step:\n        return &quot;continue:warmup&quot;\n    if report[&quot;score&quot;] + allowed_gap &lt; reference[&quot;score&quot;]:\n        return &quot;prune&quot;\n    return &quot;continue&quot;\n\nreference = {&quot;metric_revision&quot;: &quot;miss-cost-r3&quot;, &quot;step&quot;: 82, &quot;score&quot;: 0.74}\ncandidate = {&quot;metric_revision&quot;: &quot;miss-cost-r3&quot;, &quot;step&quot;: 82, &quot;score&quot;: 0.61}\nassert prune_trial(candidate, reference, 47, 0.08) == &quot;prune&quot;\nassert prune_trial({**candidate, &quot;step&quot;: 39}, reference, 47, 0.08) ==        &quot;hold:step-mismatch&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The pruning decision is O(1) time and space after synchronized reports. Earlier stops can save many trial-hours, but every extra validation report consumes compute and data reads. A fixed gap is only a policy illustration; production thresholds need retrospective analysis of saved cost and discarded eventual winners.</p><h3>Common Mistakes</h3><ul><li>Comparing trial metrics at different training steps.</li><li>Recording a crashed trial as a low-performing completed trial.</li><li>Raising the search budget after viewing final-test results.</li><li>Treating the best search score as an unbiased estimate of future performance.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/search-trial-lineage-and-resource-isolation\">Distributed model search: trial lineage and resource isolation</a></li><li><a href=\"/mlops/parcel-model-search-project\">Project: govern a distributed parcel-damage model search</a></li><li><a href=\"/mlops/training-checkpoints-and-preemption-recovery\">Training checkpoints: resume state after interruption</a></li><li><a href=\"/mlops/training-budget-and-resource-admission\">Training resource gates: bound cost before starting a run</a></li><li><a href=\"/mlops/optimized-model-hardware-matrix-and-fallback\">Hardware matrix for optimized models: provider support and fallback</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6203,
+    "status": "published",
+    "published_at": "2026-10-06T17:12:52.013057+00:00",
+    "created_at": "2026-10-06T17:12:52.013057+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/search-trial-lineage-and-resource-isolation",
+          "title": "Distributed model search: trial lineage and resource isolation"
+        },
+        {
+          "path": "mlops/parcel-model-search-project",
+          "title": "Project: govern a distributed parcel-damage model search"
+        },
+        {
+          "path": "mlops/training-checkpoints-and-preemption-recovery",
+          "title": "Training checkpoints: resume state after interruption"
+        },
+        {
+          "path": "mlops/training-budget-and-resource-admission",
+          "title": "Training resource gates: bound cost before starting a run"
+        },
+        {
+          "path": "mlops/optimized-model-hardware-matrix-and-fallback",
+          "title": "Hardware matrix for optimized models: provider support and fallback"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9dd66c43-8131-5db9-955f-895b07c8517d",
+    "type": "article",
+    "path": "mlops/run-manifest-and-artifact-lineage",
+    "title": "Training manifests: link data, code, configuration and artifact",
+    "summary": "A training run is reviewable only when the emitted model can be tied to immutable inputs, code and evaluation evidence.",
+    "body": "<p>A training run is reviewable only when the emitted model can be tied to immutable inputs, code and evaluation evidence.</p><h2>Treat the run as a record</h2><p>Record input snapshot ID, transform version, code revision, dependency set, configuration, random seed and label schema before fitting. Give the run a stable identifier and write the final artifact digest after serialization. A filename called latest cannot establish which data produced the model. <a href=\"/data-science/reproducible-analysis-snapshot\">Analysis snapshots</a> describe the earlier data boundary.</p><h2>Distinguish replay levels</h2><p>A manifest can enable logical reproduction without guaranteeing bitwise identical weights. Accelerator kernels, worker ordering and nondeterministic operations may vary. Record the environment and compare expected metrics within declared tolerances. If exact replay is required, constrain all stochastic inputs and test it explicitly. Do not claim reproducibility because a seed was set in one library.</p><h2>Bind evaluation to the artifact</h2><p>Evaluation records should name the exact model digest and split manifest. Otherwise a good report can be paired with a different binary during promotion. Keep training, validation and final-test IDs distinct; update the report when any input changes. <a href=\"/mlops/model-registry-promotion-gates\">Promotion gates</a> must inspect this immutable pairing.</p><h2>Test a missing field</h2><p>Remove the input snapshot or class mapping from a candidate manifest and make validation fail. Create two artifacts under one run name and assert that their digests distinguish them. The manifest is not a decorative file; deployment checks should reject an incomplete one.</p><h2>Implementation</h2><pre><code class=\"language-python\">from hashlib import sha256\nfrom pathlib import Path\n\ndef artifact_digest(model_file: Path):\n    digest = sha256()\n    with model_file.open(&quot;rb&quot;) as artifact_stream:\n        for block in iter(lambda: artifact_stream.read(1_048_576), b&quot;&quot;):\n            digest.update(block)\n    return digest.hexdigest()\n\nrun_manifest[&quot;artifact_sha256&quot;] = artifact_digest(model_path)</code></pre><h2>Performance and operating cost</h2><p>Hashing a P-byte artifact is O(P) time with O(1) buffer memory. Retaining snapshots and model versions adds storage; the manifest itself is small but prevents expensive provenance guesses.</p><h3>Common Mistakes</h3><ul><li>Do not point evaluation evidence at an unversioned latest file.</li><li>Do not promise bitwise replay from a seed alone.</li><li>Do not promote an artifact without its class and feature schema.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-science/reproducible-analysis-snapshot\">Reproducible analysis snapshots: pin data, code and cutoff together</a></li><li><a href=\"/mlops/model-registry-promotion-gates\">Model promotion: require evidence before changing the serving pointer</a></li><li><a href=\"/mlops/feature-training-serving-parity\">Training-serving parity: compare feature values at one prediction clock</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/model-artifact-digest-and-safe-loading\">Model artifacts: verify digest, origin and loading format</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/pipeline-stage-inputs-and-cache-identity\">Pipeline stages: cache by complete input identity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/retention-and-derivative-deletion-boundary\">MLOps retention: trace source deletion into features and training artifacts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/model-card-scope-and-limitation-register\">Model cards as operating contracts: scope, evidence and limits</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/optimized-model-calibration-and-parity\">Optimized model release: calibration, score drift and parity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/registry-backup-artifact-and-metadata-consistency\">Model registry backups: keep metadata and artifact bytes consistent</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/search-trial-lineage-and-resource-isolation\">Distributed model search: trial lineage and resource isolation</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8112,
+    "status": "published",
+    "published_at": "2026-10-04T20:58:23.502482+00:00",
+    "created_at": "2026-10-04T20:58:23.502482+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "data-science/reproducible-analysis-snapshot",
+          "title": "Reproducible analysis snapshots: pin data, code and cutoff together"
+        },
+        {
+          "path": "mlops/model-registry-promotion-gates",
+          "title": "Model promotion: require evidence before changing the serving pointer"
+        },
+        {
+          "path": "mlops/feature-training-serving-parity",
+          "title": "Training-serving parity: compare feature values at one prediction clock"
+        },
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "mlops/model-artifact-digest-and-safe-loading",
+          "title": "Model artifacts: verify digest, origin and loading format"
+        },
+        {
+          "path": "mlops/pipeline-stage-inputs-and-cache-identity",
+          "title": "Pipeline stages: cache by complete input identity"
+        },
+        {
+          "path": "mlops/retention-and-derivative-deletion-boundary",
+          "title": "MLOps retention: trace source deletion into features and training artifacts"
+        },
+        {
+          "path": "mlops/model-card-scope-and-limitation-register",
+          "title": "Model cards as operating contracts: scope, evidence and limits"
+        },
+        {
+          "path": "mlops/optimized-model-calibration-and-parity",
+          "title": "Optimized model release: calibration, score drift and parity"
+        },
+        {
+          "path": "mlops/registry-backup-artifact-and-metadata-consistency",
+          "title": "Model registry backups: keep metadata and artifact bytes consistent"
+        },
+        {
+          "path": "mlops/search-trial-lineage-and-resource-isolation",
+          "title": "Distributed model search: trial lineage and resource isolation"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9d7381ea-5f18-5d59-8a85-9920115611dc",
+    "type": "article",
+    "path": "mlops/scanner-label-taxonomy-migration-project",
+    "title": "Project: split scanner defect labels without breaking old clients",
+    "summary": "Migrate a binary defect label into specific classes, review ambiguous history and stage a dual-output model.",
+    "body": "<p>Migrate a binary defect label into specific classes, review ambiguous history and stage a dual-output model.</p><h2>Freeze old and new definitions</h2><p>A scanner fleet currently marks shipping labels damaged or clear. Operations now distinguishes torn labels, blurred print and other damage because each routes to a different repair action. Publish exact class definitions and a new taxonomy revision. Preserve original labels and annotation source IDs. The old damaged class cannot be split from its name alone, so create an adjudication queue rather than an automatic remap. <a href=\"/mlops/label-taxonomy-version-and-migration\">Migration rules</a> keep unknown records explicit.</p><h2>Build a clean transition snapshot</h2><p>Take a pinned training snapshot, deterministically map clear and any independently verified unreadable cases, then relabel a sampled set of old damaged cases from retained source evidence. Exclude or hold records whose evidence is unavailable. Split by shipment and time, fitting preprocessing only inside training folds. Keep the new evaluation set independent of records used to settle migration choices. <a href=\"/mlops/snapshot-split-and-environment-replay\">Snapshot replay</a> lets an editor reconstruct both views.</p><h2>Test both client generations</h2><p>Train a four-class candidate and define a reviewed projection to old binary routes. Run native class quality, rare torn-label slices, confidence failures and the old route contract on frozen examples. A new label code that an old client interprets as clear must fail contract tests. Stage new and old clients separately, logging model digest, taxonomy revision and projection revision. <a href=\"/mlops/dual-label-evaluation-and-compatibility\">Dual evaluation</a> prevents a better four-class score from hiding a worse binary route.</p><h2>Finish with a reversible cutover</h2><p>Promote only after both quality and compatibility gates pass. Keep the prior model and binary projection until the consumer inventory shows all clients upgraded. Record remaining ambiguous history and exclude it from claims about new-class quality. If a new client fails, restore the prior complete route while preserving labels and lineage; do not rewrite historical examples to fit the rollback. <a href=\"/mlops/model-consumer-inventory-and-retirement-gates\">Retirement checks</a> determine when old output support can actually end.</p><h2>Implementation</h2><pre><code class=\"language-python\">def taxonomy_cutover_gate(class_gate, legacy_gate,\n                          unresolved_records, allowed_unresolved):\n    if unresolved_records &lt; 0 or allowed_unresolved &lt; 0:\n        raise ValueError(&quot;invalid unresolved count&quot;)\n    if not class_gate:\n        return &quot;hold:new-classes&quot;\n    if not legacy_gate:\n        return &quot;hold:legacy-route&quot;\n    if unresolved_records &gt; allowed_unresolved:\n        return &quot;hold:adjudication&quot;\n    return &quot;stage:dual-output&quot;\n\nassert taxonomy_cutover_gate(True, True, 39, 47) == &quot;stage:dual-output&quot;\nassert taxonomy_cutover_gate(True, False, 39, 47) == &quot;hold:legacy-route&quot;\nassert taxonomy_cutover_gate(True, True, 82, 47) == &quot;hold:adjudication&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The gate is O(1) time and space after evaluation. Relabeling ambiguous history and running two client contracts cost time, but prevent an apparently successful new classifier from breaking old routing. Maintaining dual output temporarily adds code and monitoring; retire it only when actual consumer usage and contract evidence support removal.</p><h3>Common Mistakes</h3><ul><li>Auto-splitting the old damaged class without image evidence.</li><li>Combining old and new taxonomies under one accuracy figure.</li><li>Deploying new class indices to older clients.</li><li>Deleting the compatibility route before all consumers migrate.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/label-taxonomy-version-and-migration\">Label taxonomy migrations: preserve meaning across retraining</a></li><li><a href=\"/mlops/dual-label-evaluation-and-compatibility\">Dual-label evaluation: compare models across a target migration</a></li><li><a href=\"/mlops/snapshot-split-and-environment-replay\">Training replay: freeze the cohort, split and runtime</a></li><li><a href=\"/mlops/inference-client-migration-and-contract-tests\">Migrate inference clients with compatibility tests and usage evidence</a></li><li><a href=\"/mlops/model-consumer-inventory-and-retirement-gates\">Model retirement: find consumers before removing a version</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6207,
+    "status": "published",
+    "published_at": "2026-10-06T17:12:52.013057+00:00",
+    "created_at": "2026-10-06T17:12:52.013057+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/label-taxonomy-version-and-migration",
+          "title": "Label taxonomy migrations: preserve meaning across retraining"
+        },
+        {
+          "path": "mlops/dual-label-evaluation-and-compatibility",
+          "title": "Dual-label evaluation: compare models across a target migration"
+        },
+        {
+          "path": "mlops/snapshot-split-and-environment-replay",
+          "title": "Training replay: freeze the cohort, split and runtime"
+        },
+        {
+          "path": "mlops/inference-client-migration-and-contract-tests",
+          "title": "Migrate inference clients with compatibility tests and usage evidence"
+        },
+        {
+          "path": "mlops/model-consumer-inventory-and-retirement-gates",
+          "title": "Model retirement: find consumers before removing a version"
+        }
+      ]
+    }
+  },
+  {
+    "id": "47aa9138-bb1d-560d-a126-9fd4da8fa6f8",
+    "type": "article",
+    "path": "mlops/search-trial-lineage-and-resource-isolation",
+    "title": "Distributed model search: trial lineage and resource isolation",
+    "summary": "A search result is useful only when each trial has a comparable dataset, split, metric and resource budget.",
+    "body": "<p>A search result is useful only when each trial has a comparable dataset, split, metric and resource budget.</p><h2>Freeze the search contract</h2><p>A parcel-damage model search runs many candidates in parallel. Pin the training snapshot, feature code, split IDs, target definition, metric implementation and search-space revision before dispatch. Each trial receives a unique ID, parameter set, seed policy, image digest and resource request. A trial that reads a newer dataset is a separate experiment, even if its parameters look identical. <a href=\"/mlops/run-manifest-and-artifact-lineage\">Run manifests</a> provide the artifact trail; <a href=\"/mlops/snapshot-split-and-environment-replay\">snapshot replay</a> keeps the comparison fair.</p><h2>Separate workers and side effects</h2><p>Trial workers should write outputs under unique IDs and never share a mutable checkpoint path. An interrupted worker may retry the same trial ID only under an idempotent claim, or it may create duplicate results that skew selection. Limit CPU, accelerator, memory and concurrent trials so the search cannot starve serving or other training jobs. Record queued, running, pruned, failed and completed states. <a href=\"/mlops/training-budget-and-resource-admission\">Training admission</a> supplies the larger resource boundary.</p><h2>Keep selection data out of training</h2><p>Fit preprocessing within each training fold and evaluate on its corresponding validation fold. Do not inspect the untouched final set after every trial or adapt the search space to it; repeated peeking turns it into a tuning set. Group or time boundaries must match deployment. A high validation score from leaked entity overlap is not a production gain. <a href=\"/mlops/feature-training-serving-parity\">Feature parity</a> and <a href=\"/mlops/slice-quality-gates-and-uncertainty\">slice gates</a> test the selected candidate after the search.</p><h2>Promote the reproducible winner</h2><p>Store the winner’s full trial lineage and rerun it from the pinned snapshot. Compare the rerun within a stated tolerance, then evaluate it once on the reserved final set and against the approved baseline. Report failed and pruned trials rather than only the winner. <a href=\"/mlops/pruning-budgets-and-fair-trial-comparison\">Pruning controls</a> define fair early stops; <a href=\"/mlops/parcel-model-search-project\">the project</a> catches two workers that accidentally share a checkpoint prefix.</p><h2>Implementation</h2><pre><code class=\"language-python\">def trial_identity(trial, search_manifest):\n    required = (&quot;snapshot_digest&quot;, &quot;split_digest&quot;, &quot;metric_revision&quot;,\n                &quot;search_revision&quot;)\n    for name in required:\n        if trial.get(name) != search_manifest.get(name):\n            return &quot;reject:&quot; + name\n    if not trial.get(&quot;trial_id&quot;) or not trial.get(&quot;image_digest&quot;):\n        return &quot;reject:identity&quot;\n    return &quot;admit&quot;\n\nmanifest = {&quot;snapshot_digest&quot;: &quot;parcel-s47&quot;, &quot;split_digest&quot;: &quot;group-r8&quot;,\n            &quot;metric_revision&quot;: &quot;miss-cost-r3&quot;, &quot;search_revision&quot;: &quot;space-r4&quot;}\ntrial = {**manifest, &quot;trial_id&quot;: &quot;parcel-trial-82&quot;, &quot;image_digest&quot;: &quot;image-r31&quot;}\nassert trial_identity(trial, manifest) == &quot;admit&quot;\nassert trial_identity({**trial, &quot;split_digest&quot;: &quot;random-r7&quot;},\n                      manifest) == &quot;reject:split_digest&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The identity check is O(k) time and O(1) extra space for k pinned fields. The search itself costs the sum of trial training time and storage, plus scheduler contention. Strong resource isolation may leave some accelerators temporarily idle but prevents a broad search from delaying approved production work.</p><h3>Common Mistakes</h3><ul><li>Comparing trials trained on different snapshots under one search ID.</li><li>Letting workers overwrite a shared checkpoint path.</li><li>Tuning against the final test set after each promising result.</li><li>Publishing only the best score while hiding trial failures and budget.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/pruning-budgets-and-fair-trial-comparison\">Trial pruning: spend less compute without biasing model selection</a></li><li><a href=\"/mlops/parcel-model-search-project\">Project: govern a distributed parcel-damage model search</a></li><li><a href=\"/mlops/run-manifest-and-artifact-lineage\">Training manifests: link data, code, configuration and artifact</a></li><li><a href=\"/mlops/snapshot-split-and-environment-replay\">Training replay: freeze the cohort, split and runtime</a></li><li><a href=\"/mlops/training-budget-and-resource-admission\">Training resource gates: bound cost before starting a run</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6202,
+    "status": "published",
+    "published_at": "2026-10-06T17:12:52.013057+00:00",
+    "created_at": "2026-10-06T17:12:52.013057+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/pruning-budgets-and-fair-trial-comparison",
+          "title": "Trial pruning: spend less compute without biasing model selection"
+        },
+        {
+          "path": "mlops/parcel-model-search-project",
+          "title": "Project: govern a distributed parcel-damage model search"
+        },
+        {
+          "path": "mlops/run-manifest-and-artifact-lineage",
+          "title": "Training manifests: link data, code, configuration and artifact"
+        },
+        {
+          "path": "mlops/snapshot-split-and-environment-replay",
+          "title": "Training replay: freeze the cohort, split and runtime"
+        },
+        {
+          "path": "mlops/training-budget-and-resource-admission",
+          "title": "Training resource gates: bound cost before starting a run"
+        }
+      ]
+    }
+  },
+  {
+    "id": "d820c45e-0c22-5670-b09d-86ae7df51dfb",
+    "type": "article",
+    "path": "mlops/snapshot-split-and-environment-replay",
+    "title": "Training replay: freeze the cohort, split and runtime",
+    "summary": "Reproducing a model requires the same eligible population and split boundary, not merely the same training script.",
+    "body": "<p>Reproducing a model requires the same eligible population and split boundary, not merely the same training script.</p><h2>Freeze the population at a declared cutoff</h2><p>A receipt model trained on settled outcomes must name the data snapshot and the latest outcome timestamp allowed into training. An updated table can acquire late labels or corrected rows after the first run. Querying it again by the same date filter may return a different cohort. Store immutable row identifiers or a content-addressed snapshot and record exclusions. <a href=\"/mlops/prediction-outcome-join-and-maturity\">Outcome maturity</a> prevents recent unresolved transactions from becoming accidental negative examples.</p><h2>Make the split reproducible and defensible</h2><p>A random seed only repeats a random split for identical ordered rows. If rows arrive in a different order, assignments may change. Use stable entity IDs or persisted split membership, and apply time and group boundaries that match the expected production failure. Keep a final holdout separate from repeated candidate tuning. For receipt fraud, the same merchant or investigation can appear in many records; splitting related records across train and test can overstate performance. <a href=\"/mlops/retraining-trigger-and-challenger\">Challenger comparison</a> needs the same frozen evaluation cohort.</p><h2>Pin the execution environment</h2><p>Record interpreter, dependency lock, container digest, hardware class and training configuration. A package update can change preprocessing or numerical behavior without any edit to model code. Capture random seeds and nondeterministic operations, then define what “reproduced” means: identical bytes, metrics within tolerance or matching ranking on a fixed cohort. Choose the claim before rerunning. <a href=\"/mlops/pipeline-stage-inputs-and-cache-identity\">Stage identity</a> should include the environment inputs that affect output.</p><h2>Verify replay with a manifest diff</h2><p>Rerun from the frozen snapshot, compare row counts, split membership, feature summaries, evaluation results and artifact digests. If a result differs, identify the earliest stage whose output changed. A perfect metric match does not prove the same model bytes, while a changed digest does not always imply a meaningful quality change. The <a href=\"/mlops/reproducible-training-run-project\">training project</a> records both and refuses to call a run identical without evidence.</p><h2>Implementation</h2><pre><code class=\"language-python\">from hashlib import sha256\n\ndef stable_split(entity_id, evaluation_fraction=0.23):\n    if not 0 &lt; evaluation_fraction &lt; 1:\n        raise ValueError(&quot;evaluation fraction must be between zero and one&quot;)\n    digest = sha256(entity_id.encode()).digest()\n    bucket = int.from_bytes(digest[:8], &quot;big&quot;) / 2**64\n    return &quot;evaluation&quot; if bucket &lt; evaluation_fraction else &quot;training&quot;\n\nmerchant_ids = [&quot;merchant-47&quot;, &quot;merchant-82&quot;, &quot;merchant-129&quot;]\noriginal = {merchant: stable_split(merchant) for merchant in merchant_ids}\nreordered = {merchant: stable_split(merchant) for merchant in reversed(merchant_ids)}\nassert original == reordered\nassert stable_split(&quot;merchant-47&quot;) == original[&quot;merchant-47&quot;]\n</code></pre><h2>Performance and operating cost</h2><p>Hashing one entity ID costs O(k) time for its encoded length k and O(1) fixed digest space. Assigning n rows is O(total ID bytes). This stable split prevents order-dependent reassignment, but it does not enforce temporal separation; keep a time cutoff and persist membership when evaluation design requires both.</p><h3>Common Mistakes</h3><ul><li>Assuming a date-filtered mutable table is a frozen snapshot.</li><li>Using a random seed while row ordering changes.</li><li>Letting records from the same merchant cross the evaluation boundary.</li><li>Calling tolerance-level metric agreement byte-for-byte reproduction.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/pipeline-stage-inputs-and-cache-identity\">Pipeline stages: cache by complete input identity</a></li><li><a href=\"/mlops/reproducible-training-run-project\">Project: replay a receipt model from frozen training evidence</a></li><li><a href=\"/mlops/run-manifest-and-artifact-lineage\">Training manifests: link data, code, configuration and artifact</a></li><li><a href=\"/mlops/retraining-trigger-and-challenger\">Retraining decisions: require a reason and a challenger comparison</a></li><li><a href=\"/mlops/prediction-outcome-join-and-maturity\">Prediction-outcome joins: evaluate only mature, matched decisions</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/training-checkpoints-and-preemption-recovery\">Training checkpoints: resume state after interruption</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/mlops/parcel-model-search-project\">Project: govern a distributed parcel-damage model search</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6113,
+    "status": "published",
+    "published_at": "2026-10-06T15:59:26.838259+00:00",
+    "created_at": "2026-10-06T15:59:26.838259+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/pipeline-stage-inputs-and-cache-identity",
+          "title": "Pipeline stages: cache by complete input identity"
+        },
+        {
+          "path": "mlops/reproducible-training-run-project",
+          "title": "Project: replay a receipt model from frozen training evidence"
+        },
+        {
+          "path": "mlops/run-manifest-and-artifact-lineage",
+          "title": "Training manifests: link data, code, configuration and artifact"
+        },
+        {
+          "path": "mlops/retraining-trigger-and-challenger",
+          "title": "Retraining decisions: require a reason and a challenger comparison"
+        },
+        {
+          "path": "mlops/prediction-outcome-join-and-maturity",
+          "title": "Prediction-outcome joins: evaluate only mature, matched decisions"
+        },
+        {
+          "path": "mlops/training-checkpoints-and-preemption-recovery",
+          "title": "Training checkpoints: resume state after interruption"
+        },
+        {
+          "path": "mlops/parcel-model-search-project",
+          "title": "Project: govern a distributed parcel-damage model search"
+        }
+      ]
+    }
+  },
+  {
+    "id": "eb127850-210d-5080-96f8-987e83246b7f",
+    "type": "article",
+    "path": "mlops/training-budget-and-resource-admission",
+    "title": "Training resource gates: bound cost before starting a run",
+    "summary": "A training request should state its compute budget, stopping conditions and recovery plan before it occupies shared capacity.",
+    "body": "<p>A training request should state its compute budget, stopping conditions and recovery plan before it occupies shared capacity.</p><h2>Estimate cost from a pilot</h2><p>Before launching a long receipt model run, measure steps per second, accelerator memory and checkpoint time on a small representative slice. Estimate total compute hours and leave a margin for evaluation, restart and data loading. A pilot with short examples can understate cost for long-tail inputs, so include worst-case shapes. Record the estimate and observed spend against the same run ID. <a href=\"/mlops/training-checkpoints-and-preemption-recovery\">Checkpointing</a> converts some interruption risk into storage and I/O cost.</p><h2>Admit jobs under shared limits</h2><p>A queue can reserve accelerator count, memory and maximum runtime per team. Reject or defer a job whose request exceeds its approved budget or whose data snapshot is missing. Do not let several high-priority experiments starve scheduled retraining. Distinguish exploratory runs from production candidates: a cheap exploratory run can skip full evaluation, but it cannot be promoted without the complete release evidence. <a href=\"/mlops/model-registry-promotion-gates\">Promotion gates</a> remain separate from compute admission.</p><h2>Stop unproductive work deliberately</h2><p>Set a maximum wall clock, spend limit, failed-step count and early-stop rule before viewing results. Early stopping should use a development metric, not repeatedly peek at the final holdout. A run that stops for budget reasons is not a failed model evaluation; mark its artifact incomplete and unpromotable. If a preemptible machine saves money but causes repeated restarts, include lost work and delay when comparing it with stable capacity.</p><h2>Audit the estimate</h2><p>Compare predicted and actual runtime, checkpoint overhead, retries and evaluation cost. When a job exceeds its limit, preserve the last valid checkpoint and state why it stopped. The <a href=\"/mlops/receipt-training-recovery-project\">training recovery project</a> simulates preemption and a budget breach, then asks whether the run should resume, restart or end.</p><h2>Implementation</h2><pre><code class=\"language-python\">def admit_training(estimated_gpu_hours, budget_gpu_hours,\n                   checkpoint_supported, expected_interruptions):\n    if min(estimated_gpu_hours, budget_gpu_hours, expected_interruptions) &lt; 0:\n        raise ValueError(&quot;resource values must be nonnegative&quot;)\n    if estimated_gpu_hours &gt; budget_gpu_hours:\n        return {&quot;state&quot;: &quot;defer&quot;, &quot;reason&quot;: &quot;budget&quot;}\n    if expected_interruptions &gt; 0 and not checkpoint_supported:\n        return {&quot;state&quot;: &quot;defer&quot;, &quot;reason&quot;: &quot;no-recovery&quot;}\n    return {&quot;state&quot;: &quot;admit&quot;, &quot;reserved_gpu_hours&quot;: estimated_gpu_hours}\n\nassert admit_training(18.5, 23, True, 2)[&quot;state&quot;] == &quot;admit&quot;\nassert admit_training(28, 23, True, 2)[&quot;reason&quot;] == &quot;budget&quot;\nassert admit_training(18.5, 23, False, 2)[&quot;reason&quot;] == &quot;no-recovery&quot;\n</code></pre><h2>Performance and operating cost</h2><p>Admission is O(1) time and space; estimating runtime requires a pilot or historical run data. Reserved capacity can remain idle if jobs start late, while underestimates can block other teams. Record measured cost after every run and revise estimates rather than turning the gate into an arbitrary fixed number.</p><h3>Common Mistakes</h3><ul><li>Launching full training without a representative throughput pilot.</li><li>Calling an incomplete budget-stopped checkpoint a release candidate.</li><li>Using the final holdout for repeated early-stop decisions.</li><li>Ignoring restart time when claiming preemptible capacity is cheaper.</li></ul><h2>Read next</h2><ul><li><a href=\"/mlops/training-checkpoints-and-preemption-recovery\">Training checkpoints: resume state after interruption</a></li><li><a href=\"/mlops/receipt-training-recovery-project\">Project: resume receipt-model training under a compute budget</a></li><li><a href=\"/mlops/pipeline-stage-inputs-and-cache-identity\">Pipeline stages: cache by complete input identity</a></li><li><a href=\"/mlops/reproducible-training-run-project\">Project: replay a receipt model from frozen training evidence</a></li><li><a href=\"/mlops/model-registry-promotion-gates\">Model promotion: require evidence before changing the serving pointer</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/pruning-budgets-and-fair-trial-comparison\">Trial pruning: spend less compute without biasing model selection</a>.</p>",
+    "category": "AI & Data",
+    "subject": "mlops",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "mlops"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 6134,
+    "status": "published",
+    "published_at": "2026-10-06T16:11:48.721481+00:00",
+    "created_at": "2026-10-06T16:11:48.721481+00:00",
+    "updated_at": "2026-10-06T17:12:52.013057+00:00",
+    "data": {
+      "subject_root": "mlops/mlops-tutorial",
+      "section_path": "mlops/mlops-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "mlops/training-checkpoints-and-preemption-recovery",
+          "title": "Training checkpoints: resume state after interruption"
+        },
+        {
+          "path": "mlops/receipt-training-recovery-project",
+          "title": "Project: resume receipt-model training under a compute budget"
+        },
+        {
+          "path": "mlops/pipeline-stage-inputs-and-cache-identity",
+          "title": "Pipeline stages: cache by complete input identity"
+        },
+        {
+          "path": "mlops/reproducible-training-run-project",
+          "title": "Project: replay a receipt model from frozen training evidence"
+        },
+        {
+          "path": "mlops/model-registry-promotion-gates",
+          "title": "Model promotion: require evidence before changing the serving pointer"
+        },
+        {
+          "path": "mlops/pruning-budgets-and-fair-trial-comparison",
+          "title": "Trial pruning: spend less compute without biasing model selection"
+        }
+      ]
+    }
+  }
+]

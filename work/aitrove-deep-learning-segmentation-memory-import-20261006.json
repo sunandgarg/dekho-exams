@@ -1,0 +1,1391 @@
+[
+  {
+    "id": "c829e07c-ca3e-53be-828d-07bdf2204628",
+    "type": "article",
+    "path": "deep-learning/activation-checkpointing-recompute-and-rng-parity",
+    "title": "Activation checkpointing, recomputation and RNG parity",
+    "summary": "Activation checkpointing saves memory by rerunning a forward segment during backward; it is unrelated to saving training state on disk.",
+    "body": "<p>Activation checkpointing saves memory by rerunning a forward segment during backward; it is unrelated to saving training state on disk.</p><h2>Separate two meanings of checkpoint</h2><p>A durable training checkpoint stores model and optimizer state so a process can resume after interruption. Activation checkpointing deliberately avoids retaining selected intermediate tensors from a forward segment, then recomputes them during backward. It trades extra compute for lower saved-activation memory and cannot restore a crashed run. <a href=\"/deep-learning/checkpoint-resume-state\">The resume lesson</a> covers the disk artifact. Use distinct names in code and metrics so an operator does not mistake a memory optimization for recovery protection.</p><h2>Choose a pure recomputable segment</h2><p>The wrapped function must produce the same needed values when backward reruns it. Avoid untracked global counters, file writes, mutating batch-normalization state inside a recomputed region, or branches that depend on external state changed between calls. Store input tensors that define the segment; select a block large enough to save meaningful activations but not so large that recomputation dominates latency. The example wraps a simple feed-forward block with dropout and compares gradients against a plain forward under the same seed.</p><h2>Preserve stochastic behavior deliberately</h2><p>Dropout draws random masks. A checkpointed backward needs the same stochastic choices as the original forward for gradient parity, so use an RNG-preservation setting when that parity is required. Saving and restoring RNG state has overhead and can have device-specific limits; do not assume stochastic operators on arbitrary extra devices are automatically handled. Make the checkpoint implementation mode explicit and test fixed-input output and parameter gradients. <a href=\"/deep-learning/mixed-precision-scaling-and-gradient-clipping\">Precision settings</a> must also match in the comparison.</p><h2>Measure saved memory and added time</h2><p>On a CUDA device, reset peak statistics immediately before a representative train step and synchronize around timing. Record peak tensor-allocated and allocator-reserved bytes separately. The allocator may reserve blocks beyond live tensors, so a lower allocated peak may not produce a proportional drop in process-visible memory. Run several warm steps with the same batch shape and optimizer state already initialized. <a href=\"/deep-learning/training-memory-profiler-and-allocator-boundaries\">The profiler lesson</a> distinguishes these measurements.</p><h2>Check the release claim</h2><p>Compare plain and checkpointed gradients and one optimizer step within a stated numerical tolerance, then evaluate task metrics after equal accepted-example budgets. If memory drops but update time rises enough to miss a training deadline, report that cost. If the larger batch made possible by checkpointing changes the effective optimization, it is a second experiment, not a clean parity test. <a href=\"/deep-learning/receipt-activation-recompute-project\">The project</a> measures both memory and model behavior.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.utils.checkpoint import checkpoint\n\ntorch.manual_seed(47)\nreceipt_block = nn.Sequential(nn.Linear(12, 24), nn.ReLU(),\n                              nn.Dropout(0.2), nn.Linear(24, 12))\nbase_inputs = torch.randn(3, 12)\nplain_inputs = base_inputs.clone().requires_grad_(True)\ntorch.manual_seed(71)\nplain_loss = receipt_block(plain_inputs).square().mean()\nplain_loss.backward()\nplain_gradients = [parameter.grad.clone() for parameter in receipt_block.parameters()]\nreceipt_block.zero_grad(set_to_none=True)\n\nrecomputed_inputs = base_inputs.clone().requires_grad_(True)\ntorch.manual_seed(71)\nrecomputed_loss = checkpoint(receipt_block, recomputed_inputs,\n                             use_reentrant=False, preserve_rng_state=True).square().mean()\nrecomputed_loss.backward()\ntorch.testing.assert_close(plain_loss, recomputed_loss)\ntorch.testing.assert_close(plain_inputs.grad, recomputed_inputs.grad)\nfor expected_gradient, parameter in zip(plain_gradients, receipt_block.parameters()):\n    torch.testing.assert_close(expected_gradient, parameter.grad)</code></pre><h2>Performance and operating cost</h2><p>Let A be the saved activations of a wrapped block and F its forward cost. Checkpointing can avoid retaining much of A, but typically adds up to another F of recomputation during backward; exact savings depend on segment boundaries and implementation. Model parameters, optimizer moments and input tensors remain. RNG preservation adds bookkeeping. The demonstration checks parity on a small block but cannot quantify memory benefit on a larger network; measure peak allocated bytes and update time on the actual accelerator.</p><h3>Common Mistakes</h3><ul><li>Do not describe activation recomputation as a recoverable disk checkpoint.</li><li>Do not checkpoint a function with untracked side effects or changing global state.</li><li>Do not disable RNG preservation for a stochastic block and still expect exact gradient parity.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/training-memory-profiler-and-allocator-boundaries\">Training memory profiling and allocator boundaries</a></li><li><a href=\"/deep-learning/receipt-activation-recompute-project\">Project: measure activation recomputation on receipt training</a></li><li><a href=\"/deep-learning/mixed-precision-scaling-and-gradient-clipping\">Mixed precision, loss scaling and gradient clipping</a></li><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7903,
+    "status": "published",
+    "published_at": "2026-10-06T10:24:36.040168+00:00",
+    "created_at": "2026-10-06T10:24:36.040168+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "deep-learning/training-memory-profiler-and-allocator-boundaries",
+          "title": "Training memory profiling and allocator boundaries"
+        },
+        {
+          "path": "deep-learning/receipt-activation-recompute-project",
+          "title": "Project: measure activation recomputation on receipt training"
+        },
+        {
+          "path": "deep-learning/mixed-precision-scaling-and-gradient-clipping",
+          "title": "Mixed precision, loss scaling and gradient clipping"
+        },
+        {
+          "path": "deep-learning/receipt-training-memory-project",
+          "title": "Project: train a receipt model under a memory budget"
+        }
+      ]
+    }
+  },
+  {
+    "id": "5e4a9763-6fec-5643-bed5-3e88e8f94272",
+    "type": "article",
+    "path": "deep-learning/augmentation-leakage-boundary",
+    "title": "Image augmentation: split originals first and preserve the label",
+    "summary": "Augmentation creates training variants only after an identity-aware split, using transforms that keep the label true.",
+    "body": "<p>Augmentation creates training variants only after an identity-aware split, using transforms that keep the label true.</p><h2>Split originals first</h2><p>Two photos of one receipt, or crops of one photo, belong in the same partition. Split by receipt identity before generating variants. If augmentation runs first and variants land in training and validation, the model can recognize the underlying receipt instead of generalizing. <a href=\"/machine-learning/group-and-time-validation\">Grouped validation</a>] addresses the same identity issue for tabular records.</p><h2>Check label preservation</h2><p>A mild brightness change may preserve a damage label. A crop removing the torn corner does not. Define allowed transforms per label and inspect a sample of outputs. A transform is not safe merely because it is common in image pipelines. Keep the untouched validation distribution close to deployment input, including blur or poor lighting when those occur.</p><h2>Make randomness auditable</h2><p>Record transform names, ranges, library configuration and a run seed. A seed helps repeatability, though worker scheduling and accelerator kernels can still vary. Store original receipt IDs with augmented variants for group checks. <a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint metadata</a>] should include the augmentation policy version.</p><h2>Compare against a baseline</h2><p>Train once without augmentation and once with the declared policy under the same split and evaluation procedure. Report overall results and the failure slices that motivated the policy. If improvement appears only on augmented validation images, that test cannot support a deployment claim.</p><h2>Implementation</h2><pre><code class=\"language-python\">def assert_disjoint_receipts(training_rows, validation_rows):\n    training_ids = {row.receipt_id for row in training_rows}\n    validation_ids = {row.receipt_id for row in validation_rows}\n    overlap = training_ids &amp; validation_ids\n    if overlap:\n        raise ValueError(f&quot;receipt overlap: {len(overlap)}&quot;)\n\nassert_disjoint_receipts(training_rows, validation_rows)\naugmented_training_rows = augment_receipts(training_rows, policy_version)</code></pre><h2>Performance and operating cost</h2><p>Set overlap checks cost O(N) time and memory for N unique IDs. Offline augmentation adds storage proportional to variants; online augmentation spends CPU per batch and can limit loader throughput.</p><h3>Common Mistakes</h3><ul><li>Do not split variants independently of their original.</li><li>Do not crop away evidence while retaining the original label.</li><li>Do not augment validation to inflate the result.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/batching-and-class-sampling\">Batching and class sampling: know the population the optimizer sees</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/machine-learning/group-and-time-validation\">Group and time validation: split by the failure you expect in production</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/machine-learning/pretraining-overlap-and-provenance-audit\">Pretraining overlap and provenance audit</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/contrastive-view-identity-and-augmentation-contract\">Contrastive view identity and augmentation contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/fgsm-input-scale-and-perturbation-threat-model\">FGSM input scale and perturbation threat models</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">Segmentation mask alignment and ignored pixels</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7814,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "deep-learning/batching-and-class-sampling",
+          "title": "Batching and class sampling: know the population the optimizer sees"
+        },
+        {
+          "path": "deep-learning/train-eval-validation-loop",
+          "title": "Training and validation modes: measure the model you will serve"
+        },
+        {
+          "path": "machine-learning/group-and-time-validation",
+          "title": "Group and time validation: split by the failure you expect in production"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "machine-learning/pretraining-overlap-and-provenance-audit",
+          "title": "Pretraining overlap and provenance audit"
+        },
+        {
+          "path": "deep-learning/receipt-training-memory-project",
+          "title": "Project: train a receipt model under a memory budget"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        },
+        {
+          "path": "deep-learning/contrastive-view-identity-and-augmentation-contract",
+          "title": "Contrastive view identity and augmentation contracts"
+        },
+        {
+          "path": "deep-learning/fgsm-input-scale-and-perturbation-threat-model",
+          "title": "FGSM input scale and perturbation threat models"
+        },
+        {
+          "path": "deep-learning/segmentation-mask-alignment-and-ignore-pixels",
+          "title": "Segmentation mask alignment and ignored pixels"
+        }
+      ]
+    }
+  },
+  {
+    "id": "289b4641-3a15-56a9-8b82-a92ac562e9f3",
+    "type": "article",
+    "path": "deep-learning/checkpoint-resume-state",
+    "title": "Checkpoint recovery: save optimizer state and the run boundary",
+    "summary": "A resumable run records weights and optimizer state alongside epoch, class mapping, configuration and input identity.",
+    "body": "<p>A resumable run records weights and optimizer state alongside epoch, class mapping, configuration and input identity.</p><h2>Distinguish deploy from resume</h2><p>Weights may be enough for inference. They are not enough for a faithful training restart because momentum and adaptive optimizer statistics affect the next update. Save model and optimizer state, completed epoch, configuration, class mapping and input manifest. Save scheduler or precision-scaler state when used. <a href=\"/data-science/reproducible-analysis-snapshot\">Input snapshots</a>] prevent a restart from silently changing data.</p><h2>Write a complete artifact</h2><p>Serialize to a temporary file in the same filesystem, then replace the published checkpoint. A process killed mid-write should leave the previous complete artifact readable. For remote object storage, use an immutable object plus a pointer rather than assuming rename is atomic. Keep best-validation and latest-recovery artifacts distinct.</p><h2>Check before resuming</h2><p>Compare architecture, class order, data manifest and configuration. A checkpoint may load while labels have changed order, returning plausible but wrong classifications. Restore random state if exact stochastic continuation matters; hardware and kernel behavior can still prevent bitwise replay. Document any deliberate learning-rate change rather than presenting it as an identical continuation.</p><h2>Drill a failure</h2><p>Train a few updates, interrupt during candidate checkpoint writing, then restart. Confirm the prior checkpoint remains readable and a truncated candidate is rejected. Compare the next fixed-batch loss under a controlled setup. <a href=\"/deep-learning/train-eval-validation-loop\">Validation</a>] determines which artifact may be promoted.</p><h2>Implementation</h2><pre><code class=\"language-python\">checkpoint = {\n    &quot;completed_epoch&quot;: completed_epoch,\n    &quot;model_state&quot;: receipt_model.state_dict(),\n    &quot;optimizer_state&quot;: optimizer.state_dict(),\n    &quot;class_names&quot;: class_names,\n    &quot;data_manifest&quot;: data_manifest_id,\n}\ntemporary_path = checkpoint_path.with_suffix(&quot;.pending&quot;)\ntorch.save(checkpoint, temporary_path)\ntemporary_path.replace(checkpoint_path)</code></pre><h2>Performance and operating cost</h2><p>A save transfers O(P + S) bytes for P model parameters and S optimizer state. Frequent checkpoints cost I/O and storage; sparse saves increase lost work after failure.</p><h3>Common Mistakes</h3><ul><li>Do not claim a faithful optimizer resume from weights alone.</li><li>Do not overwrite the only valid checkpoint during an incomplete write.</li><li>Do not load without checking class order and input identity.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/data-science/reproducible-analysis-snapshot\">Reproducible analysis snapshots: pin data, code and cutoff together</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/machine-learning/staged-fine-tuning-and-checkpoint-selection\">Staged fine-tuning and checkpoint selection</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/machine-learning/structured-pruning-and-compute-shape\">Structured pruning and compute shape</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/mixed-precision-scaling-and-gradient-clipping\">Mixed precision, loss scaling and gradient clipping</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/residual-blocks-and-normalization-state\">Residual blocks and normalization state</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent hidden-state resets and truncated gradients</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/distributed-checkpoint-manifest-and-resume\">Distributed checkpoint manifests and coherent resume</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/early-stopping-best-state-and-seed-variance\">Early stopping, best-state restoration and seed variance</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/activation-checkpointing-recompute-and-rng-parity\">Activation checkpointing, recomputation and RNG parity</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7815,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "deep-learning/train-eval-validation-loop",
+          "title": "Training and validation modes: measure the model you will serve"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "data-science/reproducible-analysis-snapshot",
+          "title": "Reproducible analysis snapshots: pin data, code and cutoff together"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "machine-learning/staged-fine-tuning-and-checkpoint-selection",
+          "title": "Staged fine-tuning and checkpoint selection"
+        },
+        {
+          "path": "machine-learning/structured-pruning-and-compute-shape",
+          "title": "Structured pruning and compute shape"
+        },
+        {
+          "path": "deep-learning/mixed-precision-scaling-and-gradient-clipping",
+          "title": "Mixed precision, loss scaling and gradient clipping"
+        },
+        {
+          "path": "deep-learning/residual-blocks-and-normalization-state",
+          "title": "Residual blocks and normalization state"
+        },
+        {
+          "path": "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients",
+          "title": "Recurrent hidden-state resets and truncated gradients"
+        },
+        {
+          "path": "deep-learning/distributed-checkpoint-manifest-and-resume",
+          "title": "Distributed checkpoint manifests and coherent resume"
+        },
+        {
+          "path": "deep-learning/early-stopping-best-state-and-seed-variance",
+          "title": "Early stopping, best-state restoration and seed variance"
+        },
+        {
+          "path": "deep-learning/activation-checkpointing-recompute-and-rng-parity",
+          "title": "Activation checkpointing, recomputation and RNG parity"
+        }
+      ]
+    }
+  },
+  {
+    "id": "1b78d671-d57a-5254-bf56-72e92771d980",
+    "type": "article",
+    "path": "deep-learning/convolution-output-geometry-and-receptive-field",
+    "title": "Convolution output geometry and receptive fields",
+    "summary": "A convolutional stack changes spatial resolution and the portion of the input each output can inspect; both properties belong in the model contract.",
+    "body": "<p>A convolutional stack changes spatial resolution and the portion of the input each output can inspect; both properties belong in the model contract.</p><h2>Calculate the grid before training</h2><p>For one spatial axis, the output length is floor((input + 2 × padding − dilation × (kernel − 1) − 1) / stride + 1). Calculate height and width separately when kernels or strides differ. A 47 by 83 receipt crop sent through a three-wide convolution with padding one and stride two becomes 24 by 42, not 23 by 41. This floor operation matters at odd sizes. Assert the observed tensor shape against the calculation before connecting a classifier or decoder. <a href=\"/deep-learning/tensor-shape-dtype-contract\">The tensor contract</a> also fixes channel order.</p><h2>Separate resolution from context</h2><p>A three-wide kernel at dilation one sees three neighboring positions in one layer. A second three-wide, stride-one layer expands the theoretical receptive field to five; a stride-two layer changes the spacing between positions used by later layers. Track two values: receptive-field width and jump, the distance in original pixels between adjacent outputs. Starting at one for both, a layer with kernel k, dilation d and stride s adds (k − 1) × d × previous jump to field width and multiplies jump by s. Large theoretical context is no guarantee that training uses distant pixels.</p><h2>Choose padding for the task</h2><p>Zero padding creates artificial borders. That may be acceptable for whole-image classification, but a defect next to a cropped edge can receive a different context from a defect in the center. Reflection padding can reduce the artificial step yet has its own constraint: the padding width must be smaller than the input extent. Keep crop policy, padding mode and any resize in the model artifact. <a href=\"/deep-learning/augmentation-leakage-boundary\">Augmentation</a> should model camera variation without moving evidence outside the label.</p><h2>Inspect aliasing and detail loss</h2><p>Stride two discards spatial samples. It can help cost and context, but tiny receipt marks may vanish after repeated reductions. Compare a shallow high-resolution branch against a deeper reduced branch on the small-defect slice, and inspect false negatives by mark width. Pooling is another reduction; it does not restore removed detail. When the target is a pixel mask, keep a clear map from output grid coordinates to input pixels and test odd dimensions as well as the usual square input.</p><h2>Validate with a shape probe</h2><p>A shape probe should include the smallest accepted crop, an odd-width crop and the maximum configured crop. Record each intermediate feature map and compare with the formula. An intentionally invalid kernel/input pair should fail before a training job begins. Put the probe in the same configuration path used by serving: a model that trains on resized 224-square crops and serves on native 47 by 83 crops has a different output geometry and potentially different edge behavior.</p><h2>Implementation</h2><pre><code class=\"language-python\">from dataclasses import dataclass\nimport torch\nfrom torch import nn\n\n@dataclass(frozen=True)\nclass ConvPlan:\n    kernel: int\n    stride: int\n    padding: int\n    dilation: int = 1\n\ndef output_extent(input_extent: int, plan: ConvPlan) -&gt; int:\n    numerator = input_extent + 2 * plan.padding - plan.dilation * (plan.kernel - 1) - 1\n    if numerator &lt; 0:\n        raise ValueError(&quot;kernel does not fit the crop&quot;)\n    return numerator // plan.stride + 1\n\nreceipt_crop = torch.zeros(2, 1, 47, 83)\nfirst_plan = ConvPlan(kernel=3, stride=2, padding=1)\nedge_bank = nn.Conv2d(1, 12, kernel_size=first_plan.kernel,\n                      stride=first_plan.stride, padding=first_plan.padding)\nedge_maps = edge_bank(receipt_crop)\nexpected_grid = (output_extent(47, first_plan), output_extent(83, first_plan))\nassert expected_grid == (24, 42)\nassert edge_maps.shape == (2, 12, *expected_grid)</code></pre><h2>Performance and operating cost</h2><p>A standard convolution with input channels C, output channels F, kernel area K and output grid area G performs work proportional to G × C × F × K per example. Its weights occupy C × F × K parameters plus optional biases. Activations scale with batch × F × G and often dominate training memory at high resolution. A larger stride reduces G but may erase narrow evidence; measure the small-object slice before accepting that trade.</p><h3>Common Mistakes</h3><ul><li>Do not assume odd input dimensions divide evenly under a stride.</li><li>Do not confuse output resolution with receptive-field width.</li><li>Do not change resize or padding behavior between training and serving.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/teacher-feature-adapter-and-layer-alignment\">Teacher feature adapters and layer alignment</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">Segmentation mask alignment and ignored pixels</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7830,
+    "status": "published",
+    "published_at": "2026-10-06T09:10:58.143029+00:00",
+    "created_at": "2026-10-06T09:10:58.143029+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/tensor-shape-dtype-contract",
+          "title": "Tensor contracts: shape, dtype, device and mask"
+        },
+        {
+          "path": "deep-learning/augmentation-leakage-boundary",
+          "title": "Image augmentation: split originals first and preserve the label"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        },
+        {
+          "path": "deep-learning/teacher-feature-adapter-and-layer-alignment",
+          "title": "Teacher feature adapters and layer alignment"
+        },
+        {
+          "path": "deep-learning/segmentation-mask-alignment-and-ignore-pixels",
+          "title": "Segmentation mask alignment and ignored pixels"
+        }
+      ]
+    }
+  },
+  {
+    "id": "874942e7-0ca3-5cec-b82d-88dd2d178604",
+    "type": "subject",
+    "path": "deep-learning/deep-learning-tutorial",
+    "title": "Deep Learning Tutorial",
+    "summary": "Train and serve an image classifier through checked data, loss, validation, recovery and inference boundaries.",
+    "body": "<p>Train and serve an image classifier through checked data, loss, validation, recovery and inference boundaries.</p><h2>Learning path</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/batching-and-class-sampling\">Batching and class sampling: know the population the optimizer sees</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul><h2>Connected foundation</h2><p>Bring the earlier analysis and evaluation contracts into this subject.</p><ul><li><a href=\"/machine-learning/machine-learning-tutorial\">Machine Learning Tutorial</a></li><li><a href=\"/machine-learning/group-and-time-validation\">Group and time validation: split by the failure you expect in production</a></li></ul><h2>Practice</h2><p>Complete the project with its failure-case evidence.</p><ul><li><a href=\"/deep-learning/deep-learning-tutorial/project\">Deep Learning: Projects</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/computer-vision/computer-vision-tutorial\">Computer Vision Tutorial</a>.</p><h2>Optimization under a memory budget</h2><ul><li><a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Gradient accumulation and effective batch accounting</a></li><li><a href=\"/deep-learning/mixed-precision-scaling-and-gradient-clipping\">Mixed precision, loss scaling and gradient clipping</a></li></ul><h2>Optimization under a memory budget project</h2><ul><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li></ul><h2>Attention masks and sequence targets</h2><ul><li><a href=\"/deep-learning/scaled-dot-product-attention-mask-contract\">Scaled dot-product attention and mask contracts</a></li><li><a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a></li></ul><h2>Attention masks and sequence targets project</h2><ul><li><a href=\"/deep-learning/sequence-attention-leakage-project\">Project: audit a next-event attention decoder</a></li></ul><h2>Convolution geometry and residual design</h2><ul><li><a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Convolution output geometry and receptive fields</a></li><li><a href=\"/deep-learning/residual-blocks-and-normalization-state\">Residual blocks and normalization state</a></li></ul><h2>Convolution geometry and residual design project</h2><ul><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li></ul><h2>Transfer learning and domain shift</h2><ul><li><a href=\"/deep-learning/frozen-features-versus-fine-tuning\">Frozen features versus fine-tuning a pretrained backbone</a></li><li><a href=\"/deep-learning/staged-unfreezing-and-domain-shift-audit\">Staged unfreezing and domain-shift audits</a></li></ul><h2>Transfer learning and domain shift project</h2><ul><li><a href=\"/deep-learning/receipt-domain-adaptation-project\">Project: adapt a receipt model to a new capture device</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/frozen-features-versus-fine-tuning\">Frozen features versus fine-tuning a pretrained backbone</a>.</p><h2>Recurrent sequences and state ownership</h2><ul><li><a href=\"/deep-learning/packed-lstm-lengths-and-last-valid-state\">Packed LSTM sequences and the last valid state</a></li><li><a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent hidden-state resets and truncated gradients</a></li></ul><h2>Recurrent sequences and state ownership project</h2><ul><li><a href=\"/deep-learning/service-event-lstm-project\">Project: predict service escalation from event histories</a></li></ul><h2>Reconstruction models and anomaly scores</h2><ul><li><a href=\"/deep-learning/masked-reconstruction-loss-and-anomaly-threshold\">Masked reconstruction loss and anomaly thresholds</a></li><li><a href=\"/deep-learning/variational-latent-kl-and-collapse\">Variational latent sampling, KL accounting and collapse</a></li></ul><h2>Reconstruction models and anomaly scores project</h2><ul><li><a href=\"/deep-learning/telemetry-autoencoder-alert-project\">Project: calibrate an autoencoder alert for freezer telemetry</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/telemetry-autoencoder-alert-project\">Project: calibrate an autoencoder alert for freezer telemetry</a>.</p><h2>Distributed training and recovery</h2><ul><li><a href=\"/deep-learning/distributed-sampler-tail-and-global-loss-weighting\">Distributed sampler tails and global loss weighting</a></li><li><a href=\"/deep-learning/distributed-checkpoint-manifest-and-resume\">Distributed checkpoint manifests and coherent resume</a></li></ul><h2>Distributed training and recovery project</h2><ul><li><a href=\"/deep-learning/receipt-multiworker-parity-project\">Project: prove multiworker receipt-training parity</a></li></ul><h2>Confidence, abstention and evidence checks</h2><ul><li><a href=\"/deep-learning/temperature-scaling-and-selective-risk\">Temperature scaling and selective risk</a></li><li><a href=\"/deep-learning/occlusion-attribution-and-sanity-checks\">Occlusion attribution and explanation sanity checks</a></li></ul><h2>Confidence, abstention and evidence checks project</h2><ul><li><a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a>.</p><h2>Diffusion training and sampling contracts</h2><ul><li><a href=\"/deep-learning/diffusion-forward-noise-and-timestep-target\">Diffusion forward noise and timestep targets</a></li><li><a href=\"/deep-learning/diffusion-reverse-step-and-guidance\">Diffusion reverse steps and conditional guidance</a></li></ul><h2>Diffusion training and sampling contracts project</h2><ul><li><a href=\"/deep-learning/receipt-background-diffusion-project\">Project: train and audit a receipt-background denoiser</a></li></ul><h2>Compression and edge release</h2><ul><li><a href=\"/deep-learning/post-training-quantization-calibration-contract\">Post-training quantization and calibration contracts</a></li><li><a href=\"/deep-learning/structured-pruning-and-latency-parity\">Structured pruning and latency parity</a></li></ul><h2>Compression and edge release project</h2><ul><li><a href=\"/deep-learning/receipt-edge-model-release-project\">Project: release a compact receipt model to an edge device</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-edge-model-release-project\">Project: release a compact receipt model to an edge device</a>.</p><h2>Self-supervised views and contrastive objectives</h2><ul><li><a href=\"/deep-learning/contrastive-view-identity-and-augmentation-contract\">Contrastive view identity and augmentation contracts</a></li><li><a href=\"/deep-learning/contrastive-temperature-and-negative-mask\">Contrastive temperature and negative-mask accounting</a></li></ul><h2>Self-supervised views and contrastive objectives project</h2><ul><li><a href=\"/deep-learning/receipt-contrastive-pretraining-project\">Project: pretrain receipt features from unlabeled captures</a></li></ul><h2>Teacher-student distillation contracts</h2><ul><li><a href=\"/deep-learning/distillation-soft-target-temperature-and-label-balance\">Distillation soft targets, temperature and label balance</a></li><li><a href=\"/deep-learning/teacher-feature-adapter-and-layer-alignment\">Teacher feature adapters and layer alignment</a></li></ul><h2>Teacher-student distillation contracts project</h2><ul><li><a href=\"/deep-learning/receipt-student-distillation-project\">Project: distill and release a receipt-quality student</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-student-distillation-project\">Project: distill and release a receipt-quality student</a>.</p><h2>Adversarial generation and coverage audits</h2><ul><li><a href=\"/deep-learning/gan-discriminator-generator-update-boundary\">GAN discriminator and generator update boundaries</a></li><li><a href=\"/deep-learning/gan-mode-coverage-and-duplicate-audit\">GAN mode coverage and near-duplicate audits</a></li></ul><h2>Adversarial generation and coverage audits project</h2><ul><li><a href=\"/deep-learning/receipt-paper-texture-gan-project\">Project: audit a receipt-paper texture GAN</a></li></ul><h2>Autoregressive decoding and cache parity</h2><ul><li><a href=\"/deep-learning/autoregressive-kv-cache-position-and-mask-parity\">Autoregressive KV cache position and mask parity</a></li><li><a href=\"/deep-learning/decoding-stop-rules-and-beam-score\">Decoding stop rules, sampling and beam-score accounting</a></li></ul><h2>Autoregressive decoding and cache parity project</h2><ul><li><a href=\"/deep-learning/service-event-decoder-parity-project\">Project: release an incremental service-event decoder</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-event-decoder-parity-project\">Project: release an incremental service-event decoder</a>.</p><h2>Optimization schedules and checkpoint selection</h2><ul><li><a href=\"/deep-learning/adamw-decay-groups-and-update-indexed-schedules\">AdamW decay groups and update-indexed schedules</a></li><li><a href=\"/deep-learning/early-stopping-best-state-and-seed-variance\">Early stopping, best-state restoration and seed variance</a></li></ul><h2>Optimization schedules and checkpoint selection project</h2><ul><li><a href=\"/deep-learning/receipt-optimizer-selection-project\">Project: select a receipt training schedule without test leakage</a></li></ul><h2>Perturbation sensitivity and release gates</h2><ul><li><a href=\"/deep-learning/fgsm-input-scale-and-perturbation-threat-model\">FGSM input scale and perturbation threat models</a></li><li><a href=\"/deep-learning/adversarial-training-clean-robust-balance\">Adversarial training and the clean–stress tradeoff</a></li></ul><h2>Perturbation sensitivity and release gates project</h2><ul><li><a href=\"/deep-learning/receipt-perturbation-stress-project\">Project: stress-test receipt decisions under bounded image changes</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-perturbation-stress-project\">Project: stress-test receipt decisions under bounded image changes</a>.</p><h2>Pixel-level defect learning and mask audits</h2><ul><li><a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">Segmentation mask alignment and ignored pixels</a></li><li><a href=\"/deep-learning/dice-iou-empty-mask-and-threshold-policy\">Dice, IoU, empty masks and threshold policy</a></li></ul><h2>Pixel-level defect learning and mask audits project</h2><ul><li><a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a></li></ul><h2>Activation recomputation and memory measurement</h2><ul><li><a href=\"/deep-learning/activation-checkpointing-recompute-and-rng-parity\">Activation checkpointing, recomputation and RNG parity</a></li><li><a href=\"/deep-learning/training-memory-profiler-and-allocator-boundaries\">Training memory profiling and allocator boundaries</a></li></ul><h2>Activation recomputation and memory measurement project</h2><ul><li><a href=\"/deep-learning/receipt-activation-recompute-project\">Project: measure activation recomputation on receipt training</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7700,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Training contracts",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "deep-learning/tensor-shape-dtype-contract",
+            "deep-learning/logits-loss-gradient",
+            "deep-learning/batching-and-class-sampling",
+            "deep-learning/augmentation-leakage-boundary"
+          ]
+        },
+        {
+          "title": "Evaluation and deployment",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "deep-learning/train-eval-validation-loop",
+            "deep-learning/checkpoint-resume-state",
+            "deep-learning/inference-schema-and-latency"
+          ]
+        },
+        {
+          "title": "Optimization under a memory budget",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/gradient-accumulation-and-effective-batch",
+            "deep-learning/mixed-precision-scaling-and-gradient-clipping"
+          ]
+        },
+        {
+          "title": "Attention masks and sequence targets",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/scaled-dot-product-attention-mask-contract",
+            "deep-learning/causal-target-shift-and-padding-loss"
+          ]
+        },
+        {
+          "title": "Convolution geometry and residual design",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/convolution-output-geometry-and-receptive-field",
+            "deep-learning/residual-blocks-and-normalization-state"
+          ]
+        },
+        {
+          "title": "Transfer learning and domain shift",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/frozen-features-versus-fine-tuning",
+            "deep-learning/staged-unfreezing-and-domain-shift-audit"
+          ]
+        },
+        {
+          "title": "Recurrent sequences and state ownership",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/packed-lstm-lengths-and-last-valid-state",
+            "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients"
+          ]
+        },
+        {
+          "title": "Reconstruction models and anomaly scores",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/masked-reconstruction-loss-and-anomaly-threshold",
+            "deep-learning/variational-latent-kl-and-collapse"
+          ]
+        },
+        {
+          "title": "Distributed training and recovery",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/distributed-sampler-tail-and-global-loss-weighting",
+            "deep-learning/distributed-checkpoint-manifest-and-resume"
+          ]
+        },
+        {
+          "title": "Confidence, abstention and evidence checks",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/temperature-scaling-and-selective-risk",
+            "deep-learning/occlusion-attribution-and-sanity-checks"
+          ]
+        },
+        {
+          "title": "Diffusion training and sampling contracts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/diffusion-forward-noise-and-timestep-target",
+            "deep-learning/diffusion-reverse-step-and-guidance"
+          ]
+        },
+        {
+          "title": "Compression and edge release",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/post-training-quantization-calibration-contract",
+            "deep-learning/structured-pruning-and-latency-parity"
+          ]
+        },
+        {
+          "title": "Self-supervised views and contrastive objectives",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/contrastive-view-identity-and-augmentation-contract",
+            "deep-learning/contrastive-temperature-and-negative-mask"
+          ]
+        },
+        {
+          "title": "Teacher-student distillation contracts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/distillation-soft-target-temperature-and-label-balance",
+            "deep-learning/teacher-feature-adapter-and-layer-alignment"
+          ]
+        },
+        {
+          "title": "Adversarial generation and coverage audits",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/gan-discriminator-generator-update-boundary",
+            "deep-learning/gan-mode-coverage-and-duplicate-audit"
+          ]
+        },
+        {
+          "title": "Autoregressive decoding and cache parity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/autoregressive-kv-cache-position-and-mask-parity",
+            "deep-learning/decoding-stop-rules-and-beam-score"
+          ]
+        },
+        {
+          "title": "Optimization schedules and checkpoint selection",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/adamw-decay-groups-and-update-indexed-schedules",
+            "deep-learning/early-stopping-best-state-and-seed-variance"
+          ]
+        },
+        {
+          "title": "Perturbation sensitivity and release gates",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/fgsm-input-scale-and-perturbation-threat-model",
+            "deep-learning/adversarial-training-clean-robust-balance"
+          ]
+        },
+        {
+          "title": "Pixel-level defect learning and mask audits",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/segmentation-mask-alignment-and-ignore-pixels",
+            "deep-learning/dice-iou-empty-mask-and-threshold-policy"
+          ]
+        },
+        {
+          "title": "Activation recomputation and memory measurement",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/activation-checkpointing-recompute-and-rng-parity",
+            "deep-learning/training-memory-profiler-and-allocator-boundaries"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "deep-learning/receipt-image-quality-project",
+            "deep-learning/receipt-training-memory-project",
+            "deep-learning/sequence-attention-leakage-project",
+            "deep-learning/receipt-defect-localization-project",
+            "deep-learning/receipt-domain-adaptation-project",
+            "deep-learning/service-event-lstm-project",
+            "deep-learning/telemetry-autoencoder-alert-project",
+            "deep-learning/receipt-multiworker-parity-project",
+            "deep-learning/receipt-confidence-audit-project",
+            "deep-learning/receipt-background-diffusion-project",
+            "deep-learning/receipt-edge-model-release-project",
+            "deep-learning/receipt-contrastive-pretraining-project",
+            "deep-learning/receipt-student-distillation-project",
+            "deep-learning/receipt-paper-texture-gan-project",
+            "deep-learning/service-event-decoder-parity-project",
+            "deep-learning/receipt-optimizer-selection-project",
+            "deep-learning/receipt-perturbation-stress-project",
+            "deep-learning/receipt-defect-segmentation-project",
+            "deep-learning/receipt-activation-recompute-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Deep Learning",
+          "path": "deep-learning/deep-learning-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "deep-learning/deep-learning-tutorial/project"
+        }
+      ],
+      "related": [
+        {
+          "path": "deep-learning/frozen-features-versus-fine-tuning",
+          "title": "Frozen features versus fine-tuning a pretrained backbone"
+        },
+        {
+          "path": "deep-learning/telemetry-autoencoder-alert-project",
+          "title": "Project: calibrate an autoencoder alert for freezer telemetry"
+        },
+        {
+          "path": "deep-learning/receipt-confidence-audit-project",
+          "title": "Project: audit receipt confidence and review handoff"
+        },
+        {
+          "path": "deep-learning/receipt-edge-model-release-project",
+          "title": "Project: release a compact receipt model to an edge device"
+        },
+        {
+          "path": "deep-learning/receipt-student-distillation-project",
+          "title": "Project: distill and release a receipt-quality student"
+        },
+        {
+          "path": "deep-learning/service-event-decoder-parity-project",
+          "title": "Project: release an incremental service-event decoder"
+        },
+        {
+          "path": "deep-learning/receipt-perturbation-stress-project",
+          "title": "Project: stress-test receipt decisions under bounded image changes"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "57e47ab4-8a42-572b-b82d-a617bd2ba594",
+    "type": "subject",
+    "path": "deep-learning/deep-learning-tutorial/project",
+    "title": "Deep Learning: Projects",
+    "summary": "A checked project for the Deep Learning curriculum.",
+    "body": "<p>Build and review a complete Deep Learning project.</p><h2>Project brief</h2><ul><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul><h2>Required concepts</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/batching-and-class-sampling\">Batching and class sampling: know the population the optimizer sees</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul><h2>Completion standard</h2><p>Submit inputs, runnable work, measured output, failure-case results and a short decision note.</p><h2>Optimization under a memory budget</h2><ul><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li></ul><h2>Attention masks and sequence targets</h2><ul><li><a href=\"/deep-learning/sequence-attention-leakage-project\">Project: audit a next-event attention decoder</a></li></ul><h2>Convolution geometry and residual design</h2><ul><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li></ul><h2>Transfer learning and domain shift</h2><ul><li><a href=\"/deep-learning/receipt-domain-adaptation-project\">Project: adapt a receipt model to a new capture device</a></li></ul><h2>Recurrent sequences and state ownership</h2><ul><li><a href=\"/deep-learning/service-event-lstm-project\">Project: predict service escalation from event histories</a></li></ul><h2>Reconstruction models and anomaly scores</h2><ul><li><a href=\"/deep-learning/telemetry-autoencoder-alert-project\">Project: calibrate an autoencoder alert for freezer telemetry</a></li></ul><h2>Distributed training and recovery</h2><ul><li><a href=\"/deep-learning/receipt-multiworker-parity-project\">Project: prove multiworker receipt-training parity</a></li></ul><h2>Confidence, abstention and evidence checks</h2><ul><li><a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a></li></ul><h2>Diffusion training and sampling contracts</h2><ul><li><a href=\"/deep-learning/receipt-background-diffusion-project\">Project: train and audit a receipt-background denoiser</a></li></ul><h2>Compression and edge release</h2><ul><li><a href=\"/deep-learning/receipt-edge-model-release-project\">Project: release a compact receipt model to an edge device</a></li></ul><h2>Self-supervised views and contrastive objectives</h2><ul><li><a href=\"/deep-learning/receipt-contrastive-pretraining-project\">Project: pretrain receipt features from unlabeled captures</a></li></ul><h2>Teacher-student distillation contracts</h2><ul><li><a href=\"/deep-learning/receipt-student-distillation-project\">Project: distill and release a receipt-quality student</a></li></ul><h2>Adversarial generation and coverage audits</h2><ul><li><a href=\"/deep-learning/receipt-paper-texture-gan-project\">Project: audit a receipt-paper texture GAN</a></li></ul><h2>Autoregressive decoding and cache parity</h2><ul><li><a href=\"/deep-learning/service-event-decoder-parity-project\">Project: release an incremental service-event decoder</a></li></ul><h2>Optimization schedules and checkpoint selection</h2><ul><li><a href=\"/deep-learning/receipt-optimizer-selection-project\">Project: select a receipt training schedule without test leakage</a></li></ul><h2>Perturbation sensitivity and release gates</h2><ul><li><a href=\"/deep-learning/receipt-perturbation-stress-project\">Project: stress-test receipt decisions under bounded image changes</a></li></ul><h2>Pixel-level defect learning and mask audits</h2><ul><li><a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a></li></ul><h2>Activation recomputation and memory measurement</h2><ul><li><a href=\"/deep-learning/receipt-activation-recompute-project\">Project: measure activation recomputation on receipt training</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7701,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Projects",
+          "lessons": [
+            "deep-learning/receipt-image-quality-project",
+            "deep-learning/receipt-training-memory-project",
+            "deep-learning/sequence-attention-leakage-project",
+            "deep-learning/receipt-defect-localization-project",
+            "deep-learning/receipt-domain-adaptation-project",
+            "deep-learning/service-event-lstm-project",
+            "deep-learning/telemetry-autoencoder-alert-project",
+            "deep-learning/receipt-multiworker-parity-project",
+            "deep-learning/receipt-confidence-audit-project",
+            "deep-learning/receipt-background-diffusion-project",
+            "deep-learning/receipt-edge-model-release-project",
+            "deep-learning/receipt-contrastive-pretraining-project",
+            "deep-learning/receipt-student-distillation-project",
+            "deep-learning/receipt-paper-texture-gan-project",
+            "deep-learning/service-event-decoder-parity-project",
+            "deep-learning/receipt-optimizer-selection-project",
+            "deep-learning/receipt-perturbation-stress-project",
+            "deep-learning/receipt-defect-segmentation-project",
+            "deep-learning/receipt-activation-recompute-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Deep Learning",
+          "path": "deep-learning/deep-learning-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "deep-learning/deep-learning-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "31cda548-19bc-55e7-8250-482223e24991",
+    "type": "article",
+    "path": "deep-learning/dice-iou-empty-mask-and-threshold-policy",
+    "title": "Dice, IoU, empty masks and threshold policy",
+    "summary": "Pixel overlap scores need a declared treatment for ignored pixels, absent classes and probability thresholds before they can compare segmentation checkpoints.",
+    "body": "<p>Pixel overlap scores need a declared treatment for ignored pixels, absent classes and probability thresholds before they can compare segmentation checkpoints.</p><h2>Count intersection and union on valid pixels</h2><p>For a chosen defect class, true positives are pixels marked defect in both prediction and reviewed mask; false positives are predicted defect on reviewed nondefect pixels; false negatives are missed reviewed defect pixels. IoU divides true positives by their union. Dice divides twice the intersection by the total predicted and reviewed positives. Exclude ignored pixels from every count, including predicted positives. Aggregate counts across images before computing a micro score if the intended unit is a pixel, and report per-image or per-class scores separately.</p><h2>Declare the both-empty case</h2><p>When neither prediction nor target contains a defect, the denominator of both IoU and Dice is zero. Returning one rewards easy empty images; returning zero penalizes correct absence; excluding the case changes the evaluated population. Choose the policy in advance and report how many images were both empty. The code returns no overlap score for both-empty images and keeps their count. For a defect detector, an absence false-positive rate is often more informative than assigning a perfect overlap to empty images. <a href=\"/deep-learning/receipt-defect-segmentation-project\">The project</a> reports both.</p><h2>Select thresholds away from final test</h2><p>For a binary or multi-label mask, a probability threshold turns continuous output into a hard mask. Lowering it usually raises recall and false positives. Select one policy on a development group, then freeze it before the final physical-receipt holdout. A multiclass argmax has no independent per-class threshold unless the decision rule is changed. Count tiny connected defects separately: an average IoU can be high because large folds are easy while clipped-edge slivers disappear. <a href=\"/deep-learning/temperature-scaling-and-selective-risk\">Confidence calibration</a> does not automatically select a pixel mask threshold.</p><h2>Preserve the image-level question</h2><p>A user may care whether any clipped edge is present, not its exact pixel boundary. Derive an image-level detection rule from the mask and report image-level recall and false alerts alongside overlap. Compare output after tile merging and any morphological cleanup, because those operations can remove small islands or create false regions. A model that gains Dice by expanding every defect may inflate false alerts on clean receipts. Keep the postprocessing revision and threshold with the model artifact.</p><h2>Use uncertainty-aware reporting</h2><p>Show raw true-positive, false-positive and false-negative counts by defect and capture device, plus the number of held-out physical receipts. Bootstrap by receipt identity rather than by pixel if an interval is needed, since pixels within one receipt are not independent examples. Do not choose a threshold on the same final test used to report its score. <a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">Mask alignment</a> is a prerequisite; overlap numbers cannot rescue shifted annotations.</p><h2>Implementation</h2><pre><code class=\"language-python\">def overlap_counts(target, prediction, ignored_value=255):\n    if len(target) != len(prediction):\n        raise ValueError(&quot;mask length mismatch&quot;)\n    true_positive = false_positive = false_negative = 0\n    for target_pixel, predicted_pixel in zip(target, prediction):\n        if target_pixel == ignored_value:\n            continue\n        true_positive += target_pixel == 1 and predicted_pixel == 1\n        false_positive += target_pixel != 1 and predicted_pixel == 1\n        false_negative += target_pixel == 1 and predicted_pixel != 1\n    denominator = true_positive + false_positive + false_negative\n    if denominator == 0:\n        return {&quot;iou&quot;: None, &quot;dice&quot;: None, &quot;both_empty&quot;: True}\n    return {&quot;iou&quot;: true_positive / denominator,\n            &quot;dice&quot;: 2 * true_positive / (2 * true_positive + false_positive + false_negative),\n            &quot;both_empty&quot;: False}\n\nreviewed_pixels = [0, 1, 1, 0, 255, 0, 0, 0]\npredicted_pixels = [0, 1, 0, 0, 1, 0, 0, 0]\nresult = overlap_counts(reviewed_pixels, predicted_pixels)\nassert result == {&quot;iou&quot;: 0.5, &quot;dice&quot;: 2 / 3, &quot;both_empty&quot;: False}</code></pre><h2>Performance and operating cost</h2><p>Counting overlap is O(HW) time and O(1) auxiliary memory for one image if pixels stream through the metric. Storing all probability maps for later threshold sweeps is O(NHW) and can be expensive; accumulate candidate-threshold counts when possible. Per-image IoU and micro-IoU answer different questions because large masks carry more pixels. Rare-class confidence intervals depend on independent receipt counts, not the much larger pixel count.</p><h3>Common Mistakes</h3><ul><li>Do not silently assign an IoU of one to every both-empty mask.</li><li>Do not calculate overlap on ignored pixels or on masks with mismatched geometry.</li><li>Do not choose a threshold after viewing final-test performance.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">Segmentation mask alignment and ignored pixels</a></li><li><a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a></li><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li><li><a href=\"/deep-learning/temperature-scaling-and-selective-risk\">Temperature scaling and selective risk</a></li><li><a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7901,
+    "status": "published",
+    "published_at": "2026-10-06T10:24:36.040168+00:00",
+    "created_at": "2026-10-06T10:24:36.040168+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/segmentation-mask-alignment-and-ignore-pixels",
+          "title": "Segmentation mask alignment and ignored pixels"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        },
+        {
+          "path": "deep-learning/temperature-scaling-and-selective-risk",
+          "title": "Temperature scaling and selective risk"
+        },
+        {
+          "path": "deep-learning/receipt-confidence-audit-project",
+          "title": "Project: audit receipt confidence and review handoff"
+        }
+      ]
+    }
+  },
+  {
+    "id": "09dc3100-e9b6-5164-9945-0cb65f1e6742",
+    "type": "article",
+    "path": "deep-learning/gradient-accumulation-and-effective-batch",
+    "title": "Gradient accumulation and effective batch accounting",
+    "summary": "Accumulation changes when the optimizer steps; a correct large-batch approximation also preserves the weight of every example, including the final short microbatch.",
+    "body": "<p>Accumulation changes when the optimizer steps; a correct large-batch approximation also preserves the weight of every example, including the final short microbatch.</p><h2>Define the unit being averaged</h2><p>A microbatch is one forward and backward pass. An optimizer update can combine several microbatches; its effective batch is the total examples whose gradients contributed to that update, multiplied by the number of workers when gradients are reduced across workers. Dividing every microbatch mean by the number of microbatches fails when their sizes differ. For sample-averaged cross-entropy, sum the losses in each microbatch and divide by the total accepted examples in the update. <a href=\"/deep-learning/batching-and-class-sampling\">Sampling policy</a> determines which examples enter that denominator.</p><h2>Step once at the accumulation boundary</h2><p>Clear gradients before the first microbatch, call backward once per microbatch, then clip if required and step once. Clearing inside the loop discards earlier contributions. Stepping after each backward changes both the effective batch and the parameter point at which later gradients are computed. A final partial accumulation window still needs an update, with its own denominator; dropping it changes the training population. Count optimizer updates separately from examples seen and loader iterations.</p><h2>State where equivalence ends</h2><p>With a deterministic model and a loss separable over examples, accumulated gradients can match one full-batch gradient up to floating-point order. Batch normalization reads microbatch statistics, so it can change the function itself. Dropout draws different masks, and distributed reduction conventions can add another scaling factor. Learning-rate schedules indexed by optimizer updates should advance once per effective batch, not once per microbatch. <a href=\"/deep-learning/train-eval-validation-loop\">Validation</a> must compare the resulting model, not merely the first loss.</p><h2>Control long-sequence cost</h2><p>Accumulation reduces the peak activations of one pass but does not reduce the model weights, optimizer moments or the largest single-example activation. If one sequence alone exceeds memory, accumulation cannot fix it; trim sequence length, checkpoint activations or change the model. Do not retain each loss tensor in a Python list while logging; detach its scalar value so previous computation graphs can be released.</p><h2>Prove the accounting</h2><p>Run a fixed three-example batch as one pass, then as microbatches of two and one with copied initial weights. Compare every parameter gradient before stepping. Test an incomplete final window and a distributed configuration with a documented loss reduction convention. Record example count, microbatch count, optimizer-step count and gradient norm. A run that says only &quot;batch size 47&quot; conceals the update cadence that determines its training behavior.</p><h2>Implementation</h2><pre><code class=\"language-python\">import copy\nimport torch\nfrom torch import nn\n\ntorch.manual_seed(47)\nfull_model = nn.Linear(3, 2)\nsplit_model = copy.deepcopy(full_model)\nreceipt_features = torch.tensor([[0.7, 0.2, 0.1],\n                                 [0.1, 0.6, 0.3],\n                                 [0.4, 0.1, 0.5]])\nquality_labels = torch.tensor([0, 1, 0])\n\nfull_loss = nn.functional.cross_entropy(\n    full_model(receipt_features), quality_labels, reduction=&quot;mean&quot;)\nfull_loss.backward()\n\naccepted_examples = quality_labels.numel()\nfor first, last in ((0, 2), (2, 3)):\n    logits = split_model(receipt_features[first:last])\n    loss_sum = nn.functional.cross_entropy(\n        logits, quality_labels[first:last], reduction=&quot;sum&quot;)\n    (loss_sum / accepted_examples).backward()\n\nfor full_parameter, split_parameter in zip(full_model.parameters(),\n                                            split_model.parameters()):\n    torch.testing.assert_close(full_parameter.grad, split_parameter.grad,\n                               rtol=1e-6, atol=1e-7)</code></pre><h2>Performance and operating cost</h2><p>Each microbatch stores activations for at most its own samples, so peak activation memory is closer to the microbatch footprint than the full effective-batch footprint. Total forward and backward work remains roughly proportional to all examples; more microbatches add launch and synchronization overhead. The model and optimizer state remain resident. A short last batch must be weighted by its example count.</p><h3>Common Mistakes</h3><ul><li>Do not divide each unequal-size microbatch mean by the number of microbatches.</li><li>Do not reset gradients or advance the scheduler between microbatches of one update.</li><li>Do not promise full-batch equivalence when batch-dependent layers change their statistics.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/batching-and-class-sampling\">Batching and class sampling: know the population the optimizer sees</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/mixed-precision-scaling-and-gradient-clipping\">Mixed precision, loss scaling and gradient clipping</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/residual-blocks-and-normalization-state\">Residual blocks and normalization state</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent hidden-state resets and truncated gradients</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/distributed-sampler-tail-and-global-loss-weighting\">Distributed sampler tails and global loss weighting</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/adamw-decay-groups-and-update-indexed-schedules\">AdamW decay groups and update-indexed schedules</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-activation-recompute-project\">Project: measure activation recomputation on receipt training</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7820,
+    "status": "published",
+    "published_at": "2026-10-06T08:43:23.133752+00:00",
+    "created_at": "2026-10-06T08:43:23.133752+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/batching-and-class-sampling",
+          "title": "Batching and class sampling: know the population the optimizer sees"
+        },
+        {
+          "path": "deep-learning/logits-loss-gradient",
+          "title": "Logits, cross-entropy and gradients: align the training calculation"
+        },
+        {
+          "path": "deep-learning/mixed-precision-scaling-and-gradient-clipping",
+          "title": "Mixed precision, loss scaling and gradient clipping"
+        },
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "deep-learning/receipt-training-memory-project",
+          "title": "Project: train a receipt model under a memory budget"
+        },
+        {
+          "path": "deep-learning/residual-blocks-and-normalization-state",
+          "title": "Residual blocks and normalization state"
+        },
+        {
+          "path": "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients",
+          "title": "Recurrent hidden-state resets and truncated gradients"
+        },
+        {
+          "path": "deep-learning/distributed-sampler-tail-and-global-loss-weighting",
+          "title": "Distributed sampler tails and global loss weighting"
+        },
+        {
+          "path": "deep-learning/adamw-decay-groups-and-update-indexed-schedules",
+          "title": "AdamW decay groups and update-indexed schedules"
+        },
+        {
+          "path": "deep-learning/receipt-activation-recompute-project",
+          "title": "Project: measure activation recomputation on receipt training"
+        }
+      ]
+    }
+  },
+  {
+    "id": "50b928ca-6624-58a1-8f51-25c27e0ce210",
+    "type": "article",
+    "path": "deep-learning/inference-schema-and-latency",
+    "title": "Inference contracts: preserve preprocessing and measure tail latency",
+    "summary": "Deployment binds weights to input transforms and class mapping, then measures latency under realistic request load.",
+    "body": "<p>Deployment binds weights to input transforms and class mapping, then measures latency under realistic request load.</p><h2>Package the decision</h2><p>Publish model weights, preprocessing version, dimensions, channel order, class names and threshold together. A server that resizes differently or reverses channels may return plausible scores with the wrong meaning. Validate file type, decoded dimensions and maximum bytes before allocating large tensors. <a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts</a>] are API constraints, not training-only checks.</p><h2>Separate score and action</h2><p>Return a score only with a declared class order. Convert logits to probabilities when the endpoint promises them, then apply a threshold chosen under a review-capacity policy. Include an abstain path for unsupported or poor-quality inputs. <a href=\"/machine-learning/decision-threshold-and-cost\">Threshold analysis</a>] connects model output to the operational action.</p><h2>Measure loaded behavior</h2><p>Warm the model, then measure decode, preprocessing, queue, forward pass and serialization separately. Report median and high-percentile latency under concurrent traffic, rather than one idle request. Batch inference may raise throughput while making one request wait longer. State maximum batch and timeout, and reject overload predictably.</p><h2>Monitor failure safely</h2><p>Count decode failures, invalid shapes, abstentions and score shifts by relevant slice. Avoid raw personal images in routine logs. Keep a rollback artifact and known-good requests; compare outputs and class names with the manifest before shifting traffic.</p><h2>Implementation</h2><pre><code class=\"language-python\">def predict_receipt(image_bytes, receipt_model, preprocess, class_names):\n    if len(image_bytes) &gt; 4_000_000:\n        raise ValueError(&quot;image exceeds request limit&quot;)\n    image_tensor = preprocess(image_bytes)\n    if image_tensor.shape != (3, 224, 224):\n        raise ValueError(&quot;unexpected dimensions&quot;)\n    receipt_model.eval()\n    with torch.inference_mode():\n        logits = receipt_model(image_tensor.unsqueeze(0))\n        probabilities = logits.softmax(dim=1)[0]\n    return dict(zip(class_names, probabilities.tolist()))</code></pre><h2>Performance and operating cost</h2><p>Prediction costs preprocessing and one model forward pass. Concurrent requests add queue and memory pressure; batching exchanges lower compute per image for additional wait time. Measure p95 under intended concurrency.</p><h3>Common Mistakes</h3><ul><li>Do not deploy weights without class mapping and preprocessing.</li><li>Do not treat an idle request as a latency guarantee.</li><li>Do not log sensitive images during routine errors.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li><li><a href=\"/machine-learning/decision-threshold-and-cost\">Decision thresholds: choose an action from probabilities and error costs</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/machine-learning/model-inference-budget-and-device-profile\">Model inference budget and device profile</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-domain-adaptation-project\">Project: adapt a receipt model to a new capture device</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent hidden-state resets and truncated gradients</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/post-training-quantization-calibration-contract\">Post-training quantization and calibration contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/autoregressive-kv-cache-position-and-mask-parity\">Autoregressive KV cache position and mask parity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7816,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "deep-learning/tensor-shape-dtype-contract",
+          "title": "Tensor contracts: shape, dtype, device and mask"
+        },
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "machine-learning/decision-threshold-and-cost",
+          "title": "Decision thresholds: choose an action from probabilities and error costs"
+        },
+        {
+          "path": "mlops/shadow-canary-and-rollback",
+          "title": "Shadow and canary rollout: compare a candidate without losing a rollback"
+        },
+        {
+          "path": "machine-learning/model-inference-budget-and-device-profile",
+          "title": "Model inference budget and device profile"
+        },
+        {
+          "path": "deep-learning/causal-target-shift-and-padding-loss",
+          "title": "Causal target shifts and padding-aware loss"
+        },
+        {
+          "path": "deep-learning/receipt-domain-adaptation-project",
+          "title": "Project: adapt a receipt model to a new capture device"
+        },
+        {
+          "path": "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients",
+          "title": "Recurrent hidden-state resets and truncated gradients"
+        },
+        {
+          "path": "deep-learning/receipt-confidence-audit-project",
+          "title": "Project: audit receipt confidence and review handoff"
+        },
+        {
+          "path": "deep-learning/post-training-quantization-calibration-contract",
+          "title": "Post-training quantization and calibration contracts"
+        },
+        {
+          "path": "deep-learning/autoregressive-kv-cache-position-and-mask-parity",
+          "title": "Autoregressive KV cache position and mask parity"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "31b7ed28-0b6c-50f1-8d4e-526c07860aae",
+    "type": "article",
+    "path": "deep-learning/mixed-precision-scaling-and-gradient-clipping",
+    "title": "Mixed precision, loss scaling and gradient clipping",
+    "summary": "Autocast can reduce compute and activation cost, but scaled gradients must be unscaled before clipping and the scale must change only at an optimizer-step boundary.",
+    "body": "<p>Autocast can reduce compute and activation cost, but scaled gradients must be unscaled before clipping and the scale must change only at an optimizer-step boundary.</p><h2>Keep a numerical baseline</h2><p>Train a small fixed batch in full precision before enabling autocast. Record finite loss, gradient norm, predictions and update count. Mixed precision chooses lower precision for eligible operations; it does not mean every tensor or reduction is half precision. Depending on hardware, bfloat16 may need no gradient scaling while float16 often benefits from it. A speedup is hardware- and shape-dependent, so compare measured throughput and accuracy rather than assuming a universal gain. <a href=\"/deep-learning/logits-loss-gradient\">The logits-and-loss contract</a> stays the same.</p><h2>Order the update deliberately</h2><p>Run forward and loss under autocast, scale the loss, then run backward. For float16, wait until all microbatches for the current effective batch have contributed before unscaling. Clip the unscaled gradients and call the scaler-controlled optimizer step; it can skip an unsafe update when gradients are nonfinite. Update the scale once at that boundary. Clearing gradients and advancing a scheduler tied to real optimizer updates require an explicit rule for a skipped step.</p><h2>Understand overflow evidence</h2><p>A falling scale or repeated skipped updates can mean unstable activations, an excessive learning rate or a model that does not fit float16 range. Log loss, unscaled norm, scale and skipped-update count without dumping sensitive training examples. Switching precision or reducing learning rate may be warranted, but first locate the first nonfinite tensor. Clipping after scaling changes the intended threshold by the scale factor and can suppress almost every useful update.</p><h2>Account for resumed state</h2><p>A checkpoint that resumes mixed-precision training should carry model weights, optimizer, scheduler, scaler, update number and data position as one coherent generation. Saving only weights changes future steps even if the first forward output matches. If an update was skipped, the recorded optimizer step must not advance as though parameters changed. <a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery</a> covers the publication boundary for a complete state bundle.</p><h2>Test on the deployment device</h2><p>Autocast support, kernels, memory behavior and precision vary by accelerator. Profile the same batch shape and sequence length that production uses, including a short final batch and a long tail example. Compare full precision and mixed precision on a frozen validation set, not on a repeatedly tuned test set. A tiny numerical difference is expected; a label flip near a decision threshold needs a product-level tolerance and measured frequency.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\n\ndevice = torch.device(&quot;cuda&quot;)\nif not torch.cuda.is_available():\n    raise RuntimeError(&quot;This float16 example requires a CUDA device&quot;)\n\nquality_model = nn.Linear(3, 2).to(device)\noptimizer = torch.optim.AdamW(quality_model.parameters(), lr=0.00047)\nscaler = torch.amp.GradScaler(&quot;cuda&quot;)\nfeatures = torch.tensor([[0.7, 0.2, 0.1], [0.1, 0.6, 0.3]], device=device)\nlabels = torch.tensor([0, 1], device=device)\n\noptimizer.zero_grad(set_to_none=True)\nwith torch.autocast(device_type=&quot;cuda&quot;, dtype=torch.float16):\n    logits = quality_model(features)\n    loss = nn.functional.cross_entropy(logits, labels)\nscaler.scale(loss).backward()\nscaler.unscale_(optimizer)\ngradient_norm = nn.utils.clip_grad_norm_(quality_model.parameters(), 1.7)\nassert torch.isfinite(gradient_norm)\nscaler.step(optimizer)\nscaler.update()</code></pre><h2>Performance and operating cost</h2><p>Autocast can reduce eligible activation sizes and accelerate supported kernels, while scaler bookkeeping and some full-precision operations remain. Loss scaling does not repair a truly divergent model. Unscale and norm calculation inspect all gradients, costing O(P) for P parameters; clipping does not lower activation memory. Measure memory and examples per second on the actual device, including skipped updates.</p><h3>Common Mistakes</h3><ul><li>Do not clip scaled gradients as though they were ordinary gradients.</li><li>Do not update the scale in the middle of one effective batch.</li><li>Do not treat every skipped step as a successful parameter update in a scheduler or checkpoint.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Gradient accumulation and effective batch accounting</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/variational-latent-kl-and-collapse\">Variational latent sampling, KL accounting and collapse</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/distributed-checkpoint-manifest-and-resume\">Distributed checkpoint manifests and coherent resume</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/adamw-decay-groups-and-update-indexed-schedules\">AdamW decay groups and update-indexed schedules</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/training-memory-profiler-and-allocator-boundaries\">Training memory profiling and allocator boundaries</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7821,
+    "status": "published",
+    "published_at": "2026-10-06T08:43:23.133752+00:00",
+    "created_at": "2026-10-06T08:43:23.133752+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/gradient-accumulation-and-effective-batch",
+          "title": "Gradient accumulation and effective batch accounting"
+        },
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "deep-learning/train-eval-validation-loop",
+          "title": "Training and validation modes: measure the model you will serve"
+        },
+        {
+          "path": "deep-learning/logits-loss-gradient",
+          "title": "Logits, cross-entropy and gradients: align the training calculation"
+        },
+        {
+          "path": "deep-learning/receipt-training-memory-project",
+          "title": "Project: train a receipt model under a memory budget"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        },
+        {
+          "path": "deep-learning/variational-latent-kl-and-collapse",
+          "title": "Variational latent sampling, KL accounting and collapse"
+        },
+        {
+          "path": "deep-learning/distributed-checkpoint-manifest-and-resume",
+          "title": "Distributed checkpoint manifests and coherent resume"
+        },
+        {
+          "path": "deep-learning/adamw-decay-groups-and-update-indexed-schedules",
+          "title": "AdamW decay groups and update-indexed schedules"
+        },
+        {
+          "path": "deep-learning/training-memory-profiler-and-allocator-boundaries",
+          "title": "Training memory profiling and allocator boundaries"
+        }
+      ]
+    }
+  },
+  {
+    "id": "65d0f067-d6d4-5832-995b-3e1135f4d6a2",
+    "type": "article",
+    "path": "deep-learning/receipt-activation-recompute-project",
+    "title": "Project: measure activation recomputation on receipt training",
+    "summary": "Checkpoint a receipt encoder block only after proving gradient parity, then report the measured memory saving and update-time cost on the intended training device.",
+    "body": "<p>Checkpoint a receipt encoder block only after proving gradient parity, then report the measured memory saving and update-time cost on the intended training device.</p><h2>Build a fixed training reference</h2><p>Use a receipt-quality model, fixed physical-receipt split, preprocessing and labeled batch. Pin the optimizer and seed, then run one full-precision reference update with no recomputation. Save per-parameter gradients, output logits and next-step weights. Warm the optimizer before memory measurement so moment allocation is not confused with activations. <a href=\"/deep-learning/receipt-training-memory-project\">The earlier memory project</a> covers accumulation and precision; this project isolates recomputation.</p><h2>Choose a legal segment</h2><p>Wrap an encoder block whose forward is safe to replay during backward. Inspect dropout and normalization behavior, hooks and counters; side effects inside a replayed function can change state twice. Use an explicit checkpoint variant and RNG policy. Compare plain and recomputed output, input gradient, parameter gradients and one optimizer update within a declared tolerance. If parity fails, stop before reporting any memory result. <a href=\"/deep-learning/activation-checkpointing-recompute-and-rng-parity\">The recomputation lesson</a> gives a minimal test.</p><h2>Measure like for like</h2><p>On the intended accelerator, run several warm updates with identical batch size, image shape, dtype and optimizer state. Reset peak counters per step and synchronize timing. Report median update time, peak allocated bytes and peak reserved bytes for both paths; also report device-level process memory when available. The code below gates supplied measurements and does not pretend to collect GPU data in this environment. <a href=\"/deep-learning/training-memory-profiler-and-allocator-boundaries\">The profiler lesson</a> explains each counter.</p><h2>Test a second use of saved memory</h2><p>If recomputation frees enough memory for a larger microbatch, treat that as a separate run. Preserve effective batch and accepted-example weighting if the aim is an optimization comparison; otherwise state that the training objective changed. Measure examples per second and rare-defect validation behavior. A smaller allocated peak can still yield lower throughput because backward reruns part of the forward. Do not claim a win based only on the largest batch that fits.</p><h2>Release a reproducible decision</h2><p>Predeclare a minimum memory saving, maximum update-time increase and gradient tolerance. Keep the original training path when the technique misses these gates. Package model and block revisions, input shape, optimizer state, device, precision, RNG policy and profiler trace. Re-run the fixed-batch parity test after library upgrades. The deliverable is a measured tradeoff with a rollback path, not a statement that activation checkpointing is always beneficial.</p><h2>Implementation</h2><pre><code class=\"language-python\">from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass MemoryRun:\n    peak_allocated_mb: float\n    median_update_ms: float\n    largest_gradient_gap: float\n\ndef release_failures(reference: MemoryRun, candidate: MemoryRun) -&gt; list[str]:\n    failures = []\n    if candidate.largest_gradient_gap &gt; 0.0001:\n        failures.append(&quot;gradient parity&quot;)\n    if candidate.peak_allocated_mb &gt; reference.peak_allocated_mb * 0.82:\n        failures.append(&quot;memory saving&quot;)\n    if candidate.median_update_ms &gt; reference.median_update_ms * 1.35:\n        failures.append(&quot;update latency&quot;)\n    return failures\n\nplain_run = MemoryRun(2140, 38.2, 0.0)\nrecomputed_run = MemoryRun(1600, 55.4, 0.00003)\nassert release_failures(plain_run, recomputed_run) == [&quot;update latency&quot;]</code></pre><h2>Performance and operating cost</h2><p>A checkpointed block trades stored activations for extra recomputation. The release gate itself is O(1), but each candidate needs multiple measured full updates and a gradient-parity comparison across model parameters. Peak allocated bytes are only one memory view; record reserved and device-level usage too. The example shows a candidate that saves memory yet fails its update-time gate. Its numbers are illustrative, not benchmarks from this machine. A larger-batch follow-up adds another training and validation cost.</p><h3>Common Mistakes</h3><ul><li>Do not use illustrative values as measured GPU results.</li><li>Do not report memory savings before matching gradients and update boundaries.</li><li>Do not assume a larger fitting batch preserves the original effective-batch objective.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/activation-checkpointing-recompute-and-rng-parity\">Activation checkpointing, recomputation and RNG parity</a></li><li><a href=\"/deep-learning/training-memory-profiler-and-allocator-boundaries\">Training memory profiling and allocator boundaries</a></li><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li><li><a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Gradient accumulation and effective batch accounting</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7905,
+    "status": "published",
+    "published_at": "2026-10-06T10:24:36.040168+00:00",
+    "created_at": "2026-10-06T10:24:36.040168+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/activation-checkpointing-recompute-and-rng-parity",
+          "title": "Activation checkpointing, recomputation and RNG parity"
+        },
+        {
+          "path": "deep-learning/training-memory-profiler-and-allocator-boundaries",
+          "title": "Training memory profiling and allocator boundaries"
+        },
+        {
+          "path": "deep-learning/receipt-training-memory-project",
+          "title": "Project: train a receipt model under a memory budget"
+        },
+        {
+          "path": "deep-learning/gradient-accumulation-and-effective-batch",
+          "title": "Gradient accumulation and effective batch accounting"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        }
+      ]
+    }
+  },
+  {
+    "id": "3df7f2bd-d775-570f-a69c-67e5dcc6cf74",
+    "type": "article",
+    "path": "deep-learning/receipt-defect-localization-project",
+    "title": "Project: localize receipt defects with a residual CNN",
+    "summary": "Build a pixel-level defect detector that keeps coordinate alignment across convolution, downsampling and a residual block, then audit failures at crop edges.",
+    "body": "<p>Build a pixel-level defect detector that keeps coordinate alignment across convolution, downsampling and a residual block, then audit failures at crop edges.</p><h2>Write a mask contract</h2><p>For each receipt image, store an image identity, native height and width, a binary mask for unreadable regions and a crop transform. Split by receipt identity before extracting overlapping crops. A mask cannot be resized with the same smooth interpolation as a photograph: use nearest-neighbor for discrete labels, and verify that every positive pixel still maps to the right location. <a href=\"/deep-learning/augmentation-leakage-boundary\">Split-before-augmentation</a> prevents neighboring crops from contaminating validation.</p><h2>Design the spatial path</h2><p>Use a stride-one feature stem and one stride-two residual block. Upsample to the original crop size for a one-channel logit mask; size-based interpolation removes ambiguity for odd heights and widths. The network below is a minimal shape-checked reference, not a claim that one block is enough for every receipt. Compare its receptive field against the width of known defects. <a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Geometry accounting</a> explains the half-resolution feature grid.</p><h2>Keep the loss and metric honest</h2><p>Train on logits with a binary cross-entropy loss; threshold probabilities only for an evaluation decision. Report pixel recall, intersection over union and receipt-level miss rate, with edge defects separated from center defects. A model can earn a good global pixel score by predicting background everywhere when defects are rare. Fix the threshold using validation data; leave a held-out test split untouched. <a href=\"/deep-learning/logits-loss-gradient\">Logits and loss</a> must keep the same target scale.</p><h2>Challenge the padding choice</h2><p>Create a test set with marks touching the crop edge and one with the same marks translated into the center. Compare false-negative rates. Test zero padding against an explicit alternative under the same split, optimizer and threshold policy. A change in crop size can also change the feature-map grid, so assert output mask dimensions for 47 by 83, 48 by 84 and a narrow minimum crop. Do not infer edge reliability from center-only visual examples.</p><h2>Package the serving boundary</h2><p>Save a full state dictionary, class definition version, normalization values, resize policy, mask threshold and output-coordinate transform. Reload the artifact and check pixel-aligned output for the same fixed image. Log latency and peak memory at the largest accepted crop. The project passes only when an edge-defect counterexample, a blank receipt and a low-contrast receipt all have documented outcomes, including what the product does when confidence is low.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\nclass ReceiptDefectNet(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.stem = nn.Sequential(nn.Conv2d(1, 12, 3, padding=1, bias=False),\n                                  nn.BatchNorm2d(12), nn.ReLU())\n        self.main = nn.Sequential(nn.Conv2d(12, 24, 3, stride=2, padding=1,\n                                            bias=False), nn.BatchNorm2d(24), nn.ReLU(),\n                                  nn.Conv2d(24, 24, 3, padding=1, bias=False),\n                                  nn.BatchNorm2d(24))\n        self.shortcut = nn.Conv2d(12, 24, 1, stride=2)\n        self.head = nn.Conv2d(24, 1, 1)\n\n    def forward(self, receipt_images: torch.Tensor) -&gt; torch.Tensor:\n        high_resolution = self.stem(receipt_images)\n        low_resolution = functional.relu(self.main(high_resolution)\n                                         + self.shortcut(high_resolution))\n        low_resolution_logits = self.head(low_resolution)\n        return functional.interpolate(low_resolution_logits,\n                                      size=receipt_images.shape[-2:],\n                                      mode=&quot;bilinear&quot;, align_corners=False)\n\nmodel = ReceiptDefectNet()\nreceipt_images = torch.rand(2, 1, 47, 83)\ndefect_masks = torch.zeros_like(receipt_images)\ndefect_masks[:, :, 11:16, 33:39] = 1\nmask_logits = model(receipt_images)\nloss = functional.binary_cross_entropy_with_logits(mask_logits, defect_masks)\nloss.backward()\nassert mask_logits.shape == defect_masks.shape\nassert torch.isfinite(loss)</code></pre><h2>Performance and operating cost</h2><p>Convolution work grows with image area, kernel area and channel products; the retained high-resolution stem activation can dominate memory. Bilinear output resizing costs O(batch × image pixels) and does not recover detail already erased by a coarse feature grid. Track receipt-level miss rate alongside pixel metrics, and profile largest accepted crops rather than only the 47 by 83 reference.</p><h3>Common Mistakes</h3><ul><li>Do not split overlapping crops from one receipt across training and validation.</li><li>Do not use smooth interpolation on a binary ground-truth mask.</li><li>Do not treat a high background-dominated pixel accuracy as defect detection.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Convolution output geometry and receptive fields</a></li><li><a href=\"/deep-learning/residual-blocks-and-normalization-state\">Residual blocks and normalization state</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/occlusion-attribution-and-sanity-checks\">Occlusion attribution and explanation sanity checks</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/diffusion-reverse-step-and-guidance\">Diffusion reverse steps and conditional guidance</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/contrastive-view-identity-and-augmentation-contract\">Contrastive view identity and augmentation contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7832,
+    "status": "published",
+    "published_at": "2026-10-06T09:10:58.143029+00:00",
+    "created_at": "2026-10-06T09:10:58.143029+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/convolution-output-geometry-and-receptive-field",
+          "title": "Convolution output geometry and receptive fields"
+        },
+        {
+          "path": "deep-learning/residual-blocks-and-normalization-state",
+          "title": "Residual blocks and normalization state"
+        },
+        {
+          "path": "deep-learning/augmentation-leakage-boundary",
+          "title": "Image augmentation: split originals first and preserve the label"
+        },
+        {
+          "path": "deep-learning/logits-loss-gradient",
+          "title": "Logits, cross-entropy and gradients: align the training calculation"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/occlusion-attribution-and-sanity-checks",
+          "title": "Occlusion attribution and explanation sanity checks"
+        },
+        {
+          "path": "deep-learning/diffusion-reverse-step-and-guidance",
+          "title": "Diffusion reverse steps and conditional guidance"
+        },
+        {
+          "path": "deep-learning/contrastive-view-identity-and-augmentation-contract",
+          "title": "Contrastive view identity and augmentation contracts"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "476e3b71-e176-5f2d-a937-03d079dbb1af",
+    "type": "article",
+    "path": "deep-learning/receipt-defect-segmentation-project",
+    "title": "Project: segment clipped edges and folds on receipts",
+    "summary": "Train a pixel-level defect model with ignored annotation regions, then prove that mask overlap and image-level alerts survive held-out receipts and full-resolution inference.",
+    "body": "<p>Train a pixel-level defect model with ignored annotation regions, then prove that mask overlap and image-level alerts survive held-out receipts and full-resolution inference.</p><h2>Prepare paired annotations</h2><p>Collect grayscale receipt images with reviewed masks for background, clipped edge and fold, plus an ignore code for uncertain borders. Split by physical receipt before generating crops and keep annotation versions in the manifest. Audit overlays from multiple capture devices, especially narrow clipped edges near the crop boundary. The tiny model below runs one training step to validate dimensions and ignored-pixel handling; it is not a production architecture. <a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">The alignment lesson</a> defines the preprocessing contract.</p><h2>Train with explicit pixel accounting</h2><p>Use per-pixel multiclass logits and ignore uncertain pixels in the loss. Count accepted pixels and positive pixels per batch; reject empty-supervision batches. Sample images so rare defect masks are seen without repeating a few physical receipts so often that validation becomes misleading. Keep all geometric image transforms paired with nearest-neighbor mask transforms. Save a fixed image–mask–logit triplet after each code change. A model can lower loss by learning background while missing almost every clipped edge.</p><h2>Validate overlap and detection</h2><p>Choose a development-set checkpoint and any postprocessing threshold before final test. Report per-class Dice and IoU with an explicit both-empty policy, plus image-level clipped-edge recall and false alerts. Preserve counts by device and defect size. Compare to a simple image-level classifier: pixel masks cost annotation and runtime, so they should earn that cost through better localization or decisions. <a href=\"/deep-learning/dice-iou-empty-mask-and-threshold-policy\">The metric lesson</a> specifies counts and denominators.</p><h2>Test full-resolution tiles</h2><p>If inference uses overlapping tiles, account for padding, coordinate offsets and merging. A defect split across tile boundaries must not vanish or be double-counted. Compare full-image predictions from tiled and untiled runs where memory allows; inspect seam regions and near-edge masks. Record tile size, overlap, blending and output threshold with the model. Measure p95 end-to-end latency including image decode, tiling and mask assembly, not only the neural forward. <a href=\"/deep-learning/inference-schema-and-latency\">The serving contract</a> applies to masks too.</p><h2>Release only with a reversible gate</h2><p>Define minimum clipped-edge image recall, maximum false alerts, per-class overlap floor, review capacity and latency before final test. Export class map, preprocessing, tile policy and ignore-label treatment. Reload a fixed batch in a clean process and compare mask logits. Keep the previous classifier or manual review route if the segmentation candidate misses a gate. Deliver annotated examples, mask-overlap counts and a failure gallery, not a single aggregate score.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\ntorch.manual_seed(47)\nreceipt_images = torch.rand(4, 1, 8, 8)\nreviewed_masks = torch.zeros(4, 8, 8, dtype=torch.long)\nreviewed_masks[:, 2:4, 5:7] = 1\nreviewed_masks[:, 5:7, 1:4] = 2\nreviewed_masks[:, 0, 0] = 255\nmodel = nn.Sequential(nn.Conv2d(1, 8, 3, padding=1), nn.ReLU(),\n                      nn.Conv2d(8, 3, 1))\noptimizer = torch.optim.AdamW(model.parameters(), lr=0.0007)\noptimizer.zero_grad(set_to_none=True)\nlogits = model(receipt_images)\nassert logits.shape == (4, 3, 8, 8)\nassert int(reviewed_masks.ne(255).sum()) == 252\nloss = functional.cross_entropy(logits, reviewed_masks, ignore_index=255)\nloss.backward()\noptimizer.step()\nassert torch.isfinite(loss)</code></pre><h2>Performance and operating cost</h2><p>Dense per-pixel logits use O(BCHW) storage and a full-resolution model may need substantially more activation memory than an image classifier. Tiled inference trades peak memory for repeated border compute and merging work; overlapping tiles can increase total pixels processed. Mask annotation and review are material project costs. The toy model has only two convolutions and proves tensor and loss wiring, not accuracy. Benchmark image decode, full-resolution assembly and serving latency on the target runtime.</p><h3>Common Mistakes</h3><ul><li>Do not claim a high pixel score when clipped-edge image recall is poor.</li><li>Do not train on masks bilinearly resized into fractional class IDs.</li><li>Do not evaluate tiled images without checking seams and coordinate restoration.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">Segmentation mask alignment and ignored pixels</a></li><li><a href=\"/deep-learning/dice-iou-empty-mask-and-threshold-policy\">Dice, IoU, empty masks and threshold policy</a></li><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7902,
+    "status": "published",
+    "published_at": "2026-10-06T10:24:36.040168+00:00",
+    "created_at": "2026-10-06T10:24:36.040168+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/segmentation-mask-alignment-and-ignore-pixels",
+          "title": "Segmentation mask alignment and ignored pixels"
+        },
+        {
+          "path": "deep-learning/dice-iou-empty-mask-and-threshold-policy",
+          "title": "Dice, IoU, empty masks and threshold policy"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        }
+      ]
+    }
+  },
+  {
+    "id": "b5bd5b57-66dd-547b-adb1-0c11ad3e6b3f",
+    "type": "article",
+    "path": "deep-learning/receipt-image-quality-project",
+    "title": "Project: classify receipt image quality with a checked training contract",
+    "summary": "Train a receipt-image classifier, then check identity splits, tensor contracts, validation arithmetic, recovery and serving behavior.",
+    "body": "<p>Train a receipt-image classifier, then check identity splits, tensor contracts, validation arithmetic, recovery and serving behavior.</p><h2>Define the task</h2><p>Choose labels such as readable, blurred and cut-off. Record how annotators handle a photo with more than one defect: use a priority rule or a multi-label target with a matching loss. For single-label training, pin class order and image input format. Split original receipt identities before augmentation. <a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor checks</a>] and <a href=\"/deep-learning/augmentation-leakage-boundary\">split checks</a>] must run.</p><h2>Train against a baseline</h2><p>Start with class prevalence and a simple image model. Show a tiny-batch overfit check, then train under a fixed optimizer and epoch budget. Log examples seen, loss, invalid gradients and validation counts. Use raw logits for cross-entropy and the correct evaluation mode. <a href=\"/deep-learning/logits-loss-gradient\">The loss contract</a>] and <a href=\"/deep-learning/train-eval-validation-loop\">weighted validation</a>] are review criteria.</p><h2>Exercise recovery and serving</h2><p>Interrupt training after a checkpoint and resume with the same class mapping and input manifest. Compare one fixed-batch update. Publish an inference manifest with preprocessing and maximum request size. Reject a corrupt image and oversized request; measure loaded high-percentile latency at a stated concurrency. <a href=\"/deep-learning/inference-schema-and-latency\">Serving</a>] must match the selected checkpoint.</p><h2>Report failure slices</h2><p>Show a confusion table and error examples for dim light, angled photos and duplicate captures. State the count per slice; do not give percentages without denominators. Compare the selected model with the baseline on an untouched test partition once. Submit code, run manifest, sample IDs and failure-case outputs so another engineer can reproduce the decision.</p><h2>Implementation</h2><pre><code class=\"language-python\">def check_image_project(train_ids, validation_ids, test_ids, class_names):\n    partitions = [set(train_ids), set(validation_ids), set(test_ids)]\n    if any(not group for group in partitions):\n        raise ValueError(&quot;empty image partition&quot;)\n    if any(partitions[left] &amp; partitions[right]\n           for left, right in ((0, 1), (0, 2), (1, 2))):\n        raise ValueError(&quot;identity leaked across partitions&quot;)\n    if len(class_names) != len(set(class_names)):\n        raise ValueError(&quot;duplicate class label&quot;)</code></pre><h2>Performance and operating cost</h2><p>Each training epoch reads O(N) images; decoding and augmentation may dominate loader CPU. Include peak device memory, total training time and loaded inference tail latency in the project report.</p><h3>Common Mistakes</h3><ul><li>Do not split variants independently of original receipts.</li><li>Do not promote a checkpoint without preprocessing metadata.</li><li>Do not hide tiny failure slices behind overall accuracy.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/masked-reconstruction-loss-and-anomaly-threshold\">Masked reconstruction loss and anomaly thresholds</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-multiworker-parity-project\">Project: prove multiworker receipt-training parity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-background-diffusion-project\">Project: train and audit a receipt-background denoiser</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-edge-model-release-project\">Project: release a compact receipt model to an edge device</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-contrastive-pretraining-project\">Project: pretrain receipt features from unlabeled captures</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-paper-texture-gan-project\">Project: audit a receipt-paper texture GAN</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-optimizer-selection-project\">Project: select a receipt training schedule without test leakage</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7812,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "deep-learning/tensor-shape-dtype-contract",
+          "title": "Tensor contracts: shape, dtype, device and mask"
+        },
+        {
+          "path": "deep-learning/train-eval-validation-loop",
+          "title": "Training and validation modes: measure the model you will serve"
+        },
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/receipt-training-memory-project",
+          "title": "Project: train a receipt model under a memory budget"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        },
+        {
+          "path": "deep-learning/masked-reconstruction-loss-and-anomaly-threshold",
+          "title": "Masked reconstruction loss and anomaly thresholds"
+        },
+        {
+          "path": "deep-learning/receipt-multiworker-parity-project",
+          "title": "Project: prove multiworker receipt-training parity"
+        },
+        {
+          "path": "deep-learning/receipt-background-diffusion-project",
+          "title": "Project: train and audit a receipt-background denoiser"
+        },
+        {
+          "path": "deep-learning/receipt-edge-model-release-project",
+          "title": "Project: release a compact receipt model to an edge device"
+        },
+        {
+          "path": "deep-learning/receipt-contrastive-pretraining-project",
+          "title": "Project: pretrain receipt features from unlabeled captures"
+        },
+        {
+          "path": "deep-learning/receipt-paper-texture-gan-project",
+          "title": "Project: audit a receipt-paper texture GAN"
+        },
+        {
+          "path": "deep-learning/receipt-optimizer-selection-project",
+          "title": "Project: select a receipt training schedule without test leakage"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "86d1396a-21a7-5d3c-b402-45959031b990",
+    "type": "article",
+    "path": "deep-learning/receipt-optimizer-selection-project",
+    "title": "Project: select a receipt training schedule without test leakage",
+    "summary": "Compare constant and warmup-decay training under one receipt split, then restore a chosen checkpoint and audit stability across seeds before final release.",
+    "body": "<p>Compare constant and warmup-decay training under one receipt split, then restore a chosen checkpoint and audit stability across seeds before final release.</p><h2>Lock the experiment manifest</h2><p>Group receipt crops by physical receipt and reserve training, development, calibration and final-test populations. Fix model shape, optimizer family, effective batch, accepted-example budget and class weights. Define one constant-rate candidate and one five-update warmup followed by a 47-update cosine decay. Record per-parameter decay groups and whether the rate is applied before each parameter step. <a href=\"/deep-learning/adamw-decay-groups-and-update-indexed-schedules\">The schedule contract</a> makes a resumed run comparable with an uninterrupted one.</p><h2>Run one seed as a smoke test</h2><p>Log the first, warmup-end, resumed and final planned learning rates, along with loss by class and accepted-example counts. Save a coherent checkpoint at update 23, resume it and compare the next fixed-batch parameter update with the uninterrupted reference. A mismatch can come from optimizer moments, scheduler index, sampler position or mixed-precision scaler. Do not proceed to expensive repeats until this parity check passes. <a href=\"/deep-learning/checkpoint-resume-state\">The checkpoint lesson</a> lists the state needed for replay.</p><h2>Apply a predeclared selection rule</h2><p>Evaluate on the development population at fixed update intervals and save the best qualifying checkpoint under one primary metric, with a declared minimum improvement and patience. Restore that checkpoint rather than the last one. If clipped-edge recall has a hard floor, reject any candidate below it before ranking validation loss. The code below checks a decision record over illustrative measured results; it does not train a model or claim these numbers were observed. <a href=\"/deep-learning/early-stopping-best-state-and-seed-variance\">The selection lesson</a> sets the tie policy.</p><h2>Repeat and inspect spread</h2><p>Run both candidates over the same set of independent seeds, preserving split IDs and evaluation cadence. Report per-seed best checkpoint update, clipped-edge recall, false accepts and calibration error; show the spread, not only the mean. If a candidate wins one seed but loses most others, do not call it the stable schedule. A rare class with few receipts needs event counts alongside percentages. Review any data-source or device slice whose result moves in the opposite direction from the aggregate.</p><h2>Open final test once</h2><p>After choosing a schedule and checkpoint policy on development data, fit any probability temperature or review threshold on the calibration group. Freeze model artifact, preprocessing and decision policy. Run one final held-out physical-receipt evaluation and publish all release gates, including failures. Retain the prior model if the new plan misses a class-specific gate. Deliver the manifest, update-rate trace, resume-parity check, per-seed table and final decision, not merely the best validation scalar.</p><h2>Implementation</h2><pre><code class=\"language-python\">from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass RunResult:\n    seed: int\n    clipped_recall: float\n    false_accepts: int\n    best_validation_loss: float\n    restored_best: bool\n\ndef eligible_results(runs: list[RunResult], minimum_recall: float,\n                     maximum_false_accepts: int) -&gt; list[RunResult]:\n    return [run for run in runs if run.restored_best and\n            run.clipped_recall &gt;= minimum_recall and\n            run.false_accepts &lt;= maximum_false_accepts]\n\nschedule_runs = [\n    RunResult(47, 0.94, 2, 0.31, True),\n    RunResult(71, 0.92, 3, 0.29, True),\n    RunResult(83, 0.91, 2, 0.33, False),\n]\naccepted = eligible_results(schedule_runs, 0.92, 3)\nassert [run.seed for run in accepted] == [47, 71]\nassert len(accepted) &lt; len(schedule_runs)</code></pre><h2>Performance and operating cost</h2><p>A fair schedule comparison costs at least one full training run per candidate and seed. Validation cadence adds repeated forward passes; coherent checkpoints add disk I/O and optimizer-state storage. The gate code is O(R) for R run records, but preparing reliable records is the expensive part. Keep the same accepted-example and update budget when comparing schedules, and include time spent on resume and calibration checks in the project estimate.</p><h3>Common Mistakes</h3><ul><li>Do not use the final test to tune warmup length or patience.</li><li>Do not rank a run whose best state was never restored.</li><li>Do not report only the best seed when schedule choice is unstable across repeats.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/adamw-decay-groups-and-update-indexed-schedules\">AdamW decay groups and update-indexed schedules</a></li><li><a href=\"/deep-learning/early-stopping-best-state-and-seed-variance\">Early stopping, best-state restoration and seed variance</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/training-memory-profiler-and-allocator-boundaries\">Training memory profiling and allocator boundaries</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7892,
+    "status": "published",
+    "published_at": "2026-10-06T10:14:39.815619+00:00",
+    "created_at": "2026-10-06T10:14:39.815619+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/adamw-decay-groups-and-update-indexed-schedules",
+          "title": "AdamW decay groups and update-indexed schedules"
+        },
+        {
+          "path": "deep-learning/early-stopping-best-state-and-seed-variance",
+          "title": "Early stopping, best-state restoration and seed variance"
+        },
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "deep-learning/receipt-confidence-audit-project",
+          "title": "Project: audit receipt confidence and review handoff"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "deep-learning/training-memory-profiler-and-allocator-boundaries",
+          "title": "Training memory profiling and allocator boundaries"
+        }
+      ]
+    }
+  },
+  {
+    "id": "51b39997-348c-5fe8-b501-767faef723eb",
+    "type": "article",
+    "path": "deep-learning/receipt-training-memory-project",
+    "title": "Project: train a receipt model under a memory budget",
+    "summary": "Build a receipt-quality classifier with explicit effective-batch accounting, a measured precision decision and recovery evidence rather than hiding memory failures behind a smaller batch.",
+    "body": "<p>Build a receipt-quality classifier with explicit effective-batch accounting, a measured precision decision and recovery evidence rather than hiding memory failures behind a smaller batch.</p><h2>Fix the experimental contract</h2><p>Split receipt identities before augmentation and freeze a label map for readable, blurred and cut-off images. Record the device memory limit, image dimensions, model revision, optimizer, loss reduction and number of examples per optimizer update. Keep one full-precision baseline small enough to run. <a href=\"/deep-learning/receipt-image-quality-project\">The original receipt project</a> supplies the data and evaluation boundary; this project tests whether the optimized training loop preserves it.</p><h2>Build a weighted accumulation loop</h2><p>Choose a microbatch that fits the device, then accumulate to an effective batch of 47 accepted examples. The final microbatch will often be short; sum unreduced losses and divide by the actual number of accepted examples, not by a rounded-up microbatch count. Clip only after all contributions are present, and step once. Test a copied model on a tiny deterministic batch against a full-batch gradient before using the full image dataset. <a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Effective-batch accounting</a> is a release check.</p><h2>Introduce precision after the baseline</h2><p>Measure full precision, float16 autocast with scaling and, if supported, bfloat16 autocast. Record peak allocated memory, accepted examples per second, nonfinite gradients, skipped steps and frozen validation metrics. If precision changes predictions near the acceptance threshold, quantify the change by class. <a href=\"/deep-learning/mixed-precision-scaling-and-gradient-clipping\">Scaling and clipping</a> must occur in the documented order.</p><h2>Interrupt and restore</h2><p>Save a checkpoint only at an optimizer-step boundary with model, optimizer, scheduler, scaler, sampler position and step count. Crash after an unfinished checkpoint write and prove the last complete checkpoint still resumes. Compare the first resumed fixed-batch update against an uninterrupted reference under a controlled seed. A new device type or changed microbatch plan may prevent bitwise identity; state the expected tolerance.</p><h2>Report the tradeoff</h2><p>Submit a memory trace, training-time breakdown, gradient comparison, update and skip counts, validation result and checkpoint recovery trace. Also show a deliberately wrong run that divides a short microbatch mean by the number of microbatches; report its gradient discrepancy. Do not declare success solely because an out-of-memory error disappeared while the accepted-example count or class mix changed.</p><h2>Implementation</h2><pre><code class=\"language-python\">import copy\nimport torch\nfrom torch import nn\n\ntorch.manual_seed(83)\nreference_model = nn.Linear(3, 3)\nbounded_model = copy.deepcopy(reference_model)\nreceipt_vectors = torch.tensor([[0.8, 0.1, 0.1],\n                                [0.2, 0.5, 0.3],\n                                [0.1, 0.3, 0.6]])\nquality_targets = torch.tensor([0, 1, 2])\n\nnn.functional.cross_entropy(reference_model(receipt_vectors),\n                            quality_targets).backward()\nfor start, stop in ((0, 2), (2, 3)):\n    loss_sum = nn.functional.cross_entropy(\n        bounded_model(receipt_vectors[start:stop]),\n        quality_targets[start:stop], reduction=&quot;sum&quot;)\n    (loss_sum / quality_targets.numel()).backward()\n\nfor reference_weight, bounded_weight in zip(reference_model.parameters(),\n                                             bounded_model.parameters()):\n    torch.testing.assert_close(reference_weight.grad, bounded_weight.grad,\n                               rtol=1e-6, atol=1e-7)</code></pre><h2>Performance and operating cost</h2><p>Peak activation memory follows the largest microbatch, but model, gradients and optimizer moments still occupy memory. More microbatches can lower examples per second through repeated launches, while autocast may restore throughput on suitable hardware. Instrument both peak memory and wall-clock cost. A checkpoint stores additional optimizer and scaler state, and final selection must use the same validation population as the baseline.</p><h3>Common Mistakes</h3><ul><li>Do not change the dataset split while comparing precision modes.</li><li>Do not omit the short final microbatch or give it the same weight as a full microbatch.</li><li>Do not resume from weights alone and call the optimizer trajectory recovered.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Gradient accumulation and effective batch accounting</a></li><li><a href=\"/deep-learning/mixed-precision-scaling-and-gradient-clipping\">Mixed precision, loss scaling and gradient clipping</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-multiworker-parity-project\">Project: prove multiworker receipt-training parity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-optimizer-selection-project\">Project: select a receipt training schedule without test leakage</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-activation-recompute-project\">Project: measure activation recomputation on receipt training</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7822,
+    "status": "published",
+    "published_at": "2026-10-06T08:43:23.133752+00:00",
+    "created_at": "2026-10-06T08:43:23.133752+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/gradient-accumulation-and-effective-batch",
+          "title": "Gradient accumulation and effective batch accounting"
+        },
+        {
+          "path": "deep-learning/mixed-precision-scaling-and-gradient-clipping",
+          "title": "Mixed precision, loss scaling and gradient clipping"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "deep-learning/augmentation-leakage-boundary",
+          "title": "Image augmentation: split originals first and preserve the label"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        },
+        {
+          "path": "deep-learning/receipt-multiworker-parity-project",
+          "title": "Project: prove multiworker receipt-training parity"
+        },
+        {
+          "path": "deep-learning/receipt-optimizer-selection-project",
+          "title": "Project: select a receipt training schedule without test leakage"
+        },
+        {
+          "path": "deep-learning/receipt-activation-recompute-project",
+          "title": "Project: measure activation recomputation on receipt training"
+        }
+      ]
+    }
+  },
+  {
+    "id": "83e5fff0-b436-5cb3-b976-a9a2b7f5574b",
+    "type": "article",
+    "path": "deep-learning/segmentation-mask-alignment-and-ignore-pixels",
+    "title": "Segmentation mask alignment and ignored pixels",
+    "summary": "A pixel classifier is trained on image–mask geometry; a wrong interpolation rule or ignored-label denominator can turn accurate code into a different task.",
+    "body": "<p>A pixel classifier is trained on image–mask geometry; a wrong interpolation rule or ignored-label denominator can turn accurate code into a different task.</p><h2>Name the mask classes</h2><p>For receipt defects, one mask might distinguish ordinary paper, clipped edge and obscuring fold. Record integer IDs, mutually exclusive or overlapping semantics, and an ignore value for pixels whose annotation cannot be trusted. A mutually exclusive target with one ID per pixel belongs with per-pixel multiclass logits and cross entropy. Independent overlapping defect layers require a different multi-label loss and threshold policy. Do not switch between these representations without changing the target and metrics. <a href=\"/deep-learning/logits-loss-gradient\">The logits rule</a> applies at every pixel, not only once per image.</p><h2>Keep geometric transforms paired</h2><p>A crop, horizontal shift, perspective transform or resize applied to the image must apply the same geometric mapping to the mask. Image intensity can be interpolated smoothly; class IDs cannot. Use nearest-neighbor label interpolation and verify that resized masks contain only known IDs and the ignore value. An image resized independently of its mask may still have the expected width and height while every defect boundary has moved. Save several transformed image–mask overlays at fixed seeds. <a href=\"/deep-learning/augmentation-leakage-boundary\">Split identities</a> before generating augmented pairs.</p><h2>Handle unknown borders explicitly</h2><p>When a crop or warp introduces pixels outside the annotated source, decide whether they become background or ignored; the default should not silently invent negative evidence. In the example, 255 means ignored. A cross-entropy implementation excludes ignored targets from the loss denominator when class-index targets are used. Count accepted pixels per batch and reject a batch with no accepted pixels rather than dividing by zero or learning from an empty annotation. For rare clipped edges, report positive-pixel and positive-image counts separately.</p><h2>Align model output resolution</h2><p>A model may emit logits at one-quarter of input resolution. Either upsample logits to the mask grid with a documented continuous interpolation rule, or reduce the mask using a label-preserving policy that does not erase narrow defects. These two choices are not interchangeable for a one-pixel clipped edge. Record output stride, final-grid size and any tile padding. <a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Convolution geometry</a> predicts the feature-map shape, but visual overlays verify whether the physical boundary still lines up.</p><h2>Verify the full target path</h2><p>Run a tiny batch through decode, transform, model, loss and metric computation. Assert image–mask spatial dimensions, allowed mask values, finite loss and unchanged ignored-pixel count after transforms that should preserve area. Save a fixed batch to compare after library or preprocessing upgrades. A low training loss with most pixels marked background may say little about the defect class. <a href=\"/deep-learning/dice-iou-empty-mask-and-threshold-policy\">The metric policy</a> must therefore be fixed separately from the loss.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\nreceipt_image = torch.arange(16, dtype=torch.float32).view(1, 1, 4, 4) / 15\ndefect_mask = torch.tensor([[[0, 0, 1, 1], [0, 2, 2, 1],\n                             [0, 2, 255, 0], [0, 0, 0, 0]]])\nresized_image = functional.interpolate(receipt_image, size=(8, 8),\n                                       mode=&quot;bilinear&quot;, align_corners=False)\nresized_mask = functional.interpolate(defect_mask.unsqueeze(1).float(),\n                                      size=(8, 8), mode=&quot;nearest-exact&quot;).squeeze(1).long()\nsegmentation_head = nn.Conv2d(1, 3, kernel_size=1)\npixel_logits = segmentation_head(resized_image)\nvalid_count = int(resized_mask.ne(255).sum())\nassert valid_count &gt; 0\npixel_loss = functional.cross_entropy(pixel_logits, resized_mask, ignore_index=255)\nassert set(resized_mask.unique().tolist()) &lt;= {0, 1, 2, 255}\nassert pixel_logits.shape == (1, 3, 8, 8)\nassert torch.isfinite(pixel_loss)</code></pre><h2>Performance and operating cost</h2><p>Image and mask transforms cost O(BHW) for B images of height H and width W, while the model usually dominates training compute. Per-pixel logits and gradients occupy O(BCHW) memory for C classes at output resolution. Upsampling logits to a large mask grid can raise activation memory sharply; downsampling masks can erase small defects. The example uses a tiny one-by-one head solely to test the label path. Measure accepted-pixel counts and peak memory at production image size.</p><h3>Common Mistakes</h3><ul><li>Do not bilinearly interpolate integer class IDs.</li><li>Do not treat unannotated pixels as confirmed background without an annotation rule.</li><li>Do not accept matching tensor shapes as proof that image and mask geometry align.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Convolution output geometry and receptive fields</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/dice-iou-empty-mask-and-threshold-policy\">Dice, IoU, empty masks and threshold policy</a></li><li><a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a></li><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7900,
+    "status": "published",
+    "published_at": "2026-10-06T10:24:36.040168+00:00",
+    "created_at": "2026-10-06T10:24:36.040168+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/convolution-output-geometry-and-receptive-field",
+          "title": "Convolution output geometry and receptive fields"
+        },
+        {
+          "path": "deep-learning/augmentation-leakage-boundary",
+          "title": "Image augmentation: split originals first and preserve the label"
+        },
+        {
+          "path": "deep-learning/dice-iou-empty-mask-and-threshold-policy",
+          "title": "Dice, IoU, empty masks and threshold policy"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        },
+        {
+          "path": "deep-learning/receipt-defect-localization-project",
+          "title": "Project: localize receipt defects with a residual CNN"
+        }
+      ]
+    }
+  },
+  {
+    "id": "46b46b4e-a8fc-5231-9a72-909fc8b7bdea",
+    "type": "article",
+    "path": "deep-learning/training-memory-profiler-and-allocator-boundaries",
+    "title": "Training memory profiling and allocator boundaries",
+    "summary": "A memory report must distinguish live tensors, allocator reservations, optimizer initialization and the peak of the actual forward–backward–step path.",
+    "body": "<p>A memory report must distinguish live tensors, allocator reservations, optimizer initialization and the peak of the actual forward–backward–step path.</p><h2>Choose the measured boundary</h2><p>State whether the report covers data transfer, forward, backward, gradient clipping, optimizer step or all of them. Adam-like optimizers may allocate moment tensors at the first step, so a warm forward-only profile undercounts a real training update. Measure a representative full update after optimizer state exists. Reset peak statistics at the chosen boundary, synchronize the accelerator before and after timing, and log batch shape, dtype, model revision and gradient-accumulation count. <a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">An effective batch</a> may include several microbatches.</p><h2>Separate allocated and reserved bytes</h2><p>Live tensor allocation reports memory currently occupied by tensors; an allocator may reserve extra blocks for reuse. Peak allocated and peak reserved therefore answer different questions. A process can hit a device limit even if a later snapshot shows fewer live tensors. Clearing unused cached blocks does not free memory still held by model weights or activations, and calling a cache-clear operation after every step can reduce throughput. Collect both metrics and compare them with device-level process usage when diagnosing an out-of-memory event.</p><h2>Account for hidden retained graphs</h2><p>Appending loss tensors or outputs that still reference a computation graph to a Python list can keep activations alive across steps. Log scalar values after detaching rather than storing graphs for dashboards. Forward hooks and explanation maps can cause similar retention. A rising allocated baseline over repeated identical steps deserves an object-lifetime audit before changing batch size. The profiler code captures one representative step but also needs a repeated-step trend in production. <a href=\"/deep-learning/occlusion-attribution-and-sanity-checks\">Diagnostic probes</a> should not stay attached to the training graph.</p><h2>Compare methods under identical work</h2><p>A fair activation-checkpointing or mixed-precision comparison holds model, microbatch, accepted examples, optimizer state and input size fixed. Then report peak allocated, peak reserved and synchronized update time. Only after that parity check should a larger batch be tested as a separate throughput experiment. Batch size can change normalization statistics, gradient noise and data order. <a href=\"/deep-learning/activation-checkpointing-recompute-and-rng-parity\">Recomputation</a> trades time for memory; it does not automatically improve examples per second.</p><h2>Keep device assumptions explicit</h2><p>CUDA counters describe CUDA allocator behavior and do not measure CPU RAM, pinned transfer buffers or every external library allocation. On a CPU-only runner, return an unavailable marker for those GPU counters rather than reporting zero as if no memory were used. Record device, driver/runtime revision and compilation mode. <a href=\"/deep-learning/receipt-activation-recompute-project\">The applied project</a> requires measured benefit on a target runner and explains when the technique is worth deploying.</p><h2>Implementation</h2><pre><code class=\"language-python\">import time\nimport torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\ndevice = torch.device(&quot;cuda&quot; if torch.cuda.is_available() else &quot;cpu&quot;)\nreceipt_model = nn.Sequential(nn.Linear(16, 32), nn.ReLU(), nn.Linear(32, 3)).to(device)\noptimizer = torch.optim.AdamW(receipt_model.parameters(), lr=0.0007)\nfeatures = torch.randn(6, 16, device=device)\nlabels = torch.tensor([0, 2, 1, 2, 0, 1], device=device)\n\ndef training_update():\n    optimizer.zero_grad(set_to_none=True)\n    loss = functional.cross_entropy(receipt_model(features), labels)\n    loss.backward()\n    optimizer.step()\n    return float(loss.detach())\n\ntraining_update()  # initialize optimizer state before the measured step\nif device.type == &quot;cuda&quot;:\n    torch.cuda.synchronize()\n    torch.cuda.reset_peak_memory_stats()\nstarted = time.perf_counter()\nobserved_loss = training_update()\nif device.type == &quot;cuda&quot;:\n    torch.cuda.synchronize()\nelapsed_seconds = time.perf_counter() - started\npeak_allocated = torch.cuda.max_memory_allocated() if device.type == &quot;cuda&quot; else None\npeak_reserved = torch.cuda.max_memory_reserved() if device.type == &quot;cuda&quot; else None\nassert elapsed_seconds &gt;= 0 and observed_loss &gt;= 0\nassert peak_allocated is None or peak_reserved &gt;= peak_allocated</code></pre><h2>Performance and operating cost</h2><p>Profiling adds small counter and synchronization overhead, but synchronization changes asynchronous execution timing and should be applied consistently across compared runs. A training step is dominated by model work, not counter reads. Peak memory depends on model parameters, gradients, optimizer moments, activations, batch inputs and allocator behavior. The code intentionally returns no GPU-memory number on CPU; it would be false precision to substitute process RAM or zero. Repeat warm measurements and report the distribution, not one favorable run.</p><h3>Common Mistakes</h3><ul><li>Do not compare a forward-only baseline with a full checkpointed optimizer update.</li><li>Do not treat allocator-reserved bytes as identical to live-tensor allocation.</li><li>Do not report zero GPU memory on a CPU-only machine as a device benchmark.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/activation-checkpointing-recompute-and-rng-parity\">Activation checkpointing, recomputation and RNG parity</a></li><li><a href=\"/deep-learning/receipt-activation-recompute-project\">Project: measure activation recomputation on receipt training</a></li><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li><li><a href=\"/deep-learning/mixed-precision-scaling-and-gradient-clipping\">Mixed precision, loss scaling and gradient clipping</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7904,
+    "status": "published",
+    "published_at": "2026-10-06T10:24:36.040168+00:00",
+    "created_at": "2026-10-06T10:24:36.040168+00:00",
+    "updated_at": "2026-10-06T10:24:36.040168+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/activation-checkpointing-recompute-and-rng-parity",
+          "title": "Activation checkpointing, recomputation and RNG parity"
+        },
+        {
+          "path": "deep-learning/receipt-activation-recompute-project",
+          "title": "Project: measure activation recomputation on receipt training"
+        },
+        {
+          "path": "deep-learning/receipt-training-memory-project",
+          "title": "Project: train a receipt model under a memory budget"
+        },
+        {
+          "path": "deep-learning/mixed-precision-scaling-and-gradient-clipping",
+          "title": "Mixed precision, loss scaling and gradient clipping"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        }
+      ]
+    }
+  }
+]

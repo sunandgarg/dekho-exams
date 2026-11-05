@@ -1,0 +1,9 @@
+# Spring RestClient transport pass
+
+This pass adds six original articles and a twelve-question quiz to the separate Spring & Spring Boot subject. It updates the three earlier RestClient design articles to describe the now-checked local behavior. Spring has 169 articles, 10 hubs, 7 quizzes and 133 explained questions. The content checker reports 1,438 internal body links to 226 distinct targets and no curriculum orphans.
+
+RestClientBoundaryTest adds four loopback HTTP tests with an explicit SimpleClientHttpRequestFactory. It checks a 200 body, a single request for 503, a read timeout after the server receives a call, and a POST that changes local server state before the caller times out. A sequential same-key retry yields two requests and one modeled write because the local handler enforces an in-memory key set. The source kit now passes 132 Maven tests. The downloadable source ZIP includes the new fixture.
+
+The requested Java sources were reviewed in the stated order in the earlier Java/Spring passes. They guide the subject and interlinking model, not Spring transport claims. The checked client behavior is grounded in the Spring Framework REST-client and SimpleClientHttpRequestFactory references. Article prose, questions and receipt-specific code were authored for AI Trove rather than copied from the references.
+
+Open boundaries: no production upstream, TLS, proxy, alternate request factory, slow streaming body, durable remote replay table, concurrent first-key race, process crash or remote reconciliation is tested. The 80ms read timeout exists to keep the fixture bounded and is not a recommended production setting. The broader Spring gaps remain in COVERAGE-AND-REMAINING.md: target-database rollout, mixed-version applications, real broker, shutdown and ingress drain, and deployment configuration.

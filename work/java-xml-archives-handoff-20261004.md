@@ -1,0 +1,11 @@
+# Java XML and archive draft handoff — 2026-10-04
+
+This batch adds 11 standalone Java tutorials and a 12-question quiz. Six XML lessons cover DOM external access, StAX event limits, fixed XPath selection, local schema validation, bounded transformer output, and namespace URI selection. Five archive lessons cover GZIP expansion caps and output finalization, ZIP duplicate names, entry CRC checks, and ZIP finalization.
+
+The Java fixture now has 445 routes: 417 articles, 10 hubs, and 18 quizzes containing 216 questions. The new lessons appear in two Advanced Java modules, interlink across their clusters and earlier lessons, and receive backlinks from the Java root and six existing articles. All internal links found in Java article bodies resolve to fixture paths. The new public article bodies use only the permitted semantic HTML tags, have one Java code block and a Common Mistakes section each, and contain no external URLs.
+
+`work/aitrove-java-import-drafts.json` contains 446 draft records, including the editorial author record. It is ready for editorial review and import preparation, but has not been sent to WordPress or published. `scripts/export-java-for-wordpress.py` regenerates it. `work/java-xml-archives-20261004.py` is the one-shot builder run against the committed fixture state preceding this batch.
+
+Verification: `python3 scripts/check-java-xml-archives.py` compiled all 11 new code samples under their declared Java release and passed local tests for XML parsing, external-entity denial, element and output caps, schema rejection, GZIP expansion, and ZIP reading/writing. `WRANGLER_LOG_PATH=/private/tmp/aitrove-wrangler-logs npm run build` succeeded. `npm run lint` passed with 0 errors and 9 existing warnings. The build still reports a large-bundle advisory. The broader Java checker previously stopped at unchanged `java/socket-boundaries` because this sandbox does not permit binding its local server socket; the new focused checker requires no network binding.
+
+Remaining work: editorial review, WordPress import and publication, then live-route verification. Further Java topic expansion remains open-ended. No AI-detector score or exclusive ownership of Java API facts was measured or claimed.

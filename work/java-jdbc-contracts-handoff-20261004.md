@@ -1,0 +1,11 @@
+# Java JDBC contracts draft handoff — 2026-10-04
+
+This batch adds 10 standalone Java JDBC tutorials and a 10-question quiz. Transaction and capability pages cover savepoint ownership, statement timeout scope, and read-only hints. Parameter and row pages cover typed SQL NULL, ResultSet binary-stream lifetime, and bounded binary insertion. Diagnostics and metadata pages cover SQLWarning chains, driver capability checks, cursor holdability, and SQLException chains.
+
+The Java fixture now has 479 routes: 448 articles, 10 hubs, and 21 quizzes containing 247 questions. New lessons appear in three Advanced Java modules, link within their groups and to existing lessons, and receive backlinks from the Java root and seven existing articles. Every checked internal link, related target, and module lesson across Java resolves to a fixture path. Each new public article uses only permitted semantic HTML, has a Common Mistakes section and one compiled Java code block, and contains no external URL.
+
+`work/aitrove-java-import-drafts.json` contains 480 draft records, including the editorial author record. It is ready for editorial review and import preparation; nothing was sent to WordPress or published. `scripts/export-java-for-wordpress.py` regenerates it. `work/java-jdbc-contracts-20261004.py` is a one-shot builder run against the preceding committed fixture state.
+
+Verification: `python3 scripts/check-java-jdbc-contracts.py` compiled all 10 new code samples under their declared Java release and passed local mock-interface checks for typed NULL binding, diagnostic chains, metadata gating, and the binary-input cap. It did not connect to a database or verify a specific driver. `WRANGLER_LOG_PATH=/private/tmp/aitrove-wrangler-logs npm run build` succeeded. `npm run lint` passed with zero errors and nine existing warnings. The build still reports a large-bundle advisory. The broader Java checker previously stopped at unchanged `java/socket-boundaries` because this sandbox does not permit binding its local server socket; this focused checker needs no socket.
+
+Remaining work: editorial review, database-backed integration tests for the selected JDBC driver, WordPress import and publication, then live-route verification. Further Java topic expansion remains open-ended. No AI-detector score or exclusive ownership of Java API facts was measured or claimed.

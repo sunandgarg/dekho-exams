@@ -1,0 +1,638 @@
+[
+  {
+    "id": "a6dc1706-3821-5004-a5f0-f53b961406a8",
+    "type": "article",
+    "path": "retrieval-ai/knowledge-graph-retrieval-and-edge-provenance",
+    "title": "Knowledge graph retrieval: prove every edge in the path",
+    "summary": "Use entity links to find candidate evidence while retaining the passage, relation type, revision and access rule that made each edge valid.",
+    "body": "<p>Use entity links to find candidate evidence while retaining the passage, relation type, revision and access rule that made each edge valid.</p><h2>Define the graph&#x27;s evidence contract</h2><p>Graph retrieval stores entities and typed relations so a question can follow connections that text similarity misses. Consider a service case linked to a replacement part, which is linked to a supplier bulletin. A bare edge saying that a case uses a part is insufficient: the edge also needs the source passage, relation type, effective time, extraction method and tenant. The graph is a navigation index, not an authority separate from its documents. <a href=\"/retrieval-ai/source-extraction-and-passage-provenance\">Passage provenance</a> lets a reviewer inspect the statement behind each edge.</p><h2>Resolve entities before traversal</h2><p>An identifier can be reused across tenants, and two supplier names can refer to one organization. Resolve an entity only within its namespace and permitted source set. Keep aliases as attributed claims rather than overwriting the canonical node. For an ambiguous name, return candidate entities with their disambiguating attributes; do not silently merge them. A false merge makes every later traversal look plausible. Exact identifiers should remain exact even when a semantic retriever proposes a near match.</p><h2>Bound traversal and evidence assembly</h2><p>Start from an authorized seed, expand only allowed relation types, cap hop count and degree, and reject a route if any edge lacks an active supporting passage. A popular supplier node may have thousands of neighbors; unrestricted breadth-first traversal can dominate latency and swamp the answer with irrelevant paths. Score the path by the weakest required edge and the question&#x27;s relation sequence. <a href=\"/retrieval-ai/multi-hop-evidence-chain-and-stop-rules\">Multi-hop stop rules</a> should halt when the requested join is proven or the search budget expires.</p><h2>Treat updates as graph operations</h2><p>A document deletion must remove or invalidate all edges supported solely by that revision. If another active passage also supports an edge, the edge may survive with that other provenance. Keep an edge-to-passage reverse map to make revocation prompt. During a rebuild, compare node and edge counts by tenant, then test a set of known paths and forbidden paths before swapping the graph generation. <a href=\"/retrieval-ai/incremental-ingestion-idempotency-and-delete-races\">Versioned ingestion</a> prevents an old event from reviving a revoked relation.</p><h2>Judge paths, not fluent answers</h2><p>Create questions with known seed nodes, expected relation sequences and expected supporting passages. Report seed resolution, edge recall, valid-path recall and final claim support separately. Include a shared-name trap, a stale edge, a missing middle relation, a high-degree hub and a cross-tenant decoy. If the result uses a correct answer reached through unsupported edges, mark the path wrong: the route will fail on the next corpus revision.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from collections import deque\nfrom dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass SupportedEdge:\n    source: str\n    target: str\n    relation: str\n    tenant: str\n    passage_id: str\n\ndef evidence_paths(edges: list[SupportedEdge], start: str, goal: str,\n                   tenant: str, allowed: tuple[str, ...], degree_cap: int = 24):\n    adjacency: dict[str, list[SupportedEdge]] = {}\n    for edge in edges:\n        if edge.tenant == tenant and edge.passage_id:\n            adjacency.setdefault(edge.source, []).append(edge)\n    frontier = deque([(start, ())])\n    while frontier:\n        node, path = frontier.popleft()\n        if len(path) == len(allowed):\n            if node == goal:\n                return path\n            continue\n        candidates = [edge for edge in adjacency.get(node, ())\n                      if edge.relation == allowed[len(path)]]\n        for edge in candidates[:degree_cap]:\n            if edge.target not in {start, *(part.target for part in path)}:\n                frontier.append((edge.target, path + (edge,)))\n    return ()\n\nlinks = [SupportedEdge(&quot;case-47&quot;, &quot;part-83&quot;, &quot;uses&quot;, &quot;north&quot;, &quot;case-r2&quot;),\n         SupportedEdge(&quot;part-83&quot;, &quot;bulletin-29&quot;, &quot;covered-by&quot;, &quot;north&quot;, &quot;notice-r4&quot;),\n         SupportedEdge(&quot;part-83&quot;, &quot;bulletin-91&quot;, &quot;covered-by&quot;, &quot;south&quot;, &quot;private-r3&quot;)]\npath = evidence_paths(links, &quot;case-47&quot;, &quot;bulletin-29&quot;, &quot;north&quot;,\n                      (&quot;uses&quot;, &quot;covered-by&quot;))\nassert [edge.passage_id for edge in path] == [&quot;case-r2&quot;, &quot;notice-r4&quot;]\nassert evidence_paths(links, &quot;case-47&quot;, &quot;bulletin-91&quot;, &quot;north&quot;,\n                      (&quot;uses&quot;, &quot;covered-by&quot;)) == ()</code></pre><h2>Performance and operating cost</h2><p>Building the in-memory adjacency map costs O(E) time and space for E eligible edges. A bounded traversal can still examine up to the degree cap raised to the hop count; keep both limits small and index relation plus tenant in persistent storage. The example returns the first valid path, not the globally best path, and production ranking needs judged evidence quality.</p><h3>Common Mistakes</h3><ul><li>Treating an extracted relation as fact after its supporting passage was deleted.</li><li>Merging two tenants&#x27; same-named entities into one node.</li><li>Allowing a high-degree node to expand without a cap.</li><li>Citing only the final bulletin when the answer depends on two edges.</li></ul><h2>Validation drill</h2><p>Construct 43 questions against a small case-part-bulletin graph. Remove six supporting passages and verify that the affected paths disappear, while paths with independent support remain.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/multi-hop-evidence-chain-and-stop-rules\">Multi-hop retrieval: build evidence chains with bounded searches</a></li><li><a href=\"/retrieval-ai/source-extraction-and-passage-provenance\">Document extraction: preserve passage provenance through OCR and parsing</a></li><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li><li><a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim-level citations: verify each answer against its passage</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8433,
+    "status": "published",
+    "published_at": "2026-10-07T15:20:28.665197+00:00",
+    "created_at": "2026-10-07T15:20:28.665197+00:00",
+    "updated_at": "2026-10-07T15:20:28.665197+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/multi-hop-evidence-chain-and-stop-rules",
+          "title": "Multi-hop retrieval: build evidence chains with bounded searches"
+        },
+        {
+          "path": "retrieval-ai/source-extraction-and-passage-provenance",
+          "title": "Document extraction: preserve passage provenance through OCR and parsing"
+        },
+        {
+          "path": "retrieval-ai/corpus-permissions-and-document-lifecycle",
+          "title": "Retrieval corpus contracts: identity, permissions and document lifecycle"
+        },
+        {
+          "path": "retrieval-ai/claim-level-citation-and-support-checks",
+          "title": "Claim-level citations: verify each answer against its passage"
+        }
+      ]
+    }
+  },
+  {
+    "id": "630495a7-5171-5b03-afa5-4226f8819c3c",
+    "type": "article",
+    "path": "retrieval-ai/corrective-retrieval-and-bounded-retry",
+    "title": "Corrective retrieval: retry only when evidence is insufficient",
+    "summary": "Diagnose a weak retrieval result, choose a specific repair, and stop before retries turn into unsupported answer fishing.",
+    "body": "<p>Diagnose a weak retrieval result, choose a specific repair, and stop before retries turn into unsupported answer fishing.</p><h2>Separate absence from weak ranking</h2><p>Corrective retrieval is a controlled second search after a first result fails an evidence check. It is not a request to regenerate an answer until one sounds convincing. A missing exact case ID suggests indexing or filter trouble; a correct passage outside the reranker window suggests candidate-window trouble; a passage in context that does not support the claim suggests answer validation trouble. <a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">Stage traces</a> reveal which repair has a chance to work.</p><h2>Define a sufficiency test</h2><p>For a question asking whether order OR-47 qualified for a refund on a stated date, require evidence for the order state, applicable policy revision and date condition. A high similarity score alone does not satisfy those slots. Use deterministic checks for exact IDs, active revisions and permission scope; use a judged support check where meaning cannot be reduced to a field match. Record the missing slot and the retrieved passage IDs before another search begins.</p><h2>Pick one bounded repair</h2><p>If vocabulary differs, run a constrained <a href=\"/retrieval-ai/query-expansion-guardrails-and-drift-tests\">query expansion</a>. If the required passage was cut before reranking, enlarge that stage&#x27;s candidate window within its latency budget. If the corpus lacks the source, ask for clarification or abstain; searching unrelated collections is not a repair. Keep the original constraints on every attempt, including tenant, negation, identifier and date. Maximum attempts should be part of the application contract, not left to a model&#x27;s willingness to continue.</p><h2>Compare attempts against the same target</h2><p>Log route, corpus generation, repair reason, new candidate IDs and sufficiency outcome per attempt. A retry counts as useful only if it introduces eligible support that the first attempt lacked. Repeated retrieval of the same passages is an exhaustion signal. If two eligible sources contradict one another, stop and present the conflict with dates; another paraphrase may merely hide it. <a href=\"/retrieval-ai/evidence-bound-answer-and-abstention\">Abstention</a> remains an acceptable final result.</p><h2>Evaluate repair yield</h2><p>Build a set with first-pass successes, fixable vocabulary misses, candidate-window misses, truly missing evidence and contradictions. Measure recovered supported answers, extra retrieval calls, p95 latency and false-answer rate. A policy that retries every request can raise latency with no quality gain. The target is recovery on the fixable slice while keeping no-answer cases unanswered.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass Attempt:\n    passage_ids: frozenset[str]\n    covered_slots: frozenset[str]\n    route: str\n\ndef decide_repair(attempts: list[Attempt], required_slots: frozenset[str],\n                  max_attempts: int = 2) -&gt; str:\n    latest = attempts[-1]\n    if required_slots &lt;= latest.covered_slots:\n        return &quot;answer with evidence&quot;\n    if len(attempts) &gt;= max_attempts:\n        return &quot;abstain: budget exhausted&quot;\n    if any(latest.passage_ids == prior.passage_ids for prior in attempts[:-1]):\n        return &quot;abstain: repeated candidates&quot;\n    if latest.route == &quot;literal&quot;:\n        return &quot;retry with constrained synonyms&quot;\n    return &quot;abstain: no justified repair&quot;\n\nneeded = frozenset({&quot;order&quot;, &quot;policy&quot;, &quot;date&quot;})\nfirst = Attempt(frozenset({&quot;order-47-r2&quot;}), frozenset({&quot;order&quot;}), &quot;literal&quot;)\nsecond = Attempt(frozenset({&quot;order-47-r2&quot;, &quot;policy-83-r4&quot;}), needed, &quot;synonym&quot;)\nassert decide_repair([first], needed) == &quot;retry with constrained synonyms&quot;\nassert decide_repair([first, second], needed) == &quot;answer with evidence&quot;\nassert decide_repair([first, first], needed) == &quot;abstain: budget exhausted&quot;</code></pre><h2>Performance and operating cost</h2><p>The decision function scans prior attempts in O(AK) time in the worst case for A attempts and K passage IDs per attempt; the deliberately small attempt cap keeps that bounded. The real cost is another retrieval and possible rerank call, so track added p95 latency and recovered answers together. Slot coverage must be derived from verified evidence rather than a model&#x27;s untested self-rating.</p><h3>Common Mistakes</h3><ul><li>Retrying because the answer sounded uncertain, without identifying a missing evidence slot.</li><li>Dropping an exact identifier or authorization filter in a rewrite.</li><li>Calling a second search successful when it returns the same unsupported passages.</li><li>Continuing after two eligible sources contradict each other.</li></ul><h2>Validation drill</h2><p>Label 55 requests by first-loss stage and whether a repair exists. Allow one corrective attempt; count supported recoveries, unchanged candidates and false answers separately.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">Retrieval traces: locate the stage that lost the answer</a></li><li><a href=\"/retrieval-ai/query-expansion-guardrails-and-drift-tests\">Query expansion: add recall terms without changing the user&#x27;s question</a></li><li><a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Retrieval release gates: evaluate slices before changing an index</a></li><li><a href=\"/retrieval-ai/evidence-bound-answer-and-abstention\">Grounded answers: require passage support and a no-answer path</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8434,
+    "status": "published",
+    "published_at": "2026-10-07T15:20:28.665197+00:00",
+    "created_at": "2026-10-07T15:20:28.665197+00:00",
+    "updated_at": "2026-10-07T15:20:28.665197+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/retrieval-traces-and-incident-debugging",
+          "title": "Retrieval traces: locate the stage that lost the answer"
+        },
+        {
+          "path": "retrieval-ai/query-expansion-guardrails-and-drift-tests",
+          "title": "Query expansion: add recall terms without changing the user's question"
+        },
+        {
+          "path": "retrieval-ai/retrieval-release-evaluation-and-slice-gates",
+          "title": "Retrieval release gates: evaluate slices before changing an index"
+        },
+        {
+          "path": "retrieval-ai/evidence-bound-answer-and-abstention",
+          "title": "Grounded answers: require passage support and a no-answer path"
+        }
+      ]
+    }
+  },
+  {
+    "id": "74cf1bde-a945-5753-8e7f-108f6118d4d9",
+    "type": "article",
+    "path": "retrieval-ai/retrieval-evaluation-labels-and-adjudication",
+    "title": "Retrieval evaluation labels: build a trustworthy judged set",
+    "summary": "Create passage-level judgments with time, permission and disagreement rules so release scores mean the same thing across runs.",
+    "body": "<p>Create passage-level judgments with time, permission and disagreement rules so release scores mean the same thing across runs.</p><h2>Define the unit of judgment</h2><p>A retrieval test needs a question, corpus snapshot, principal scope, answerable state and one or more supporting passage IDs. Labeling only a final answer string loses the evidence path: two passages may express the same value, but only one may be active for the query date or visible to the principal. Include the exact fact or relation each passage supports. <a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim-level support</a> can then be checked without treating a merely related document as a positive hit.</p><h2>Collect questions from distinct failures</h2><p>Sample real query shapes only where consent and access rules allow it. Add exact-ID requests, paraphrases, two-hop joins, table calculations, time-bounded questions, revoked documents, ambiguous names and no-answer cases. Synthetic queries are useful for rare traps, but they should be reviewed against an actual corpus snapshot. Keep a held-out set that prompt and ranker tuning cannot see. Otherwise the next release may memorize the test&#x27;s wording instead of improving retrieval.</p><h2>Make disagreement visible</h2><p>Two reviewers should independently judge a difficult slice. If one marks a passage relevant because it mentions the same topic while the other requires the answer-bearing sentence, the rubric is incomplete. Record both labels and a resolution reason; do not silently average them. A third reviewer can adjudicate disputed examples. Store the rubric version with each label, because changing &#x27;relevant&#x27; from topical to supporting changes every reported metric.</p><h2>Lock the evaluation context</h2><p>A query that was answerable on Monday may be unanswerable after a Tuesday deletion. Freeze or identify the corpus generation, permission policy and query-as-of time for each run. When the source changes, create a new judgment revision instead of overwriting the old one. <a href=\"/retrieval-ai/freshness-deletion-and-index-swap\">Generation swaps</a> and <a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">access rules</a> are part of the test context, not incidental metadata.</p><h2>Report slices with uncertainty</h2><p>Measure recall at the candidate window, recall after reranking, citation support and abstention accuracy by question family. A single mean hides a catastrophic permission regression in a small slice. For a tiny slice, show counts along with percentages rather than implying precision the data cannot support. Attach first-loss traces for every regression; that makes adjudication and repair practical instead of a debate over one aggregate score.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass Judgment:\n    question_id: str\n    corpus_generation: str\n    visible_passages: frozenset[str]\n    supporting_passages: frozenset[str]\n    candidate_passages: tuple[str, ...]\n\ndef recall_at_window(judgments: list[Judgment]) -&gt; tuple[int, int]:\n    found = eligible = 0\n    for judgment in judgments:\n        gold = judgment.supporting_passages &amp; judgment.visible_passages\n        if not gold:\n            continue\n        eligible += 1\n        found += bool(gold &amp; set(judgment.candidate_passages))\n    return found, eligible\n\ncases = [Judgment(&quot;q-47&quot;, &quot;g-8&quot;, frozenset({&quot;policy-r3&quot;}),\n                  frozenset({&quot;policy-r3&quot;}), (&quot;policy-r3&quot;, &quot;memo-r2&quot;)),\n         Judgment(&quot;q-48&quot;, &quot;g-8&quot;, frozenset({&quot;memo-r2&quot;}),\n                  frozenset({&quot;private-r7&quot;}), (&quot;private-r7&quot;,)),\n         Judgment(&quot;q-49&quot;, &quot;g-8&quot;, frozenset({&quot;manual-r4&quot;}),\n                  frozenset({&quot;manual-r4&quot;}), (&quot;notice-r1&quot;,))]\nassert recall_at_window(cases) == (1, 2)</code></pre><h2>Performance and operating cost</h2><p>This simple metric scans each candidate list once, O(C) time for C total candidates, and builds temporary sets up to the window size. Human labeling and adjudication dominate cost. The example excludes questions with no eligible supporting passage; report those separately as no-answer and permission slices rather than burying them in recall.</p><h3>Common Mistakes</h3><ul><li>Treating a topical passage as if it supported the requested fact.</li><li>Changing the corpus or permission scope while comparing two releases.</li><li>Discarding reviewer disagreement instead of fixing the rubric.</li><li>Reporting only a pooled metric that conceals no-answer or restricted-document failures.</li></ul><h2>Validation drill</h2><p>Label 72 questions in six families, including 12 no-answer cases. Double-label 18 difficult examples and adjudicate disagreements before comparing two retrieval releases on the same corpus generation.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Retrieval release gates: evaluate slices before changing an index</a></li><li><a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">Retrieval traces: locate the stage that lost the answer</a></li><li><a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim-level citations: verify each answer against its passage</a></li><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8435,
+    "status": "published",
+    "published_at": "2026-10-07T15:20:28.665197+00:00",
+    "created_at": "2026-10-07T15:20:28.665197+00:00",
+    "updated_at": "2026-10-07T15:20:28.665197+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/retrieval-release-evaluation-and-slice-gates",
+          "title": "Retrieval release gates: evaluate slices before changing an index"
+        },
+        {
+          "path": "retrieval-ai/retrieval-traces-and-incident-debugging",
+          "title": "Retrieval traces: locate the stage that lost the answer"
+        },
+        {
+          "path": "retrieval-ai/claim-level-citation-and-support-checks",
+          "title": "Claim-level citations: verify each answer against its passage"
+        },
+        {
+          "path": "retrieval-ai/corpus-permissions-and-document-lifecycle",
+          "title": "Retrieval corpus contracts: identity, permissions and document lifecycle"
+        }
+      ]
+    }
+  },
+  {
+    "id": "28335f70-ed2a-5df3-a673-df051df218dd",
+    "type": "article",
+    "path": "retrieval-ai/federated-retrieval-source-budgets-and-merging",
+    "title": "Federated retrieval: search multiple stores without losing policy or time budgets",
+    "summary": "Coordinate independent search sources, preserve each source's access checks, and merge evidence without pretending their scores share a scale.",
+    "body": "<p>Coordinate independent search sources, preserve each source&#x27;s access checks, and merge evidence without pretending their scores share a scale.</p><h2>Keep source ownership explicit</h2><p>Federated retrieval sends a query to more than one store: perhaps a policy index, a ticket database and a table catalog. Each adapter must enforce the caller&#x27;s authorization under that store&#x27;s rules, and the coordinator must not infer that permission in one store grants access in another. Return source ID, passage ID, revision, eligibility and match route with every hit. <a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Corpus access</a> belongs at the source boundary as well as the final response boundary.</p><h2>Budget each leg</h2><p>Give the whole request a deadline and each source a smaller timeout. A slow table catalog should not stall a simple policy answer until the client disconnects. Cancel or ignore work after the deadline, and mark the result as partial. Partial results can support an answer only if all required evidence slots are covered; a missing source may require a clear abstention. The timeout policy should be visible in <a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">retrieval traces</a> so a missing document is not mistaken for a ranking failure.</p><h2>Merge identities, not raw scores</h2><p>A cosine score of 0.79 and a lexical score of 11.4 are not comparable magnitudes. Deduplicate by stable source-and-passage identity, then use per-source rank, calibrated relevance or a judged fusion rule. Record which source returned each duplicate and why a candidate survived. <a href=\"/retrieval-ai/hybrid-search-and-reciprocal-rank-fusion\">Rank fusion</a> offers a baseline when adapters expose rankings but not aligned probabilities. Keep source diversity when the answer needs both a ticket and a policy.</p><h2>Handle source-specific freshness</h2><p>One source may have a fresh transaction row while another holds yesterday&#x27;s indexed document. Store source revision and observed-at time on every hit; do not present their join as a single current snapshot unless the application defines consistency semantics. For a question about historical eligibility, apply the requested as-of time to each adapter. If one store cannot answer as-of queries, say which part is unavailable rather than silently reading its current state.</p><h2>Test partial and contradictory outcomes</h2><p>Run evaluations where every source succeeds, one times out, a source returns forbidden hits, two stores disagree on a revision, and one store returns an exact ID absent elsewhere. Measure required-evidence coverage, p95 latency and per-source failure rates. A high overall recall score does not excuse a coordinator that leaks a restricted hit or hides a missing source behind a confident answer.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass SearchHit:\n    source: str\n    passage_id: str\n    tenant: str\n    rank: int\n    text: str\n\ndef merge_hits(source_hits: dict[str, list[SearchHit]], tenant: str,\n               per_source_cap: int = 3) -&gt; list[SearchHit]:\n    eligible = []\n    for source, hits in source_hits.items():\n        ranked = sorted((hit for hit in hits if hit.source == source\n                         and hit.tenant == tenant), key=lambda hit: hit.rank)\n        eligible.extend(ranked[:per_source_cap])\n    seen: set[tuple[str, str]] = set()\n    merged = []\n    for hit in sorted(eligible, key=lambda item: (item.rank, item.source)):\n        identity = (hit.source, hit.passage_id)\n        if identity not in seen:\n            seen.add(identity)\n            merged.append(hit)\n    return merged\n\nresults = {&quot;policy&quot;: [SearchHit(&quot;policy&quot;, &quot;refund-r4&quot;, &quot;north&quot;, 1, &quot;47 days&quot;),\n                      SearchHit(&quot;policy&quot;, &quot;refund-r4&quot;, &quot;north&quot;, 2, &quot;duplicate&quot;)],\n           &quot;tickets&quot;: [SearchHit(&quot;tickets&quot;, &quot;case-83&quot;, &quot;south&quot;, 1, &quot;private&quot;),\n                       SearchHit(&quot;tickets&quot;, &quot;case-47&quot;, &quot;north&quot;, 2, &quot;eligible&quot;)]}\nassert [(hit.source, hit.passage_id) for hit in merge_hits(results, &quot;north&quot;)] == [\n    (&quot;policy&quot;, &quot;refund-r4&quot;), (&quot;tickets&quot;, &quot;case-47&quot;)]\nassert all(hit.tenant == &quot;north&quot; for hit in merge_hits(results, &quot;north&quot;))</code></pre><h2>Performance and operating cost</h2><p>For N returned hits, filtering and sorting costs O(N log N) time and O(N) space. Concurrent source calls can lower wall time toward the slowest successful leg, but only with explicit deadlines and a shared request budget. This example does not execute network calls or enforce source authorization; production adapters must perform their own checks before returning candidates.</p><h3>Common Mistakes</h3><ul><li>Sorting raw scores from unrelated retrieval engines as if they were calibrated.</li><li>Letting a single slow adapter consume the entire request deadline.</li><li>Assuming an aggregator-side filter replaces authorization in each source.</li><li>Answering as though all stores were current when their revisions differ.</li></ul><h2>Validation drill</h2><p>Federate three mocked stores over 38 judged questions. Inject timeouts, duplicate hits, stale revisions and cross-tenant decoys; count partial results and unsupported final answers independently.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/hybrid-search-and-reciprocal-rank-fusion\">Hybrid retrieval: fuse exact terms and semantic candidates by rank</a></li><li><a href=\"/retrieval-ai/permission-aware-cache-and-conversation-turns\">Retrieval caches and conversation turns: recheck access every time</a></li><li><a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">Retrieval traces: locate the stage that lost the answer</a></li><li><a href=\"/retrieval-ai/retrieval-evaluation-labels-and-adjudication\">Retrieval evaluation labels: build a trustworthy judged set</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8436,
+    "status": "published",
+    "published_at": "2026-10-07T15:20:28.665197+00:00",
+    "created_at": "2026-10-07T15:20:28.665197+00:00",
+    "updated_at": "2026-10-07T15:20:28.665197+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/hybrid-search-and-reciprocal-rank-fusion",
+          "title": "Hybrid retrieval: fuse exact terms and semantic candidates by rank"
+        },
+        {
+          "path": "retrieval-ai/permission-aware-cache-and-conversation-turns",
+          "title": "Retrieval caches and conversation turns: recheck access every time"
+        },
+        {
+          "path": "retrieval-ai/retrieval-traces-and-incident-debugging",
+          "title": "Retrieval traces: locate the stage that lost the answer"
+        },
+        {
+          "path": "retrieval-ai/retrieval-evaluation-labels-and-adjudication",
+          "title": "Retrieval evaluation labels: build a trustworthy judged set"
+        }
+      ]
+    }
+  },
+  {
+    "id": "8127f828-07dd-5250-a45c-b38ca52fda0a",
+    "type": "subject",
+    "path": "retrieval-ai/retrieval-ai-tutorial",
+    "title": "Retrieval-Based AI Tutorial",
+    "summary": "Build permission-aware document answers with versioned chunks, measured retrieval, grounded responses and safe index updates.",
+    "body": "<p>Build permission-aware document answers with versioned chunks, measured retrieval, grounded responses and safe index updates.</p><h2>Learning path</h2><ul><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li><li><a href=\"/retrieval-ai/chunk-identity-and-context-boundaries\">Chunking documents: preserve section identity and answer boundaries</a></li><li><a href=\"/retrieval-ai/retrieval-recall-and-reranking\">Retrieval design: compare lexical, semantic and reranked candidates</a></li><li><a href=\"/retrieval-ai/evidence-bound-answer-and-abstention\">Grounded answers: require passage support and a no-answer path</a></li><li><a href=\"/retrieval-ai/retrieval-vs-answer-evaluation\">RAG evaluation: separate retrieval recall from answer support</a></li><li><a href=\"/retrieval-ai/prompt-injection-and-tool-boundary\">Retrieved text as untrusted data: keep instructions and tools separate</a></li><li><a href=\"/retrieval-ai/freshness-deletion-and-index-swap\">Index freshness: publish complete revisions and remove stale chunks</a></li><li><a href=\"/retrieval-ai/support-policy-answer-project\">Project: answer support-policy questions with permission-aware evidence</a></li></ul><h2>Connected foundations</h2><p>Use the earlier data and model boundaries as prerequisites.</p><ul><li><a href=\"/natural-language-processing/nlp-tutorial\">Natural Language Processing Tutorial</a></li><li><a href=\"/prompt-engineering/prompt-engineering\">Prompt Engineering</a></li></ul><h2>Practice</h2><ul><li><a href=\"/retrieval-ai/retrieval-ai-tutorial/project\">Retrieval-Based AI: Projects</a></li></ul><p><strong>Continue into another subject:</strong> <a href=\"/recommendation-systems/recommendation-systems-tutorial\">Recommendation Systems Tutorial</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/multimodal-ai/cross-modal-retrieval-and-ranking\">Cross-modal retrieval: candidate pools, ranking and versioned indexes</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/knowledge-graphs/graph-grounded-retrieval-and-evaluation\">Graph-grounded retrieval: candidate recall and unsupported claims</a>.</p><p>For the full track and its related lessons, open <a href=\"/retrieval-ai\">Retrieval-based AI</a>.</p><h2>Extraction, routing and index contracts</h2><ul><li><a href=\"/retrieval-ai/query-intent-and-retrieval-routing\">Retrieval query routing: preserve exact constraints before search</a></li><li><a href=\"/retrieval-ai/source-extraction-and-passage-provenance\">Document extraction: preserve passage provenance through OCR and parsing</a></li><li><a href=\"/retrieval-ai/embedding-space-version-and-migration\">Embedding migrations: keep query and document vectors in one space</a></li><li><a href=\"/retrieval-ai/filtered-ann-recall-and-latency\">Filtered vector search: measure ANN recall inside the permitted set</a></li></ul><h2>Ranking, context and answer support</h2><ul><li><a href=\"/retrieval-ai/hybrid-search-and-reciprocal-rank-fusion\">Hybrid retrieval: fuse exact terms and semantic candidates by rank</a></li><li><a href=\"/retrieval-ai/reranker-candidate-window-and-budget\">Reranking: spend model budget on a bounded candidate window</a></li><li><a href=\"/retrieval-ai/context-packing-and-evidence-diversity\">Context packing: retain independent evidence under a token cap</a></li><li><a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim-level citations: verify each answer against its passage</a></li></ul><h2>Operations and release gates</h2><ul><li><a href=\"/retrieval-ai/permission-aware-cache-and-conversation-turns\">Retrieval caches and conversation turns: recheck access every time</a></li><li><a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Retrieval release gates: evaluate slices before changing an index</a></li></ul><h2>Evidence beyond plain passages</h2><ul><li><a href=\"/retrieval-ai/multi-hop-evidence-chain-and-stop-rules\">Multi-hop retrieval: build evidence chains with bounded searches</a></li><li><a href=\"/retrieval-ai/table-retrieval-and-numeric-cell-context\">Table retrieval: keep numeric cells attached to their labels</a></li><li><a href=\"/retrieval-ai/multimodal-retrieval-and-asset-identity\">Multimodal retrieval: connect images, OCR and text to one asset identity</a></li><li><a href=\"/retrieval-ai/incremental-ingestion-idempotency-and-delete-races\">Incremental retrieval ingestion: replay events without reviving deleted passages</a></li><li><a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">Retrieval traces: locate the stage that lost the answer</a></li><li><a href=\"/retrieval-ai/query-expansion-guardrails-and-drift-tests\">Query expansion: add recall terms without changing the user&#x27;s question</a></li></ul><h2>Graph, correction and evaluation</h2><ul><li><a href=\"/retrieval-ai/knowledge-graph-retrieval-and-edge-provenance\">Knowledge graph retrieval: prove every edge in the path</a></li><li><a href=\"/retrieval-ai/corrective-retrieval-and-bounded-retry\">Corrective retrieval: retry only when evidence is insufficient</a></li><li><a href=\"/retrieval-ai/retrieval-evaluation-labels-and-adjudication\">Retrieval evaluation labels: build a trustworthy judged set</a></li><li><a href=\"/retrieval-ai/federated-retrieval-source-budgets-and-merging\">Federated retrieval: search multiple stores without losing policy or time budgets</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "retrieval-ai"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8300,
+    "status": "published",
+    "published_at": "2026-10-05T05:07:46.434939+00:00",
+    "created_at": "2026-10-05T05:07:46.434939+00:00",
+    "updated_at": "2026-10-07T15:20:28.665197+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Corpus and retrieval",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "retrieval-ai/corpus-permissions-and-document-lifecycle",
+            "retrieval-ai/chunk-identity-and-context-boundaries",
+            "retrieval-ai/retrieval-recall-and-reranking"
+          ]
+        },
+        {
+          "title": "Answers and operations",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "retrieval-ai/evidence-bound-answer-and-abstention",
+            "retrieval-ai/retrieval-vs-answer-evaluation",
+            "retrieval-ai/prompt-injection-and-tool-boundary",
+            "retrieval-ai/freshness-deletion-and-index-swap"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "retrieval-ai/support-policy-answer-project"
+          ]
+        },
+        {
+          "title": "Extraction, routing and index contracts",
+          "lessons": [
+            "retrieval-ai/query-intent-and-retrieval-routing",
+            "retrieval-ai/source-extraction-and-passage-provenance",
+            "retrieval-ai/embedding-space-version-and-migration",
+            "retrieval-ai/filtered-ann-recall-and-latency"
+          ]
+        },
+        {
+          "title": "Ranking, context and answer support",
+          "lessons": [
+            "retrieval-ai/hybrid-search-and-reciprocal-rank-fusion",
+            "retrieval-ai/reranker-candidate-window-and-budget",
+            "retrieval-ai/context-packing-and-evidence-diversity",
+            "retrieval-ai/claim-level-citation-and-support-checks"
+          ]
+        },
+        {
+          "title": "Operations and release gates",
+          "lessons": [
+            "retrieval-ai/permission-aware-cache-and-conversation-turns",
+            "retrieval-ai/retrieval-release-evaluation-and-slice-gates"
+          ]
+        },
+        {
+          "title": "Evidence beyond plain passages",
+          "lessons": [
+            "retrieval-ai/multi-hop-evidence-chain-and-stop-rules",
+            "retrieval-ai/table-retrieval-and-numeric-cell-context",
+            "retrieval-ai/multimodal-retrieval-and-asset-identity",
+            "retrieval-ai/incremental-ingestion-idempotency-and-delete-races",
+            "retrieval-ai/retrieval-traces-and-incident-debugging",
+            "retrieval-ai/query-expansion-guardrails-and-drift-tests"
+          ]
+        },
+        {
+          "title": "Graph, correction and evaluation",
+          "lessons": [
+            "retrieval-ai/knowledge-graph-retrieval-and-edge-provenance",
+            "retrieval-ai/corrective-retrieval-and-bounded-retry",
+            "retrieval-ai/retrieval-evaluation-labels-and-adjudication",
+            "retrieval-ai/federated-retrieval-source-budgets-and-merging"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Retrieval-Based AI",
+          "path": "retrieval-ai/retrieval-ai-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "retrieval-ai/retrieval-ai-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "5a14eae3-0a31-5beb-9a43-40709220fce4",
+    "type": "subject",
+    "path": "retrieval-ai",
+    "title": "Retrieval-based AI",
+    "summary": "Ground generated answers in permitted, current documents and measure retrieval separately from response quality.",
+    "body": "<p>Ground generated answers in permitted, current documents and measure retrieval separately from response quality.</p><h2>Where to begin</h2><p>Start with the corpus contract: document identity, ownership, revision, and deletion. Then work through chunk boundaries, lexical and dense retrieval, reranking, evidence support, abstention, prompt injection, and evaluation. The project tests no-answer and restricted-document cases, not just successful lookups.</p><h2>Read the track</h2><ul><li><a href=\"/retrieval-ai/retrieval-ai-tutorial\">Retrieval-Based AI Tutorial</a></li><li><a href=\"/retrieval-ai/retrieval-vs-answer-evaluation\">RAG evaluation: separate retrieval recall from answer support</a></li><li><a href=\"/retrieval-ai/prompt-injection-and-tool-boundary\">Retrieved text as untrusted data: keep instructions and tools separate</a></li><li><a href=\"/retrieval-ai/freshness-deletion-and-index-swap\">Index freshness: publish complete revisions and remove stale chunks</a></li><li><a href=\"/retrieval-ai/support-policy-answer-project\">Project: answer support-policy questions with permission-aware evidence</a></li><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li><li><a href=\"/retrieval-ai/chunk-identity-and-context-boundaries\">Chunking documents: preserve section identity and answer boundaries</a></li><li><a href=\"/retrieval-ai/retrieval-recall-and-reranking\">Retrieval design: compare lexical, semantic and reranked candidates</a></li><li><a href=\"/retrieval-ai/evidence-bound-answer-and-abstention\">Grounded answers: require passage support and a no-answer path</a></li><li><a href=\"/retrieval-ai/retrieval-ai-tutorial/project\">Retrieval-Based AI: Projects</a></li></ul><h2>Choose the right method</h2><p>More retrieved chunks consume context, latency, and token budget. Improve candidate recall and evidence ranking before increasing the window; a long prompt cannot recover a relevant passage that the index never returned.</p><h3>Common Mistakes</h3><p>Do not let retrieved text issue instructions to a tool or override access rules. A fluent answer without a supporting passage should fail the evidence check.</p><h2>Related tracks</h2><ul><li><a href=\"/natural-language-processing\">Natural language processing learning path</a></li><li><a href=\"/knowledge-graphs\">Knowledge graphs</a></li></ul><h2>Advanced retrieval engineering</h2><ul><li><a href=\"/retrieval-ai/query-intent-and-retrieval-routing\">Retrieval query routing: preserve exact constraints before search</a></li><li><a href=\"/retrieval-ai/source-extraction-and-passage-provenance\">Document extraction: preserve passage provenance through OCR and parsing</a></li><li><a href=\"/retrieval-ai/embedding-space-version-and-migration\">Embedding migrations: keep query and document vectors in one space</a></li><li><a href=\"/retrieval-ai/filtered-ann-recall-and-latency\">Filtered vector search: measure ANN recall inside the permitted set</a></li><li><a href=\"/retrieval-ai/hybrid-search-and-reciprocal-rank-fusion\">Hybrid retrieval: fuse exact terms and semantic candidates by rank</a></li><li><a href=\"/retrieval-ai/reranker-candidate-window-and-budget\">Reranking: spend model budget on a bounded candidate window</a></li><li><a href=\"/retrieval-ai/context-packing-and-evidence-diversity\">Context packing: retain independent evidence under a token cap</a></li><li><a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim-level citations: verify each answer against its passage</a></li><li><a href=\"/retrieval-ai/permission-aware-cache-and-conversation-turns\">Retrieval caches and conversation turns: recheck access every time</a></li><li><a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Retrieval release gates: evaluate slices before changing an index</a></li></ul><h2>Evidence beyond plain passages</h2><ul><li><a href=\"/retrieval-ai/multi-hop-evidence-chain-and-stop-rules\">Multi-hop retrieval: build evidence chains with bounded searches</a></li><li><a href=\"/retrieval-ai/table-retrieval-and-numeric-cell-context\">Table retrieval: keep numeric cells attached to their labels</a></li><li><a href=\"/retrieval-ai/multimodal-retrieval-and-asset-identity\">Multimodal retrieval: connect images, OCR and text to one asset identity</a></li><li><a href=\"/retrieval-ai/incremental-ingestion-idempotency-and-delete-races\">Incremental retrieval ingestion: replay events without reviving deleted passages</a></li><li><a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">Retrieval traces: locate the stage that lost the answer</a></li><li><a href=\"/retrieval-ai/query-expansion-guardrails-and-drift-tests\">Query expansion: add recall terms without changing the user&#x27;s question</a></li></ul><h2>Graph, correction and evaluation</h2><ul><li><a href=\"/retrieval-ai/knowledge-graph-retrieval-and-edge-provenance\">Knowledge graph retrieval: prove every edge in the path</a></li><li><a href=\"/retrieval-ai/corrective-retrieval-and-bounded-retry\">Corrective retrieval: retry only when evidence is insufficient</a></li><li><a href=\"/retrieval-ai/retrieval-evaluation-labels-and-adjudication\">Retrieval evaluation labels: build a trustworthy judged set</a></li><li><a href=\"/retrieval-ai/federated-retrieval-source-budgets-and-merging\">Federated retrieval: search multiple stores without losing policy or time budgets</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": null,
+    "tags": [
+      "retrieval-ai",
+      "learning path"
+    ],
+    "data": {
+      "seo_ready": true,
+      "content_format": "html",
+      "subject_root": "retrieval-ai",
+      "section_path": "retrieval-ai",
+      "modules": [
+        {
+          "title": "Start and build",
+          "lessons": [
+            "retrieval-ai/retrieval-ai-tutorial",
+            "retrieval-ai/retrieval-vs-answer-evaluation",
+            "retrieval-ai/prompt-injection-and-tool-boundary",
+            "retrieval-ai/freshness-deletion-and-index-swap",
+            "retrieval-ai/corpus-permissions-and-document-lifecycle",
+            "retrieval-ai/chunk-identity-and-context-boundaries",
+            "retrieval-ai/retrieval-recall-and-reranking",
+            "retrieval-ai/evidence-bound-answer-and-abstention"
+          ]
+        },
+        {
+          "title": "Apply the ideas",
+          "lessons": [
+            "retrieval-ai/support-policy-answer-project",
+            "retrieval-ai/retrieval-ai-tutorial/project",
+            "retrieval-ai/hybrid-search-release-gate-project"
+          ]
+        },
+        {
+          "title": "Advanced retrieval engineering",
+          "lessons": [
+            "retrieval-ai/query-intent-and-retrieval-routing",
+            "retrieval-ai/source-extraction-and-passage-provenance",
+            "retrieval-ai/embedding-space-version-and-migration",
+            "retrieval-ai/filtered-ann-recall-and-latency",
+            "retrieval-ai/hybrid-search-and-reciprocal-rank-fusion",
+            "retrieval-ai/reranker-candidate-window-and-budget",
+            "retrieval-ai/context-packing-and-evidence-diversity",
+            "retrieval-ai/claim-level-citation-and-support-checks",
+            "retrieval-ai/permission-aware-cache-and-conversation-turns",
+            "retrieval-ai/retrieval-release-evaluation-and-slice-gates"
+          ]
+        },
+        {
+          "title": "Evidence beyond plain passages",
+          "lessons": [
+            "retrieval-ai/multi-hop-evidence-chain-and-stop-rules",
+            "retrieval-ai/table-retrieval-and-numeric-cell-context",
+            "retrieval-ai/multimodal-retrieval-and-asset-identity",
+            "retrieval-ai/incremental-ingestion-idempotency-and-delete-races",
+            "retrieval-ai/retrieval-traces-and-incident-debugging",
+            "retrieval-ai/query-expansion-guardrails-and-drift-tests"
+          ]
+        },
+        {
+          "title": "Graph, correction and evaluation",
+          "lessons": [
+            "retrieval-ai/knowledge-graph-retrieval-and-edge-provenance",
+            "retrieval-ai/corrective-retrieval-and-bounded-retry",
+            "retrieval-ai/retrieval-evaluation-labels-and-adjudication",
+            "retrieval-ai/federated-retrieval-source-budgets-and-merging"
+          ]
+        }
+      ]
+    },
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8299,
+    "status": "published",
+    "published_at": "2026-10-07T08:22:48.087670+00:00",
+    "created_at": "2026-10-07T08:22:48.087670+00:00",
+    "updated_at": "2026-10-07T15:20:28.665197+00:00"
+  },
+  {
+    "id": "59ff010b-90dc-5a1a-92ad-4708cf6ae68c",
+    "type": "article",
+    "path": "retrieval-ai/multi-hop-evidence-chain-and-stop-rules",
+    "title": "Multi-hop retrieval: build evidence chains with bounded searches",
+    "summary": "Answer questions whose facts sit in separate documents without letting a plausible first hit become an unsupported final answer.",
+    "body": "<p>Answer questions whose facts sit in separate documents without letting a plausible first hit become an unsupported final answer.</p><h2>Represent the missing link</h2><p>A multi-hop question needs two or more supported joins. A support ticket may name shipment SH-47, while the carrier notice names only its dispatch batch. First retrieve the ticket and extract its batch ID. Then search that exact ID in the permitted carrier corpus. Keep each edge as a tuple of source passage, extracted entity, target passage and match rule. The final answer must cite both ends of the join. <a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim support</a> should reject a chain whose second edge is only a semantic resemblance.</p><h2>Search in a fixed budget</h2><p>Give each hop its own candidate limit, time limit and permission filter. The planner can propose the next lookup, but application code should validate the proposed identifier against the preceding passage before executing it. Stop after a bounded number of hops; a loop between two documents is a failed search, not deeper reasoning. If the first document names two batches, branch into two explicit chains and keep their evidence separate until a source disambiguates them.</p><h2>Preserve uncertainty</h2><p>The chain may support that SH-47 belongs to batch BX-83 and that BX-83 was delayed. It does not prove the customer&#x27;s delivery date changed unless a permitted source states that consequence. Distinguish a missing edge from a contradictory edge. Missing means the lookup exhausted its budget; contradictory means two eligible sources disagree and require revision or time resolution. <a href=\"/retrieval-ai/evidence-bound-answer-and-abstention\">Abstention</a> is the correct output when a required edge has no evidence.</p><h2>Evaluate the joins</h2><p>Judgments should name the expected intermediate entity and answer-bearing passages, not only the answer text. Record success at hop one, success at hop two, chain precision and final claim support independently. A fluent answer can hide a bad join. Include decoy IDs with similar spelling, revoked passages, duplicate entity names across tenants and an answer that requires three documents. A single overall accuracy score will obscure which hop fails.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass Evidence:\n    passage_id: str\n    tenant: str\n    entity_id: str\n    linked_id: str\n\ndef trace_shipment(shipment_id: str, tenant: str,\n                   tickets: list[Evidence], notices: list[Evidence]) -&gt; list[tuple[str, str]]:\n    chains = []\n    for ticket in tickets:\n        if ticket.tenant != tenant or ticket.entity_id != shipment_id:\n            continue\n        for notice in notices:\n            if notice.tenant == tenant and notice.entity_id == ticket.linked_id:\n                chains.append((ticket.passage_id, notice.passage_id))\n    return chains\n\ntickets = [Evidence(&quot;ticket-47-r2&quot;, &quot;north&quot;, &quot;SH-47&quot;, &quot;BX-83&quot;)]\nnotices = [Evidence(&quot;notice-83-r4&quot;, &quot;north&quot;, &quot;BX-83&quot;, &quot;late&quot;),\n           Evidence(&quot;notice-83-private&quot;, &quot;south&quot;, &quot;BX-83&quot;, &quot;cancelled&quot;)]\nassert trace_shipment(&quot;SH-47&quot;, &quot;north&quot;, tickets, notices) == [\n    (&quot;ticket-47-r2&quot;, &quot;notice-83-r4&quot;)]\nassert trace_shipment(&quot;SH-47&quot;, &quot;south&quot;, tickets, notices) == []</code></pre><h2>Performance and operating cost</h2><p>The transparent nested-loop baseline costs O(TN) time for T tickets and N notices and O(C) space for C chains. Index notices by tenant and entity to reduce the join to O(T + N + C) build-and-probe time. Each extra retrieval hop adds latency and new failure opportunities, so cap depth and branch count before generation.</p><h3>Common Mistakes</h3><ul><li>Using a model-generated intermediate ID that is absent from the cited passage.</li><li>Combining passages from different tenants because the entity text matches.</li><li>Claiming a downstream consequence that neither source states.</li><li>Allowing repeated hops to search indefinitely.</li></ul><h2>Validation drill</h2><p>Create 37 questions: 19 valid two-hop chains, six ambiguous branches, five missing second edges, four decoy IDs and three revoked intermediates. Report first-hop and full-chain recall separately.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/query-intent-and-retrieval-routing\">Retrieval query routing: preserve exact constraints before search</a></li><li><a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim-level citations: verify each answer against its passage</a></li><li><a href=\"/retrieval-ai/permission-aware-cache-and-conversation-turns\">Retrieval caches and conversation turns: recheck access every time</a></li><li><a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Retrieval release gates: evaluate slices before changing an index</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/knowledge-graph-retrieval-and-edge-provenance\">Knowledge graph retrieval: prove every edge in the path</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8427,
+    "status": "published",
+    "published_at": "2026-10-07T15:00:41.775053+00:00",
+    "created_at": "2026-10-07T15:00:41.775053+00:00",
+    "updated_at": "2026-10-07T15:20:28.665197+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/query-intent-and-retrieval-routing",
+          "title": "Retrieval query routing: preserve exact constraints before search"
+        },
+        {
+          "path": "retrieval-ai/claim-level-citation-and-support-checks",
+          "title": "Claim-level citations: verify each answer against its passage"
+        },
+        {
+          "path": "retrieval-ai/permission-aware-cache-and-conversation-turns",
+          "title": "Retrieval caches and conversation turns: recheck access every time"
+        },
+        {
+          "path": "retrieval-ai/retrieval-release-evaluation-and-slice-gates",
+          "title": "Retrieval release gates: evaluate slices before changing an index"
+        },
+        {
+          "path": "retrieval-ai/knowledge-graph-retrieval-and-edge-provenance",
+          "title": "Knowledge graph retrieval: prove every edge in the path"
+        }
+      ]
+    }
+  },
+  {
+    "id": "1b7cce22-1a49-5675-9b7c-b83d10f36991",
+    "type": "article",
+    "path": "retrieval-ai/retrieval-traces-and-incident-debugging",
+    "title": "Retrieval traces: locate the stage that lost the answer",
+    "summary": "Trace routing, filtering, candidate generation, reranking and context packing so a failed answer can be explained and repaired.",
+    "body": "<p>Trace routing, filtering, candidate generation, reranking and context packing so a failed answer can be explained and repaired.</p><h2>Record stage boundaries</h2><p>A single total latency and final answer are not enough. Give each query a trace ID and record route, index generation, encoder revision, allowed corpus scope, candidate counts, reranker cutoff, context IDs and answer citations. Keep the original query in a protected audit store when policy permits; avoid putting private text, user IDs or document contents into metric labels. <a href=\"/retrieval-ai/query-intent-and-retrieval-routing\">Routing</a> and <a href=\"/retrieval-ai/context-packing-and-evidence-diversity\">packing</a> need separate spans.</p><h2>Name the first failing stage</h2><p>If the answer-bearing passage is absent from candidate retrieval, changing the prompt will not fix it. If it appears at rank 12 but the reranker receives only eight, the candidate window is the failure. If it reaches the context packet but the model cites another passage, investigate answer synthesis and support checking. Diagnose against a judged passage ID, not a vague statement that search felt poor.</p><h2>Keep traces safe and bounded</h2><p>Trace metadata can itself expose sensitive document names or tenant relationships. Hash or redact identifiers in broad telemetry, reserve full IDs for access-controlled debugging, and apply retention limits. Sample routine traffic, but retain all permission denials, deletion races and release-gate failures under an approved policy. A trace with every passage text can cost more to store than the retrieved context and may violate the source&#x27;s access boundary.</p><h2>Use paired comparisons</h2><p>Replay a fixed query against current and candidate releases with the same corpus snapshot and permission scope. Diff each stage: route, top-k identities, filters, rerank order, context selection and citations. This isolates a changed encoder from a changed index or prompt. <a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Release gates</a> should attach these traces to failures so a rollback decision has evidence.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass RetrievalTrace:\n    expected_passage: str\n    candidates: tuple[str, ...]\n    reranked: tuple[str, ...]\n    context: tuple[str, ...]\n    cited: tuple[str, ...]\n\ndef first_loss(trace: RetrievalTrace) -&gt; str:\n    stages = ((&quot;candidate retrieval&quot;, trace.candidates),\n              (&quot;reranking&quot;, trace.reranked),\n              (&quot;context packing&quot;, trace.context),\n              (&quot;answer citation&quot;, trace.cited))\n    for stage_name, passage_ids in stages:\n        if trace.expected_passage not in passage_ids:\n            return stage_name\n    return &quot;supported path&quot;\n\nincident = RetrievalTrace(&quot;policy-47-r3&quot;, (&quot;policy-47-r3&quot;, &quot;memo-29&quot;),\n                          (&quot;memo-29&quot;,), (&quot;memo-29&quot;,), (&quot;memo-29&quot;,))\nassert first_loss(incident) == &quot;reranking&quot;\nassert first_loss(RetrievalTrace(&quot;missing&quot;, (), (), (), ())) == &quot;candidate retrieval&quot;</code></pre><h2>Performance and operating cost</h2><p>Finding the first loss scans at most the four recorded stage lists, O(K) time for K total IDs and O(1) extra space. A full trace pipeline adds serialization, storage and review cost proportional to captured candidates. Sample successful queries and store compact IDs; preserve richer traces for judged failures under access control.</p><h3>Common Mistakes</h3><ul><li>Blaming generation when the answer passage never entered candidate retrieval.</li><li>Logging private passage text or principal IDs in broad metric labels.</li><li>Comparing releases against different corpus snapshots.</li><li>Recording only final scores and losing stage identities.</li></ul><h2>Validation drill</h2><p>Create 41 judged traces with deliberate failures at each stage. Produce a count by first-loss stage and inspect one trace from each category before changing any retrieval parameter.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Retrieval release gates: evaluate slices before changing an index</a></li><li><a href=\"/retrieval-ai/reranker-candidate-window-and-budget\">Reranking: spend model budget on a bounded candidate window</a></li><li><a href=\"/retrieval-ai/context-packing-and-evidence-diversity\">Context packing: retain independent evidence under a token cap</a></li><li><a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim-level citations: verify each answer against its passage</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/corrective-retrieval-and-bounded-retry\">Corrective retrieval: retry only when evidence is insufficient</a></li><li><a href=\"/retrieval-ai/retrieval-evaluation-labels-and-adjudication\">Retrieval evaluation labels: build a trustworthy judged set</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8431,
+    "status": "published",
+    "published_at": "2026-10-07T15:00:41.775053+00:00",
+    "created_at": "2026-10-07T15:00:41.775053+00:00",
+    "updated_at": "2026-10-07T15:20:28.665197+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/retrieval-release-evaluation-and-slice-gates",
+          "title": "Retrieval release gates: evaluate slices before changing an index"
+        },
+        {
+          "path": "retrieval-ai/reranker-candidate-window-and-budget",
+          "title": "Reranking: spend model budget on a bounded candidate window"
+        },
+        {
+          "path": "retrieval-ai/context-packing-and-evidence-diversity",
+          "title": "Context packing: retain independent evidence under a token cap"
+        },
+        {
+          "path": "retrieval-ai/claim-level-citation-and-support-checks",
+          "title": "Claim-level citations: verify each answer against its passage"
+        },
+        {
+          "path": "retrieval-ai/corrective-retrieval-and-bounded-retry",
+          "title": "Corrective retrieval: retry only when evidence is insufficient"
+        },
+        {
+          "path": "retrieval-ai/retrieval-evaluation-labels-and-adjudication",
+          "title": "Retrieval evaluation labels: build a trustworthy judged set"
+        }
+      ]
+    }
+  },
+  {
+    "id": "bde593a4-b750-523e-abcf-f6b6d2797647",
+    "type": "article",
+    "path": "retrieval-ai/retrieval-release-evaluation-and-slice-gates",
+    "title": "Retrieval release gates: evaluate slices before changing an index",
+    "summary": "Promote a retriever only after judged recall, support, access and latency checks pass for distinct query families.",
+    "body": "<p>Promote a retriever only after judged recall, support, access and latency checks pass for distinct query families.</p><h2>Freeze the comparison</h2><p>Store query, permitted corpus snapshot, expected answer-bearing passage IDs, acceptable abstention and query family. Run current and candidate versions against the same access snapshot. Keep exact IDs, paraphrases, multilingual queries, long documents, stale revisions and no-answer cases separate. A global average can rise while one small tenant loses its only correct passage. <a href=\"/retrieval-ai/retrieval-vs-answer-evaluation\">Retrieval and answer quality</a> remain separate measurements.</p><h2>Measure decisions</h2><p>For each query, measure answer-bearing candidate recall, required-fact survival in the final packet, first relevant rank and unsupported answer claims. Record p95 latency and forbidden-passage exposure; the latter must stay at zero. Some questions have no answer, so abstention matters. Compare equal cutoffs and token budgets across versions.</p><h2>Set slice floors before testing</h2><p>Write thresholds before seeing candidate results. A release may require no access violations, no decline in exact-ID recall and a bounded p95 increase while accepting a defined paraphrase improvement. Such thresholds are product policies, not universal constants. Inspect every newly failed query and retain it for regression work.</p><h2>Canary and recover</h2><p>After offline gates pass, send a small permitted traffic slice to the candidate alias and watch latency, empty-result rate and citation resolution before widening. Record encoder, extraction, corpus, filter and ranker revisions. Rollback query encoder and index alias together. <a href=\"/retrieval-ai/embedding-space-version-and-migration\">Embedding migrations</a> fail quietly when only one half is reverted.</p><h2>Worked contract</h2><pre><code class=\"language-python\">def release_decision(current: dict, candidate: dict) -&gt; tuple[bool, list[str]]:\n    failures = []\n    if candidate[&quot;access_violations&quot;] != 0:\n        failures.append(&quot;access violation&quot;)\n    if candidate[&quot;exact_id_recall&quot;] &lt; current[&quot;exact_id_recall&quot;]:\n        failures.append(&quot;exact-ID recall regression&quot;)\n    if candidate[&quot;answer_support&quot;] &lt; current[&quot;answer_support&quot;]:\n        failures.append(&quot;answer support regression&quot;)\n    if candidate[&quot;p95_ms&quot;] &gt; current[&quot;p95_ms&quot;] + 47:\n        failures.append(&quot;latency budget exceeded&quot;)\n    return not failures, failures\n\nbaseline = {&quot;access_violations&quot;: 0, &quot;exact_id_recall&quot;: .94,\n            &quot;answer_support&quot;: .91, &quot;p95_ms&quot;: 168}\ncandidate = {&quot;access_violations&quot;: 0, &quot;exact_id_recall&quot;: .95,\n             &quot;answer_support&quot;: .92, &quot;p95_ms&quot;: 199}\nassert release_decision(baseline, candidate) == (True, [])\nassert release_decision(baseline, {**candidate, &quot;access_violations&quot;: 1})[0] is False</code></pre><h2>Performance and operating cost</h2><p>Evaluation of Q queries and K candidates costs at least O(QK) identity work, plus search, rerank and answer calls. Keep a small smoke set for each change and a broader judged set before promotion. The 47 ms allowance in this example is product-specific; choose a measured budget for the actual service.</p><h3>Common Mistakes</h3><ul><li>Promoting on one average while an important tenant slice regresses.</li><li>Changing the judged corpus between baseline and candidate runs.</li><li>Reporting answer quality without candidate recall or access exposure.</li><li>Rolling back the index while leaving the new query encoder active.</li></ul><h2>Validation drill</h2><p>Build 120 judged questions across six slices. Compare two generations at identical top-12 and 600-token packet limits, list newly failed queries and record the rollback target.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/embedding-space-version-and-migration\">Embedding migrations: keep query and document vectors in one space</a></li><li><a href=\"/retrieval-ai/filtered-ann-recall-and-latency\">Filtered vector search: measure ANN recall inside the permitted set</a></li><li><a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim-level citations: verify each answer against its passage</a></li><li><a href=\"/retrieval-ai/retrieval-vs-answer-evaluation\">RAG evaluation: separate retrieval recall from answer support</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/incremental-ingestion-idempotency-and-delete-races\">Incremental retrieval ingestion: replay events without reviving deleted passages</a></li><li><a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">Retrieval traces: locate the stage that lost the answer</a></li><li><a href=\"/retrieval-ai/query-expansion-guardrails-and-drift-tests\">Query expansion: add recall terms without changing the user&#x27;s question</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/retrieval-evaluation-labels-and-adjudication\">Retrieval evaluation labels: build a trustworthy judged set</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8425,
+    "status": "published",
+    "published_at": "2026-10-07T14:45:02.452377+00:00",
+    "created_at": "2026-10-07T14:45:02.452377+00:00",
+    "updated_at": "2026-10-07T15:20:28.665197+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/embedding-space-version-and-migration",
+          "title": "Embedding migrations: keep query and document vectors in one space"
+        },
+        {
+          "path": "retrieval-ai/filtered-ann-recall-and-latency",
+          "title": "Filtered vector search: measure ANN recall inside the permitted set"
+        },
+        {
+          "path": "retrieval-ai/claim-level-citation-and-support-checks",
+          "title": "Claim-level citations: verify each answer against its passage"
+        },
+        {
+          "path": "retrieval-ai/retrieval-vs-answer-evaluation",
+          "title": "RAG evaluation: separate retrieval recall from answer support"
+        },
+        {
+          "path": "retrieval-ai/incremental-ingestion-idempotency-and-delete-races",
+          "title": "Incremental retrieval ingestion: replay events without reviving deleted passages"
+        },
+        {
+          "path": "retrieval-ai/retrieval-traces-and-incident-debugging",
+          "title": "Retrieval traces: locate the stage that lost the answer"
+        },
+        {
+          "path": "retrieval-ai/query-expansion-guardrails-and-drift-tests",
+          "title": "Query expansion: add recall terms without changing the user's question"
+        },
+        {
+          "path": "retrieval-ai/retrieval-evaluation-labels-and-adjudication",
+          "title": "Retrieval evaluation labels: build a trustworthy judged set"
+        }
+      ]
+    }
+  },
+  {
+    "id": "b4ce2304-5ed6-5682-bce8-27dbf2220392",
+    "type": "article",
+    "path": "retrieval-ai/hybrid-search-and-reciprocal-rank-fusion",
+    "title": "Hybrid retrieval: fuse exact terms and semantic candidates by rank",
+    "summary": "Run lexical and vector retrieval over the same permitted revision set, then fuse ranks without pretending their raw scores are comparable.",
+    "body": "<p>Run lexical and vector retrieval over the same permitted revision set, then fuse ranks without pretending their raw scores are comparable.</p><h2>Keep both candidate paths honest</h2><p>A user may ask for a named status code and its meaning in different words. Keyword search protects exact strings, version tags and identifiers; dense retrieval helps with paraphrases. Each leg must apply the same tenant, document-state and revision constraints before its results reach fusion. If one leg indexes stale policy or ignores a revocation, its high rank cannot be made safe by later scoring. <a href=\"/retrieval-ai/filtered-ann-recall-and-latency\">Filtered ANN</a> tests the semantic leg independently.</p><h2>Fuse ranks, then inspect the result</h2><p>Reciprocal rank fusion awards a candidate one divided by a rank constant plus its position in each list. A passage appearing in both lists receives contributions from both. This avoids adding an unbounded keyword score to a cosine similarity on a different scale. It discards score margins, so a clear lexical winner and a weak lexical hit can be treated as neighboring ranks. Compare fusion against each leg on judged questions, particularly exact-ID queries.</p><h2>Preserve identity while deduplicating</h2><p>The key is a stable passage identity tied to document revision, not only display text. Two copied sections from different policies may have identical wording but different owners or effective dates. Deduplicate the same passage returned by both legs, then group near-duplicates for context selection rather than erasing provenance. <a href=\"/retrieval-ai/context-packing-and-evidence-diversity\">Evidence packing</a> decides how many passages from one document belong in the prompt.</p><h2>Tune the window, not the formula alone</h2><p>Each leg contributes only the candidates it retrieved. A fusion constant cannot recover a passage absent from both top-K lists. Measure candidate recall while changing lexical depth, vector depth and fusion constant; track p95 latency and reranker input size. If exact identifiers are mandatory, apply a hard exact-match gate before or after fusion according to the query contract, not an arbitrary score threshold on the fused rank.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from collections import defaultdict\n\ndef reciprocal_rank_fusion(lexical: list[str], semantic: list[str],\n                           rank_constant: int = 37) -&gt; list[str]:\n    if rank_constant &lt; 1:\n        raise ValueError(&quot;rank constant must be positive&quot;)\n    scores = defaultdict(float)\n    for ranking in (lexical, semantic):\n        for position, passage_id in enumerate(dict.fromkeys(ranking), start=1):\n            scores[passage_id] += 1 / (rank_constant + position)\n    return sorted(scores, key=lambda passage_id: (-scores[passage_id], passage_id))\n\nkeyword_hits = [&quot;policy-r8-ax47&quot;, &quot;policy-r8-refunds&quot;, &quot;guide-r3&quot;]\nvector_hits = [&quot;policy-r8-refunds&quot;, &quot;policy-r8-ax47&quot;, &quot;manual-r6&quot;]\nranking = reciprocal_rank_fusion(keyword_hits, vector_hits)\nassert ranking[:2] == [&quot;policy-r8-ax47&quot;, &quot;policy-r8-refunds&quot;]\nassert len(ranking) == 4</code></pre><h2>Performance and operating cost</h2><p>Fusion scans L + V ranked candidates and stores at most their union, so expected O(L + V) score work and O(U) memory, followed by O(U log U) sorting. It adds almost no model cost, while running two retrieval legs may double search traffic. Bound both depths and measure whether extra recall justifies their latency.</p><h3>Common Mistakes</h3><ul><li>Adding raw keyword and vector scores without a tested normalization rule.</li><li>Fusing candidates from different permission or index generations.</li><li>Deduplicating by text and losing document ownership or revision.</li><li>Tuning the fusion constant while the needed passage never enters either list.</li></ul><h2>Validation drill</h2><p>Judge 63 queries split across exact identifiers, paraphrases and mixed language. Compare keyword-only, vector-only and fused recall at 12; record the extra latency and every newly missed exact-token query.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/query-intent-and-retrieval-routing\">Retrieval query routing: preserve exact constraints before search</a></li><li><a href=\"/retrieval-ai/reranker-candidate-window-and-budget\">Reranking: spend model budget on a bounded candidate window</a></li><li><a href=\"/retrieval-ai/context-packing-and-evidence-diversity\">Context packing: retain independent evidence under a token cap</a></li><li><a href=\"/retrieval-ai/retrieval-recall-and-reranking\">Retrieval design: compare lexical, semantic and reranked candidates</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/federated-retrieval-source-budgets-and-merging\">Federated retrieval: search multiple stores without losing policy or time budgets</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8420,
+    "status": "published",
+    "published_at": "2026-10-07T14:45:02.452377+00:00",
+    "created_at": "2026-10-07T14:45:02.452377+00:00",
+    "updated_at": "2026-10-07T15:20:28.665197+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/query-intent-and-retrieval-routing",
+          "title": "Retrieval query routing: preserve exact constraints before search"
+        },
+        {
+          "path": "retrieval-ai/reranker-candidate-window-and-budget",
+          "title": "Reranking: spend model budget on a bounded candidate window"
+        },
+        {
+          "path": "retrieval-ai/context-packing-and-evidence-diversity",
+          "title": "Context packing: retain independent evidence under a token cap"
+        },
+        {
+          "path": "retrieval-ai/retrieval-recall-and-reranking",
+          "title": "Retrieval design: compare lexical, semantic and reranked candidates"
+        },
+        {
+          "path": "retrieval-ai/federated-retrieval-source-budgets-and-merging",
+          "title": "Federated retrieval: search multiple stores without losing policy or time budgets"
+        }
+      ]
+    }
+  }
+]

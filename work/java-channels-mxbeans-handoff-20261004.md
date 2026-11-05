@@ -1,0 +1,11 @@
+# Java channels and JVM management draft handoff — 2026-10-04
+
+This batch adds 11 standalone advanced Java tutorials and a 12-question quiz. Seven file-channel lessons cover complete writes, positioned exact reads, transfer progress, forced storage, region locks, validated truncation, and asynchronous buffer ownership. Four JVM management lessons cover platform-thread deadlock snapshots, thread CPU time support, heap usage fields, and current versus lifetime class counts.
+
+The Java fixture now has 433 routes: 406 articles, 10 hubs, and 17 quizzes containing 204 questions. The new lessons appear in two Advanced Java modules, connect to each other and earlier lessons, and receive backlinks from the Java root and seven existing articles. All internal links found in Java article bodies resolve to fixture paths. The new public article bodies use the permitted semantic HTML tags, contain a Java code block and a Common Mistakes section each, and contain no external URLs.
+
+`work/aitrove-java-import-drafts.json` contains 434 records, including the editorial author record. Every record is a draft. It is ready for editorial review and import preparation, but has not been sent to WordPress or published. `scripts/export-java-for-wordpress.py` regenerates it. `work/java-channels-mxbeans-20261004.py` is a one-shot builder run against the committed fixture state preceding this batch.
+
+Verification: `python3 scripts/check-java-channels-mxbeans.py` compiled all 11 new code samples against their declared Java releases and passed local file-channel and JVM-management checks. `WRANGLER_LOG_PATH=/private/tmp/aitrove-wrangler-logs npm run build` succeeded. `npm run lint` passed with 0 errors and 9 existing warnings. The broader Java checker previously stopped at the unchanged `java/socket-boundaries` sample because this sandbox does not permit binding its local server socket; this batch's focused checker avoids network binding.
+
+Remaining work: editorial review, WordPress import and publication, then live-route verification. The Java topic space is open-ended; the next high-value gaps include class-loader isolation, JPMS service-provider registration, bounded asynchronous HTTP admission, and structured concurrency version contracts. No AI-detector score or exclusive ownership of Java API facts was measured or claimed.

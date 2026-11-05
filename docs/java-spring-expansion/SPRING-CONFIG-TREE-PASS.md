@@ -1,0 +1,9 @@
+# Spring nested imports and config-tree pass
+
+This pass adds eight original Spring lessons and one 12-question quiz. Spring & Spring Boot stays separate from Java. The subject now has 183 articles, 10 hubs, nine quizzes with 157 questions, and 1,573 internal links in Spring article bodies. The Spring content check reports no curriculum orphans.
+
+The source kit's `RelaySettingsProcessTest` now runs 12 child-JVM cases. Seven new checks cover a second relative import resolved from the intermediate file, a missing second-hop import, binding two local files through `configtree:`, an environment value overriding one tree value, a missing required tree, validation failure from an out-of-range tree file, and an extensionless properties import with an explicit format hint. The first attempt at the tree test used `configtree:file://...`, which the pinned Boot fixture rejected. The checked implementation uses `configtree:` followed by an absolute directory path.
+
+New lessons: `/spring/boot-nested-relative-import`, `/spring/boot-nested-import-missing`, `/spring/boot-configtree-file-binding`, `/spring/boot-configtree-env-precedence`, `/spring/boot-configtree-required-location`, `/spring/boot-configtree-invalid-value`, `/spring/boot-extensionless-config-file`, and `/spring/boot-configtree-test-boundary`. Quiz: `/quizzes/spring-config-tree`. Prior configuration and testing lessons link to these pages.
+
+The tree is a temporary local directory with non-secret values. These checks do not prove a Kubernetes or Docker mount, file permissions under the deployment user, credential rotation, startup of runnable `ReceiptApplication`, production readiness or live configuration reload. Those need separate release tests. The new site prose and examples are original; reference documentation informed behavior and curriculum order, not copied text.

@@ -1,0 +1,1361 @@
+[
+  {
+    "id": "12eb54ab-8e5a-540d-a2c2-721d0a3e13c5",
+    "type": "article",
+    "path": "data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators",
+    "title": "Likert diverging stacks: keep the neutral split and response denominator honest",
+    "summary": "Build survey-response bars around a declared midpoint while retaining item counts, nonresponse and the ordered response distribution.",
+    "body": "<p>Build survey-response bars around a declared midpoint while retaining item counts, nonresponse and the ordered response distribution.</p><h2>Plot an ordered response, not a signed measurement</h2><p>A Likert item records an ordered category such as strongly disagree, disagree, neutral, agree or strongly agree. A diverging stacked bar puts the disagreement categories to the left of a center and agreement categories to the right. It makes direction and balance easy to scan across questions. Yet the categories are ordinal: the spacing between adjacent labels is not guaranteed to represent an equal psychological distance. Do not claim a change from one category to another has a precise numeric magnitude merely because the bar uses equal-width units. The chart should preserve the original five counts and their order; a single favorable-minus-unfavorable score can hide a polarized item with many respondents on both ends. <a href=\"/data-visualization/stacked-bars-composition-and-changing-denominators\">Stacked-bar composition</a> explains the part-to-whole encoding, while <a href=\"/data-visualization/diverging-bars-zero-reference-and-signed-difference\">signed diverging bars</a> serve a different data type.</p><h2>Declare the center and the neutral convention</h2><p>For a five-category item, one useful convention splits the neutral share evenly across the center: half extends left and half extends right. It makes negative and positive segment lengths symmetric around a visually centered neutral category. The neutral response itself remains one category and one count; splitting its drawing width must never double its reported count. Other layouts keep the full neutral block on one side or omit it from the diverging calculation. These choices change the visual origin, so use one convention across every compared item and name it in the legend. The contract below returns segment endpoints, not a plotting-library call, so a renderer can draw exact intervals and an accessible table can show unsplit counts. The center position is a presentation rule, not a statistic. <a href=\"/data-visualization/scale-baseline-and-axis-integrity\">Baseline integrity</a> applies as much to opinion charts as to numeric axes.</p><h2>Separate item response from invitation count</h2><p>If 83 people receive a questionnaire and only 59 answer an item, a bar normalized to 100 percent of answers describes those 59 respondents. It does not imply 83 people expressed an opinion. Show response count and missing count beside each item, and choose whether the displayed percentages use answered responses or all invited people. A survey can have different eligible populations per item because of branching, so a single global denominator may be wrong. Missing, skipped, not applicable and explicit neutral are distinct states. The worked example accepts an eligible count per item and uses answered responses for the five segments while returning the missing total separately. If groups differ in response propensity, equal-looking bars can be misleading; inspect who answered before interpreting a difference. <a href=\"/data-visualization/aggregation-grain-and-denominator\">Grain and denominator</a> and <a href=\"/data-visualization/linked-filters-cohort-denominators-and-selection-state\">cohort filters</a> make that comparison auditable.</p><h2>Compare the distribution before sorting the questions</h2><p>Sorting items by net agreement can help locate extremes but can also hide the questionnaire&#x27;s intended order. Declare the sort key and preserve a stable question ID, especially if a dashboard allows resorting. For paired waves, compare like-for-like populations and wording; a changed label or response option can move a bar without a real attitude change. Small subgroups deserve visible sample counts and, where appropriate, an uncertainty display rather than a bold ranking. Use a consistent left-to-right palette whose labels are readable without color. The full five-category distribution belongs in the accompanying table, including neutral and missing counts. Avoid stacked bars so narrow that individual slices disappear; a small-multiple table or grouped display can be clearer for close comparisons. <a href=\"/data-visualization/uncertainty-and-small-sample-display\">Small-sample display</a>, <a href=\"/data-visualization/small-multiples-shared-scales-and-facet-order\">shared scales</a> and <a href=\"/data-visualization/accessible-color-and-text-alternatives\">text alternatives</a> support that choice.</p><h2>Worked contract</h2><pre><code class=\"language-python\">RESPONSE_ORDER = (&quot;strongly_disagree&quot;, &quot;disagree&quot;, &quot;neutral&quot;,\n                  &quot;agree&quot;, &quot;strongly_agree&quot;)\n\ndef likert_layout(items: list[tuple[str, int, dict[str, int]]]):\n    seen_items = set()\n    output = []\n    for item_id, eligible, counts in items:\n        if (not item_id or item_id in seen_items or\n                not isinstance(eligible, int) or eligible &lt;= 0 or\n                set(counts) != set(RESPONSE_ORDER) or\n                any(not isinstance(counts[key], int) or counts[key] &lt; 0\n                    for key in RESPONSE_ORDER)):\n            raise ValueError(&quot;items need unique IDs, eligibility and five counts&quot;)\n        seen_items.add(item_id)\n        answered = sum(counts.values())\n        if answered == 0 or answered &gt; eligible:\n            raise ValueError(&quot;answered count must be positive and at most eligible&quot;)\n        shares = {key: counts[key] / answered for key in RESPONSE_ORDER}\n        neutral_half = shares[&quot;neutral&quot;] / 2\n        cursor = -(shares[&quot;strongly_disagree&quot;] + shares[&quot;disagree&quot;] + neutral_half)\n        segments = []\n        for key, width in ((&quot;strongly_disagree&quot;, shares[&quot;strongly_disagree&quot;]),\n                           (&quot;disagree&quot;, shares[&quot;disagree&quot;]),\n                           (&quot;neutral_left&quot;, neutral_half),\n                           (&quot;neutral_right&quot;, neutral_half),\n                           (&quot;agree&quot;, shares[&quot;agree&quot;]),\n                           (&quot;strongly_agree&quot;, shares[&quot;strongly_agree&quot;])):\n            segments.append((key, cursor, cursor + width))\n            cursor += width\n        output.append({&quot;item&quot;: item_id, &quot;eligible&quot;: eligible,\n                       &quot;answered&quot;: answered, &quot;missing&quot;: eligible - answered,\n                       &quot;counts&quot;: counts.copy(), &quot;segments&quot;: segments})\n    return output\n\nsurvey = [(&quot;onboarding-clarity&quot;, 83,\n           {&quot;strongly_disagree&quot;: 5, &quot;disagree&quot;: 7, &quot;neutral&quot;: 11,\n            &quot;agree&quot;: 23, &quot;strongly_agree&quot;: 13})]\nlayout = likert_layout(survey)[0]\nassert (layout[&quot;answered&quot;], layout[&quot;missing&quot;]) == (59, 24)\nassert abs(layout[&quot;segments&quot;][0][1] + 17.5 / 59) &lt; 1e-12\nassert abs(layout[&quot;segments&quot;][2][2]) &lt; 1e-12\nassert abs(layout[&quot;segments&quot;][-1][2] - 41.5 / 59) &lt; 1e-12\nassert layout[&quot;counts&quot;][&quot;neutral&quot;] == 11</code></pre><h2>Performance and operating cost</h2><p>For I items and a fixed five-response scale, validating counts and constructing segment endpoints costs O(I) time and O(I) output space. With a configurable K-category scale, the same approach is O(IK) in time and space. The worked item has 59 answers among 83 eligible people, leaving 24 missing. Its 11 neutral answers are displayed as two widths of 5.5 divided by 59, but still reported as 11 respondents. The left edge is negative 17.5 divided by 59 and the right edge positive 41.5 divided by 59; those lengths sum to one answered-response unit. They are drawing coordinates, not a claim that attitudes are numeric distances.</p><h3>Common Mistakes</h3><ul><li>Treating nonresponse as neutral or silently removing missing counts from the report.</li><li>Counting neutral twice after drawing half its width on each side of the center.</li><li>Mixing percent of answered respondents with percent of all eligible people across items.</li><li>Ranking tiny subgroups as if a few answers establish a stable preference order.</li></ul><h2>Validation drill</h2><p>Collect 47 survey items with item-specific eligible counts. For each, reconcile all five answers and missing records, produce centered segments with the same neutral convention, and compare the chart with an accessible count table before sorting items by net agreement.</p><h2>Read next</h2><ul><li><a href=\"/data-visualization/stacked-bars-composition-and-changing-denominators\">Stacked bars: separate composition from volume and preserve denominators</a></li><li><a href=\"/data-visualization/diverging-bars-zero-reference-and-signed-difference\">Diverging bars: put signed differences on one shared zero</a></li><li><a href=\"/data-visualization/aggregation-grain-and-denominator\">Aggregation grain and denominator: make every plotted mark auditable</a></li><li><a href=\"/data-visualization/uncertainty-and-small-sample-display\">Uncertainty on charts: show denominators and intervals beside estimates</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-visualization",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8782,
+    "status": "published",
+    "published_at": "2026-10-08T13:09:51.719662+00:00",
+    "created_at": "2026-10-08T13:09:51.719662+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "data-visualization/stacked-bars-composition-and-changing-denominators",
+          "title": "Stacked bars: separate composition from volume and preserve denominators"
+        },
+        {
+          "path": "data-visualization/diverging-bars-zero-reference-and-signed-difference",
+          "title": "Diverging bars: put signed differences on one shared zero"
+        },
+        {
+          "path": "data-visualization/aggregation-grain-and-denominator",
+          "title": "Aggregation grain and denominator: make every plotted mark auditable"
+        },
+        {
+          "path": "data-visualization/uncertainty-and-small-sample-display",
+          "title": "Uncertainty on charts: show denominators and intervals beside estimates"
+        }
+      ]
+    }
+  },
+  {
+    "id": "34797c0c-0bd7-5a3f-89ac-226033fec4a0",
+    "type": "article",
+    "path": "data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area",
+    "title": "Dot-density maps: fixed dot value, reproducible placement and area meaning",
+    "summary": "Convert regional counts to stable synthetic dots without implying exact locations, and audit rounding, area, projection and rendering limits.",
+    "body": "<p>Convert regional counts to stable synthetic dots without implying exact locations, and audit rounding, area, projection and rendering limits.</p><h2>State what one dot represents</h2><p>A dot-density map places repeated symbols inside a geographic area to express an aggregate count. If one dot represents 47 households, a region with 470 households receives ten dots. Those coordinates are a visual allocation inside the region, not the known addresses of the households. This distinction belongs in the title or legend, because a reader may otherwise infer a cluster at a fabricated location. Use a fixed dot value across compared regions and state the rounding rule for counts that are not exact multiples. A region with zero reported count needs a different treatment from one with missing data; drawing neither would conflate absence with ignorance. <a href=\"/data-visualization/choropleth-rates-boundaries-and-missing-regions\">Choropleth missingness</a> and <a href=\"/data-visualization/proportional-symbol-maps-area-scale-and-overlap\">proportional symbols</a> offer related but different spatial encodings.</p><h2>Choose the allocation unit and map projection</h2><p>Dots dispersed uniformly inside a coarse district depict its district-level total but provide no evidence of neighborhood-level distribution. If a finer geographic breakdown exists, allocate within those smaller units first; do not use a population-weighted placement mask unless that secondary data is reliable, documented and appropriate to the measured phenomenon. Map area matters. On an equal-area projection, a region covering twice the physical area can display the same number of dots at half the visual density. A projection that changes relative area across the map can create a false density comparison. Longitude and latitude degrees are not equal-area drawing units, so do not sample uniformly in raw degrees and treat the result as an area-faithful map. The small contract below accepts rectangular regions already expressed in equal-area planar coordinates. A real irregular polygon needs a proper geometry sampler and masking around holes or excluded land. <a href=\"/data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion\">Projection and wrapping</a> must be resolved before placement.</p><h2>Make random placement stable and disclose rounding</h2><p>If dots jump to new positions after every refresh, a reader can mistake random redraw for a changed population. Use a fixed seed tied to a chart revision, and preserve that seed in export metadata. Independent seeds across regions keep one region&#x27;s appearance stable when another region is added. The count-to-dot conversion here rounds each region to the nearest whole dot, with exact half-dot ties rounded upward for nonnegative counts. This introduces at most half a dot value of absolute rounding error per region. Show original counts in a table and keep an aggregate reconciliation of rendered-equivalent count versus source count. Choosing a very large dot value can erase small regions; choosing a tiny value can flood the display and slow rendering. Set a practical visible-dot budget before drawing. <a href=\"/data-visualization/chart-export-manifest-data-and-render-version\">Export manifests</a> capture the dot value and seed, while <a href=\"/data-visualization/large-series-level-of-detail-and-extrema\">level-of-detail controls</a> cover dense outputs.</p><h2>Limit what a viewer can infer</h2><p>A dot map can help compare the spatial density of counts when the areas, units and projection are compatible. It cannot locate an individual observation, prove a cluster inside a region, or explain why a count is high. Dot overlap at small view scales can make density look darker without revealing individual marks; zoom behavior needs a declared reference scale or a separate small-scale rendering policy. For several categories, maintain the same dot value and distinguish categories by labels and accessible symbols or colors, then reconcile each category&#x27;s count independently. If totals are the decision metric, a table or proportional symbol map may be easier to read. If rates are the decision metric, a choropleth with a meaningful denominator may be better. Do not mix a count-encoded dot map with a rate legend. <a href=\"/data-visualization/aggregation-grain-and-denominator\">Denominator discipline</a> and <a href=\"/data-visualization/accessible-color-and-text-alternatives\">accessible text</a> keep the map&#x27;s claim precise.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from hashlib import sha256\nfrom math import isfinite, floor\nfrom random import Random\n\ndef dot_density_rectangles(regions: list[tuple[str, int, tuple[float, float, float, float]]],\n                           dot_value: int, revision: str, max_dots: int = 20000):\n    if (not isinstance(dot_value, int) or dot_value &lt;= 0 or\n            not revision or not isinstance(max_dots, int) or max_dots &lt;= 0):\n        raise ValueError(&quot;dot value, revision and budget must be valid&quot;)\n    seen = set()\n    output = []\n    rendered_total = source_total = 0\n    for region_id, household_count, bounds in regions:\n        if (not region_id or region_id in seen or\n                not isinstance(household_count, int) or household_count &lt; 0 or\n                len(bounds) != 4 or any(not isfinite(edge) for edge in bounds)):\n            raise ValueError(&quot;region IDs, counts and planar bounds must be valid&quot;)\n        seen.add(region_id)\n        west, south, east, north = bounds\n        if not west &lt; east or not south &lt; north:\n            raise ValueError(&quot;rectangles need positive area&quot;)\n        dot_count = floor(household_count / dot_value + 0.5)\n        if rendered_total // dot_value + dot_count &gt; max_dots:\n            raise ValueError(&quot;visible dot budget exceeded; increase dot value&quot;)\n        seed_bytes = sha256((revision + &quot;:&quot; + region_id).encode()).digest()\n        randomizer = Random(int.from_bytes(seed_bytes[:8], &quot;big&quot;))\n        dots = [(randomizer.uniform(west, east), randomizer.uniform(south, north))\n                for _ in range(dot_count)]\n        output.append((region_id, household_count, dots))\n        source_total += household_count\n        rendered_total += dot_count * dot_value\n    return output, source_total, rendered_total\n\ndistricts = [(&quot;district-47&quot;, 470, (0.0, 0.0, 4.0, 2.0)),\n             (&quot;district-59&quot;, 117, (4.0, 0.0, 6.0, 2.0))]\nplacements, source, represented = dot_density_rectangles(districts, 47, &quot;release-83&quot;)\nassert [len(row[2]) for row in placements] == [10, 2]\nassert (source, represented) == (587, 564)\nassert placements == dot_density_rectangles(districts, 47, &quot;release-83&quot;)[0]\nassert all(0 &lt;= x &lt;= 4 and 0 &lt;= y &lt;= 2 for x, y in placements[0][2])</code></pre><h2>Performance and operating cost</h2><p>For R regions and D emitted dots, region validation and count conversion take O(R) time, placement O(D) time, and the returned coordinates O(D) space. The per-region seed hash has constant input handling apart from identifier length. The worked first rectangle holds ten dots for 470 households; the second holds two dots for 117 households. Those twelve dots represent 564 households against a source total of 587, a 23-household rounding gap shown explicitly rather than hidden. This is a rectangle-only placement contract in equal-area planar coordinates. For real polygons, use a geometry library with interior and hole checks; no synthetic point should escape its region.</p><h3>Common Mistakes</h3><ul><li>Presenting a synthetic dot as an actual household or event location.</li><li>Sampling uniformly in raw longitude and latitude while interpreting dot spacing as equal area.</li><li>Changing the random seed on refresh and implying moved observations.</li><li>Leaving a low-count region visually blank without showing its original count and rounding loss.</li></ul><h2>Validation drill</h2><p>Map 47 synthetic districts with one dot per 47 households. Audit original count, displayed dot count and rounding error by district; hold the seed and projection fixed across two releases, and reject a scale that exceeds the visible-dot budget.</p><h2>Read next</h2><ul><li><a href=\"/data-visualization/choropleth-rates-boundaries-and-missing-regions\">Choropleth maps: normalize counts and audit boundary coverage</a></li><li><a href=\"/data-visualization/proportional-symbol-maps-area-scale-and-overlap\">Proportional-symbol maps: size circles by area, not radius</a></li><li><a href=\"/data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion\">Map boundaries: handle antimeridian crossings before drawing routes</a></li><li><a href=\"/data-visualization/large-series-level-of-detail-and-extrema\">Large chart series: reduce marks without erasing spikes</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-visualization",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8783,
+    "status": "published",
+    "published_at": "2026-10-08T13:09:51.719662+00:00",
+    "created_at": "2026-10-08T13:09:51.719662+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "data-visualization/choropleth-rates-boundaries-and-missing-regions",
+          "title": "Choropleth maps: normalize counts and audit boundary coverage"
+        },
+        {
+          "path": "data-visualization/proportional-symbol-maps-area-scale-and-overlap",
+          "title": "Proportional-symbol maps: size circles by area, not radius"
+        },
+        {
+          "path": "data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion",
+          "title": "Map boundaries: handle antimeridian crossings before drawing routes"
+        },
+        {
+          "path": "data-visualization/large-series-level-of-detail-and-extrema",
+          "title": "Large chart series: reduce marks without erasing spikes"
+        }
+      ]
+    }
+  },
+  {
+    "id": "b159e9e9-49a8-55de-a3c0-96116d968686",
+    "type": "subject",
+    "path": "data-visualization/data-visualization-tutorial",
+    "title": "Data Visualization Tutorial",
+    "summary": "Design auditable charts from explicit populations, stable scales, visible uncertainty and accessible representations.",
+    "body": "<p>Design auditable charts from explicit populations, stable scales, visible uncertainty and accessible representations.</p><h2>Learning path</h2><ul><li><a href=\"/data-visualization/chart-question-and-visual-encoding\">Chart design starts with a question, unit and visual encoding</a></li><li><a href=\"/data-visualization/aggregation-grain-and-denominator\">Aggregation grain and denominator: make every plotted mark auditable</a></li><li><a href=\"/data-visualization/scale-baseline-and-axis-integrity\">Axis scales, baselines and labels: prevent a correct number from telling a false story</a></li><li><a href=\"/data-visualization/distribution-and-outlier-displays\">Distribution plots: keep the tail, missing values and bin policy visible</a></li><li><a href=\"/data-visualization/uncertainty-and-small-sample-display\">Uncertainty on charts: show denominators and intervals beside estimates</a></li><li><a href=\"/data-visualization/accessible-color-and-text-alternatives\">Accessible charts: encode meaning without relying on color alone</a></li><li><a href=\"/data-visualization/dashboard-filter-and-provenance\">Dashboard filters and provenance: make every view reproducible</a></li><li><a href=\"/data-visualization/receipt-review-dashboard-project\">Project: build an auditable receipt-review dashboard</a></li></ul><h2>Connected foundations</h2><p>Use the earlier data and model boundaries as prerequisites.</p><ul><li><a href=\"/data-science/data-science-for-beginners\">Data Science for Beginners</a></li><li><a href=\"/applied-statistics/applied-statistics-tutorial\">Applied Statistics Tutorial</a></li></ul><h2>Practice</h2><ul><li><a href=\"/data-visualization/data-visualization-tutorial/project\">Data Visualization: Projects</a></li></ul><p><strong>Continue into another subject:</strong> <a href=\"/geospatial-analytics/geospatial-analytics-tutorial\">Geospatial Analytics Tutorial</a>.</p><p>For the full track and its related lessons, open <a href=\"/data-visualization\">Data visualization</a>.</p><h2>Time, density, facets and matrices</h2><ul><li><a href=\"/data-visualization/time-series-gaps-calendars-and-provisional-periods\">Time-series charts: distinguish missing days, zeros and provisional periods</a></li><li><a href=\"/data-visualization/scatterplot-overplotting-density-and-sampling-bias\">Dense scatterplots: reveal overlap without hiding rare observations</a></li><li><a href=\"/data-visualization/small-multiples-shared-scales-and-facet-order\">Small multiples: compare groups with honest scales and facet order</a></li><li><a href=\"/data-visualization/heatmap-missing-cells-and-color-domain\">Heatmaps: make missing cells, rates and color domains explicit</a></li></ul><h2>Maps, interaction, scale and exports</h2><ul><li><a href=\"/data-visualization/choropleth-rates-boundaries-and-missing-regions\">Choropleth maps: normalize counts and audit boundary coverage</a></li><li><a href=\"/data-visualization/linked-filters-cohort-denominators-and-selection-state\">Interactive dashboards: recompute cohorts after linked filters</a></li><li><a href=\"/data-visualization/large-series-level-of-detail-and-extrema\">Large chart series: reduce marks without erasing spikes</a></li><li><a href=\"/data-visualization/chart-export-manifest-data-and-render-version\">Chart exports: carry the data, filters and render contract together</a></li></ul><h2>Composition, scales and paired comparisons</h2><ul><li><a href=\"/data-visualization/stacked-bars-composition-and-changing-denominators\">Stacked bars: separate composition from volume and preserve denominators</a></li><li><a href=\"/data-visualization/log-and-symmetric-log-scales-with-zero-values\">Logarithmic axes: disclose zero handling and the linear threshold</a></li><li><a href=\"/data-visualization/paired-change-slope-and-dumbbell-charts\">Paired-change charts: match entities before drawing a slope</a></li><li><a href=\"/data-visualization/empirical-cdf-percentiles-and-tail-reading\">Empirical CDFs: read thresholds and tails without choosing bins</a></li></ul><h2>Flow, hierarchy, networks and events</h2><ul><li><a href=\"/data-visualization/sankey-flow-conservation-and-unobserved-exits\">Sankey diagrams: reconcile flows before sizing links</a></li><li><a href=\"/data-visualization/treemap-hierarchy-leaf-sums-and-area-comparison\">Treemaps: validate hierarchy and leaf totals before assigning area</a></li><li><a href=\"/data-visualization/network-graph-identity-degree-and-layout-stability\">Network graphs: define nodes and edges before trusting the layout</a></li><li><a href=\"/data-visualization/chart-annotations-event-windows-and-causal-claims\">Chart annotations: align events to the right clock without claiming causality</a></li></ul><h2>Distribution and association</h2><ul><li><a href=\"/data-visualization/box-violin-and-kde-bandwidth-for-group-comparisons\">Box and violin charts: compare groups without inventing density</a></li><li><a href=\"/data-visualization/correlation-heatmap-pairwise-coverage-and-ordering\">Correlation heatmaps: show pairwise coverage before interpreting color</a></li></ul><h2>Forecasts and conversion</h2><ul><li><a href=\"/data-visualization/forecast-fan-charts-prediction-intervals-and-horizon\">Forecast fan charts: label interval meaning and forecast horizon</a></li><li><a href=\"/data-visualization/funnel-chart-cohorts-stage-order-and-conversion\">Funnel charts: hold the cohort still before calculating conversion</a></li></ul><h2>Dense points and signed gaps</h2><ul><li><a href=\"/data-visualization/hexbin-density-grid-resolution-and-exposure\">Hexbin density: count overlapping points without hiding exposure</a></li><li><a href=\"/data-visualization/diverging-bars-zero-reference-and-signed-difference\">Diverging bars: put signed differences on one shared zero</a></li></ul><h2>Bridges, targets and dual axes</h2><ul><li><a href=\"/data-visualization/waterfall-chart-bridge-reconciliation-and-subtotals\">Waterfall charts: reconcile every step to the closing total</a></li><li><a href=\"/data-visualization/bullet-chart-target-bands-and-kpi-context\">Bullet charts: show a measure, target and performance bands honestly</a></li><li><a href=\"/data-visualization/dual-axis-charts-independent-scales-and-spurious-alignment\">Dual-axis charts: test whether two series really need one plot</a></li></ul><h2>Individual marks and complete days</h2><ul><li><a href=\"/data-visualization/beeswarm-plots-collision-spacing-and-sample-count\">Beeswarm plots: show individual values without inventing spread</a></li><li><a href=\"/data-visualization/calendar-heatmap-complete-days-time-zones-and-missingness\">Calendar heatmaps: distinguish an empty day from an absent day</a></li></ul><h2>Profiles, ranks and process limits</h2><ul><li><a href=\"/data-visualization/parallel-coordinates-normalization-axis-order-and-brushing\">Parallel coordinates: make every axis conversion inspectable</a></li><li><a href=\"/data-visualization/bump-chart-rank-ties-membership-and-period-coverage\">Bump charts: show rank movement without losing ties or entrants</a></li><li><a href=\"/data-visualization/p-charts-varying-denominators-and-process-baselines\">P charts: account for varying denominators before flagging a rate</a></li></ul><h2>Cumulative totals, uncertainty and quantiles</h2><ul><li><a href=\"/data-visualization/pareto-chart-cumulative-share-and-category-boundary\">Pareto charts: reconcile the cumulative line to the categories</a></li><li><a href=\"/data-visualization/asymmetric-error-bars-interval-type-and-axis-clipping\">Asymmetric error bars: tell readers what each endpoint means</a></li><li><a href=\"/data-visualization/qq-plots-quantile-alignment-ties-and-tail-deviation\">Q–Q plots: compare distribution shape beyond one summary number</a></li></ul><h2>Mapped symbols and task timelines</h2><ul><li><a href=\"/data-visualization/proportional-symbol-maps-area-scale-and-overlap\">Proportional-symbol maps: size circles by area, not radius</a></li><li><a href=\"/data-visualization/gantt-timelines-dependencies-overlap-and-date-bounds\">Gantt timelines: make task dates and dependencies auditable</a></li></ul><h2>Distributions, fits and mapped routes</h2><ul><li><a href=\"/data-visualization/ridgeline-plots-density-normalization-bandwidth-and-overlap\">Ridgeline plots: compare distributions without hiding their size</a></li><li><a href=\"/data-visualization/scatterplot-regression-overlays-fit-scope-and-prediction-bands\">Regression overlays: separate fitted trend from individual spread</a></li><li><a href=\"/data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion\">Map boundaries: handle antimeridian crossings before drawing routes</a></li></ul><h2>Event alignment and chart interaction</h2><ul><li><a href=\"/data-visualization/event-aligned-time-series-baseline-windows-and-missing-periods\">Event-aligned charts: choose a baseline before comparing trajectories</a></li><li><a href=\"/data-visualization/interactive-chart-keyboard-focus-and-data-table-contract\">Interactive charts: make selection work without a pointer</a></li></ul><h2>Effect estimates and multivariable grids</h2><ul><li><a href=\"/data-visualization/forest-plots-effect-measures-null-lines-and-intervals\">Forest plots: align estimates, intervals and the no-effect value</a></li><li><a href=\"/data-visualization/scatterplot-matrices-pairwise-coverage-and-multiple-comparisons\">Scatterplot matrices: disclose which rows support each pair</a></li></ul><h2>Compact and moving time series</h2><ul><li><a href=\"/data-visualization/streamgraphs-centered-baselines-category-order-and-total-volume\">Streamgraphs: preserve totals behind a moving baseline</a></li><li><a href=\"/data-visualization/horizon-charts-band-encoding-baselines-and-decoding\">Horizon charts: trade vertical space for a harder value lookup</a></li><li><a href=\"/data-visualization/animated-charts-stable-identity-locked-scales-and-pause-state\">Animated charts: do not let motion invent data</a></li></ul><h2>Event and category evidence</h2><ul><li><a href=\"/data-visualization/survival-curves-risk-sets-censoring-and-tail-support\">Survival curves: show who remains at risk after each event</a></li><li><a href=\"/data-visualization/mosaic-plots-joint-area-conditional-rate-and-empty-cells\">Mosaic plots: make cell area match the underlying count</a></li></ul><h2>Compositions and process signals</h2><ul><li><a href=\"/data-visualization/ternary-plots-closed-compositions-zero-parts-and-total-loss\">Ternary plots: preserve the total behind a three-part composition</a></li><li><a href=\"/data-visualization/cusum-charts-reference-shifts-reset-and-alert-calibration\">CUSUM charts: accumulate small departures from a stable target</a></li></ul><h2>Flow and geographic comparisons</h2><ul><li><a href=\"/data-visualization/chord-diagrams-directed-flows-self-loops-and-sector-totals\">Chord diagrams: audit directed flows before drawing ribbons</a></li><li><a href=\"/data-visualization/bivariate-choropleths-two-rates-nine-classes-and-joint-legends\">Bivariate choropleths: map two rates with a readable joint legend</a></li></ul><h2>Hierarchy and probability evidence</h2><ul><li><a href=\"/data-visualization/dendrograms-linkage-distance-cut-height-and-leaf-order\">Dendrograms: read merge height without overreading leaf order</a></li><li><a href=\"/data-visualization/probability-calibration-plots-bin-counts-prevalence-and-drift\">Probability calibration plots: compare predicted risk with observed frequency</a></li></ul><h2>Model decisions and measurement agreement</h2><ul><li><a href=\"/data-visualization/precision-recall-curves-threshold-ties-prevalence-and-average-precision\">Precision–recall curves: preserve threshold ties and class prevalence</a></li><li><a href=\"/data-visualization/bland-altman-plots-paired-bias-agreement-limits-and-proportional-error\">Bland–Altman plots: assess paired measurement agreement</a></li></ul><h2>Set intersections and spatial surfaces</h2><ul><li><a href=\"/data-visualization/upset-plots-exclusive-intersections-set-universe-and-cardinality\">UpSet plots: count exact intersections without double counting</a></li><li><a href=\"/data-visualization/contour-plots-grid-masks-levels-and-interpolation-boundaries\">Contour plots: respect measured grids and interpolation boundaries</a></li></ul><h2>Classification decisions and errors</h2><ul><li><a href=\"/data-visualization/roc-curves-tied-thresholds-false-positive-rates-and-partial-auc\">ROC curves: read attainable thresholds and false-positive rates</a></li><li><a href=\"/data-visualization/confusion-matrices-class-order-row-normalization-and-abstentions\">Confusion matrices: fix class order, denominators and abstentions</a></li></ul><h2>Monitoring slow process shifts</h2><ul><li><a href=\"/data-visualization/ewma-control-charts-startup-limits-baseline-and-slow-drift\">EWMA control charts: detect slow shifts against a frozen baseline</a></li></ul><h2>Ranked outreach and regression checks</h2><ul><li><a href=\"/data-visualization/cumulative-gains-lift-score-ties-and-contact-capacity\">Cumulative gains and lift: rank contacts without hiding score ties</a></li><li><a href=\"/data-visualization/regression-residual-plots-fitted-values-segments-and-error-spread\">Regression residual plots: locate bias, spread and missing segments</a></li></ul><h2>Population structure and comparison</h2><ul><li><a href=\"/data-visualization/population-pyramids-age-bands-mirrored-scales-and-unknown-categories\">Population pyramids: compare age bands without losing the denominator</a></li></ul><h2>Inequality and ranked shares</h2><ul><li><a href=\"/data-visualization/lorenz-curves-ranked-shares-zero-values-and-gini-area\">Lorenz curves: audit ranked shares before quoting a Gini value</a></li></ul><h2>Process variation and scenario sensitivity</h2><ul><li><a href=\"/data-visualization/individuals-moving-range-charts-baseline-gaps-and-two-point-variation\">Individuals and moving-range charts: monitor level and local variation</a></li><li><a href=\"/data-visualization/tornado-sensitivity-charts-baseline-scenarios-and-asymmetric-effects\">Tornado charts: keep scenario ranges attached to their assumptions</a></li></ul><h2>Distribution area and cohort maturity</h2><ul><li><a href=\"/data-visualization/unequal-bin-histograms-density-area-and-boundary-policy\">Unequal-bin histograms: make rectangle area carry frequency</a></li><li><a href=\"/data-visualization/cohort-retention-heatmaps-maturity-denominators-and-return-events\">Cohort retention heatmaps: keep immature cells blank</a></li></ul><h2>Serial dependence and seasonal evidence</h2><ul><li><a href=\"/data-visualization/autocorrelation-plots-regular-lags-pair-counts-and-seasonality\">Autocorrelation plots: align equal-spaced periods before reading lag peaks</a></li></ul><h2>Observed spread and defect-rate monitoring</h2><ul><li><a href=\"/data-visualization/historical-percentile-ribbons-period-support-and-interval-meaning\">Historical percentile ribbons: show the spread of observations over time</a></li><li><a href=\"/data-visualization/u-charts-defects-per-unit-varying-exposure-and-frozen-limits\">U charts: monitor defect counts when inspection exposure changes</a></li></ul><h2>Seasonal pattern diagnostics</h2><ul><li><a href=\"/data-visualization/seasonal-subseries-plots-cycle-position-trend-and-incomplete-years\">Seasonal subseries plots: compare the same cycle position across years</a></li></ul><h2>Probability-scale distribution checks</h2><ul><li><a href=\"/data-visualization/pp-plots-reference-cdf-plotting-positions-and-tail-compression\">P–P plots: compare observed probabilities with a fixed reference CDF</a></li></ul><h2>Circular direction and exposure displays</h2><ul><li><a href=\"/data-visualization/wind-roses-direction-sectors-calm-share-and-speed-bands\">Wind roses: map direction, speed and calm conditions without losing the denominator</a></li></ul><h2>Ordinal survey response displays</h2><ul><li><a href=\"/data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators\">Likert diverging stacks: keep the neutral split and response denominator honest</a></li></ul><h2>Count-based geographic displays</h2><ul><li><a href=\"/data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area\">Dot-density maps: fixed dot value, reproducible placement and area meaning</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-visualization"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8500,
+    "status": "published",
+    "published_at": "2026-10-05T05:17:20.359875+00:00",
+    "created_at": "2026-10-05T05:17:20.359875+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Meaning and scale",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "data-visualization/chart-question-and-visual-encoding",
+            "data-visualization/aggregation-grain-and-denominator",
+            "data-visualization/scale-baseline-and-axis-integrity",
+            "data-visualization/distribution-and-outlier-displays"
+          ]
+        },
+        {
+          "title": "Uncertainty and delivery",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "data-visualization/uncertainty-and-small-sample-display",
+            "data-visualization/accessible-color-and-text-alternatives",
+            "data-visualization/dashboard-filter-and-provenance"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "data-visualization/receipt-review-dashboard-project"
+          ]
+        },
+        {
+          "title": "Time, density, facets and matrices",
+          "lessons": [
+            "data-visualization/time-series-gaps-calendars-and-provisional-periods",
+            "data-visualization/scatterplot-overplotting-density-and-sampling-bias",
+            "data-visualization/small-multiples-shared-scales-and-facet-order",
+            "data-visualization/heatmap-missing-cells-and-color-domain"
+          ]
+        },
+        {
+          "title": "Maps, interaction, scale and exports",
+          "lessons": [
+            "data-visualization/choropleth-rates-boundaries-and-missing-regions",
+            "data-visualization/linked-filters-cohort-denominators-and-selection-state",
+            "data-visualization/large-series-level-of-detail-and-extrema",
+            "data-visualization/chart-export-manifest-data-and-render-version"
+          ]
+        },
+        {
+          "title": "Composition, scales and paired comparisons",
+          "lessons": [
+            "data-visualization/stacked-bars-composition-and-changing-denominators",
+            "data-visualization/log-and-symmetric-log-scales-with-zero-values",
+            "data-visualization/paired-change-slope-and-dumbbell-charts",
+            "data-visualization/empirical-cdf-percentiles-and-tail-reading"
+          ]
+        },
+        {
+          "title": "Flow, hierarchy, networks and events",
+          "lessons": [
+            "data-visualization/sankey-flow-conservation-and-unobserved-exits",
+            "data-visualization/treemap-hierarchy-leaf-sums-and-area-comparison",
+            "data-visualization/network-graph-identity-degree-and-layout-stability",
+            "data-visualization/chart-annotations-event-windows-and-causal-claims"
+          ]
+        },
+        {
+          "title": "Distribution and association",
+          "lessons": [
+            "data-visualization/box-violin-and-kde-bandwidth-for-group-comparisons",
+            "data-visualization/correlation-heatmap-pairwise-coverage-and-ordering"
+          ]
+        },
+        {
+          "title": "Forecasts and conversion",
+          "lessons": [
+            "data-visualization/forecast-fan-charts-prediction-intervals-and-horizon",
+            "data-visualization/funnel-chart-cohorts-stage-order-and-conversion"
+          ]
+        },
+        {
+          "title": "Dense points and signed gaps",
+          "lessons": [
+            "data-visualization/hexbin-density-grid-resolution-and-exposure",
+            "data-visualization/diverging-bars-zero-reference-and-signed-difference"
+          ]
+        },
+        {
+          "title": "Bridges, targets and dual axes",
+          "lessons": [
+            "data-visualization/waterfall-chart-bridge-reconciliation-and-subtotals",
+            "data-visualization/bullet-chart-target-bands-and-kpi-context",
+            "data-visualization/dual-axis-charts-independent-scales-and-spurious-alignment"
+          ]
+        },
+        {
+          "title": "Individual marks and complete days",
+          "lessons": [
+            "data-visualization/beeswarm-plots-collision-spacing-and-sample-count",
+            "data-visualization/calendar-heatmap-complete-days-time-zones-and-missingness"
+          ]
+        },
+        {
+          "title": "Profiles, ranks and process limits",
+          "lessons": [
+            "data-visualization/parallel-coordinates-normalization-axis-order-and-brushing",
+            "data-visualization/bump-chart-rank-ties-membership-and-period-coverage",
+            "data-visualization/p-charts-varying-denominators-and-process-baselines"
+          ]
+        },
+        {
+          "title": "Cumulative totals, uncertainty and quantiles",
+          "lessons": [
+            "data-visualization/pareto-chart-cumulative-share-and-category-boundary",
+            "data-visualization/asymmetric-error-bars-interval-type-and-axis-clipping",
+            "data-visualization/qq-plots-quantile-alignment-ties-and-tail-deviation"
+          ]
+        },
+        {
+          "title": "Mapped symbols and task timelines",
+          "lessons": [
+            "data-visualization/proportional-symbol-maps-area-scale-and-overlap",
+            "data-visualization/gantt-timelines-dependencies-overlap-and-date-bounds"
+          ]
+        },
+        {
+          "title": "Distributions, fits and mapped routes",
+          "lessons": [
+            "data-visualization/ridgeline-plots-density-normalization-bandwidth-and-overlap",
+            "data-visualization/scatterplot-regression-overlays-fit-scope-and-prediction-bands",
+            "data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion"
+          ]
+        },
+        {
+          "title": "Event alignment and chart interaction",
+          "lessons": [
+            "data-visualization/event-aligned-time-series-baseline-windows-and-missing-periods",
+            "data-visualization/interactive-chart-keyboard-focus-and-data-table-contract"
+          ]
+        },
+        {
+          "title": "Effect estimates and multivariable grids",
+          "lessons": [
+            "data-visualization/forest-plots-effect-measures-null-lines-and-intervals",
+            "data-visualization/scatterplot-matrices-pairwise-coverage-and-multiple-comparisons"
+          ]
+        },
+        {
+          "title": "Compact and moving time series",
+          "lessons": [
+            "data-visualization/streamgraphs-centered-baselines-category-order-and-total-volume",
+            "data-visualization/horizon-charts-band-encoding-baselines-and-decoding",
+            "data-visualization/animated-charts-stable-identity-locked-scales-and-pause-state"
+          ]
+        },
+        {
+          "title": "Event and category evidence",
+          "lessons": [
+            "data-visualization/survival-curves-risk-sets-censoring-and-tail-support",
+            "data-visualization/mosaic-plots-joint-area-conditional-rate-and-empty-cells"
+          ]
+        },
+        {
+          "title": "Compositions and process signals",
+          "lessons": [
+            "data-visualization/ternary-plots-closed-compositions-zero-parts-and-total-loss",
+            "data-visualization/cusum-charts-reference-shifts-reset-and-alert-calibration"
+          ]
+        },
+        {
+          "title": "Flow and geographic comparisons",
+          "lessons": [
+            "data-visualization/chord-diagrams-directed-flows-self-loops-and-sector-totals",
+            "data-visualization/bivariate-choropleths-two-rates-nine-classes-and-joint-legends"
+          ]
+        },
+        {
+          "title": "Hierarchy and probability evidence",
+          "lessons": [
+            "data-visualization/dendrograms-linkage-distance-cut-height-and-leaf-order",
+            "data-visualization/probability-calibration-plots-bin-counts-prevalence-and-drift"
+          ]
+        },
+        {
+          "title": "Model decisions and measurement agreement",
+          "lessons": [
+            "data-visualization/precision-recall-curves-threshold-ties-prevalence-and-average-precision",
+            "data-visualization/bland-altman-plots-paired-bias-agreement-limits-and-proportional-error"
+          ]
+        },
+        {
+          "title": "Set intersections and spatial surfaces",
+          "lessons": [
+            "data-visualization/upset-plots-exclusive-intersections-set-universe-and-cardinality",
+            "data-visualization/contour-plots-grid-masks-levels-and-interpolation-boundaries"
+          ]
+        },
+        {
+          "title": "Classification decisions and errors",
+          "lessons": [
+            "data-visualization/roc-curves-tied-thresholds-false-positive-rates-and-partial-auc",
+            "data-visualization/confusion-matrices-class-order-row-normalization-and-abstentions"
+          ]
+        },
+        {
+          "title": "Monitoring slow process shifts",
+          "lessons": [
+            "data-visualization/ewma-control-charts-startup-limits-baseline-and-slow-drift"
+          ]
+        },
+        {
+          "title": "Ranked outreach and regression checks",
+          "lessons": [
+            "data-visualization/cumulative-gains-lift-score-ties-and-contact-capacity",
+            "data-visualization/regression-residual-plots-fitted-values-segments-and-error-spread"
+          ]
+        },
+        {
+          "title": "Population structure and comparison",
+          "lessons": [
+            "data-visualization/population-pyramids-age-bands-mirrored-scales-and-unknown-categories"
+          ]
+        },
+        {
+          "title": "Inequality and ranked shares",
+          "lessons": [
+            "data-visualization/lorenz-curves-ranked-shares-zero-values-and-gini-area"
+          ]
+        },
+        {
+          "title": "Process variation and scenario sensitivity",
+          "lessons": [
+            "data-visualization/individuals-moving-range-charts-baseline-gaps-and-two-point-variation",
+            "data-visualization/tornado-sensitivity-charts-baseline-scenarios-and-asymmetric-effects"
+          ]
+        },
+        {
+          "title": "Distribution area and cohort maturity",
+          "lessons": [
+            "data-visualization/unequal-bin-histograms-density-area-and-boundary-policy",
+            "data-visualization/cohort-retention-heatmaps-maturity-denominators-and-return-events"
+          ]
+        },
+        {
+          "title": "Serial dependence and seasonal evidence",
+          "lessons": [
+            "data-visualization/autocorrelation-plots-regular-lags-pair-counts-and-seasonality"
+          ]
+        },
+        {
+          "title": "Observed spread and defect-rate monitoring",
+          "lessons": [
+            "data-visualization/historical-percentile-ribbons-period-support-and-interval-meaning",
+            "data-visualization/u-charts-defects-per-unit-varying-exposure-and-frozen-limits"
+          ]
+        },
+        {
+          "title": "Seasonal pattern diagnostics",
+          "lessons": [
+            "data-visualization/seasonal-subseries-plots-cycle-position-trend-and-incomplete-years"
+          ]
+        },
+        {
+          "title": "Probability-scale distribution checks",
+          "lessons": [
+            "data-visualization/pp-plots-reference-cdf-plotting-positions-and-tail-compression"
+          ]
+        },
+        {
+          "title": "Circular direction and exposure displays",
+          "lessons": [
+            "data-visualization/wind-roses-direction-sectors-calm-share-and-speed-bands"
+          ]
+        },
+        {
+          "title": "Ordinal survey response displays",
+          "lessons": [
+            "data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators"
+          ]
+        },
+        {
+          "title": "Count-based geographic displays",
+          "lessons": [
+            "data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Data Visualization",
+          "path": "data-visualization/data-visualization-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "data-visualization/data-visualization-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "1a18f33b-8599-50ac-bd6f-22794b29c6a6",
+    "type": "subject",
+    "path": "data-visualization",
+    "title": "Data visualization",
+    "summary": "Choose charts from the question, unit, denominator, and uncertainty the reader needs to judge.",
+    "body": "<p>Choose charts from the question, unit, denominator, and uncertainty the reader needs to judge.</p><h2>Where to begin</h2><p>Start with the decision a reader must make. Then choose an encoding that preserves the relevant comparison, define the aggregation grain, and check scale, distribution, small samples, accessibility, and dashboard provenance. The linked project turns those choices into a reviewable operations display.</p><h2>Read the track</h2><ul><li><a href=\"/data-visualization/data-visualization-tutorial\">Data Visualization Tutorial</a></li><li><a href=\"/data-visualization/chart-question-and-visual-encoding\">Chart design starts with a question, unit and visual encoding</a></li><li><a href=\"/data-visualization/aggregation-grain-and-denominator\">Aggregation grain and denominator: make every plotted mark auditable</a></li><li><a href=\"/data-visualization/scale-baseline-and-axis-integrity\">Axis scales, baselines and labels: prevent a correct number from telling a false story</a></li><li><a href=\"/data-visualization/distribution-and-outlier-displays\">Distribution plots: keep the tail, missing values and bin policy visible</a></li><li><a href=\"/data-visualization/uncertainty-and-small-sample-display\">Uncertainty on charts: show denominators and intervals beside estimates</a></li><li><a href=\"/data-visualization/accessible-color-and-text-alternatives\">Accessible charts: encode meaning without relying on color alone</a></li><li><a href=\"/data-visualization/dashboard-filter-and-provenance\">Dashboard filters and provenance: make every view reproducible</a></li><li><a href=\"/data-visualization/receipt-review-dashboard-project\">Project: build an auditable receipt-review dashboard</a></li><li><a href=\"/data-visualization/data-visualization-tutorial/project\">Data Visualization: Projects</a></li></ul><h2>Choose the right method</h2><p>A chart with many filters can become expensive to compute and hard to interpret. Pre-aggregate only at a grain that preserves the intended question, and state when a denominator or sample size changes under a filter.</p><h3>Common Mistakes</h3><p>Do not truncate an axis without making the effect visible. Color alone must not carry status, and a tidy dashboard does not prove that its source query is correct.</p><h2>Related tracks</h2><ul><li><a href=\"/data-science\">Data science learning path</a></li><li><a href=\"/applied-statistics\">Applied statistics learning path</a></li></ul><h2>Time, density, facets and matrices</h2><ul><li><a href=\"/data-visualization/time-series-gaps-calendars-and-provisional-periods\">Time-series charts: distinguish missing days, zeros and provisional periods</a></li><li><a href=\"/data-visualization/scatterplot-overplotting-density-and-sampling-bias\">Dense scatterplots: reveal overlap without hiding rare observations</a></li><li><a href=\"/data-visualization/small-multiples-shared-scales-and-facet-order\">Small multiples: compare groups with honest scales and facet order</a></li><li><a href=\"/data-visualization/heatmap-missing-cells-and-color-domain\">Heatmaps: make missing cells, rates and color domains explicit</a></li></ul><h2>Maps, interaction, scale and exports</h2><ul><li><a href=\"/data-visualization/choropleth-rates-boundaries-and-missing-regions\">Choropleth maps: normalize counts and audit boundary coverage</a></li><li><a href=\"/data-visualization/linked-filters-cohort-denominators-and-selection-state\">Interactive dashboards: recompute cohorts after linked filters</a></li><li><a href=\"/data-visualization/large-series-level-of-detail-and-extrema\">Large chart series: reduce marks without erasing spikes</a></li><li><a href=\"/data-visualization/chart-export-manifest-data-and-render-version\">Chart exports: carry the data, filters and render contract together</a></li></ul><h2>Composition, scales and paired comparisons</h2><ul><li><a href=\"/data-visualization/stacked-bars-composition-and-changing-denominators\">Stacked bars: separate composition from volume and preserve denominators</a></li><li><a href=\"/data-visualization/log-and-symmetric-log-scales-with-zero-values\">Logarithmic axes: disclose zero handling and the linear threshold</a></li><li><a href=\"/data-visualization/paired-change-slope-and-dumbbell-charts\">Paired-change charts: match entities before drawing a slope</a></li><li><a href=\"/data-visualization/empirical-cdf-percentiles-and-tail-reading\">Empirical CDFs: read thresholds and tails without choosing bins</a></li></ul><h2>Flow, hierarchy, networks and events</h2><ul><li><a href=\"/data-visualization/sankey-flow-conservation-and-unobserved-exits\">Sankey diagrams: reconcile flows before sizing links</a></li><li><a href=\"/data-visualization/treemap-hierarchy-leaf-sums-and-area-comparison\">Treemaps: validate hierarchy and leaf totals before assigning area</a></li><li><a href=\"/data-visualization/network-graph-identity-degree-and-layout-stability\">Network graphs: define nodes and edges before trusting the layout</a></li><li><a href=\"/data-visualization/chart-annotations-event-windows-and-causal-claims\">Chart annotations: align events to the right clock without claiming causality</a></li></ul><h2>Distribution and association</h2><ul><li><a href=\"/data-visualization/box-violin-and-kde-bandwidth-for-group-comparisons\">Box and violin charts: compare groups without inventing density</a></li><li><a href=\"/data-visualization/correlation-heatmap-pairwise-coverage-and-ordering\">Correlation heatmaps: show pairwise coverage before interpreting color</a></li></ul><h2>Forecasts and conversion</h2><ul><li><a href=\"/data-visualization/forecast-fan-charts-prediction-intervals-and-horizon\">Forecast fan charts: label interval meaning and forecast horizon</a></li><li><a href=\"/data-visualization/funnel-chart-cohorts-stage-order-and-conversion\">Funnel charts: hold the cohort still before calculating conversion</a></li></ul><h2>Dense points and signed gaps</h2><ul><li><a href=\"/data-visualization/hexbin-density-grid-resolution-and-exposure\">Hexbin density: count overlapping points without hiding exposure</a></li><li><a href=\"/data-visualization/diverging-bars-zero-reference-and-signed-difference\">Diverging bars: put signed differences on one shared zero</a></li></ul><h2>Bridges, targets and dual axes</h2><ul><li><a href=\"/data-visualization/waterfall-chart-bridge-reconciliation-and-subtotals\">Waterfall charts: reconcile every step to the closing total</a></li><li><a href=\"/data-visualization/bullet-chart-target-bands-and-kpi-context\">Bullet charts: show a measure, target and performance bands honestly</a></li><li><a href=\"/data-visualization/dual-axis-charts-independent-scales-and-spurious-alignment\">Dual-axis charts: test whether two series really need one plot</a></li></ul><h2>Individual marks and complete days</h2><ul><li><a href=\"/data-visualization/beeswarm-plots-collision-spacing-and-sample-count\">Beeswarm plots: show individual values without inventing spread</a></li><li><a href=\"/data-visualization/calendar-heatmap-complete-days-time-zones-and-missingness\">Calendar heatmaps: distinguish an empty day from an absent day</a></li></ul><h2>Profiles, ranks and process limits</h2><ul><li><a href=\"/data-visualization/parallel-coordinates-normalization-axis-order-and-brushing\">Parallel coordinates: make every axis conversion inspectable</a></li><li><a href=\"/data-visualization/bump-chart-rank-ties-membership-and-period-coverage\">Bump charts: show rank movement without losing ties or entrants</a></li><li><a href=\"/data-visualization/p-charts-varying-denominators-and-process-baselines\">P charts: account for varying denominators before flagging a rate</a></li></ul><h2>Cumulative totals, uncertainty and quantiles</h2><ul><li><a href=\"/data-visualization/pareto-chart-cumulative-share-and-category-boundary\">Pareto charts: reconcile the cumulative line to the categories</a></li><li><a href=\"/data-visualization/asymmetric-error-bars-interval-type-and-axis-clipping\">Asymmetric error bars: tell readers what each endpoint means</a></li><li><a href=\"/data-visualization/qq-plots-quantile-alignment-ties-and-tail-deviation\">Q–Q plots: compare distribution shape beyond one summary number</a></li></ul><h2>Mapped symbols and task timelines</h2><ul><li><a href=\"/data-visualization/proportional-symbol-maps-area-scale-and-overlap\">Proportional-symbol maps: size circles by area, not radius</a></li><li><a href=\"/data-visualization/gantt-timelines-dependencies-overlap-and-date-bounds\">Gantt timelines: make task dates and dependencies auditable</a></li></ul><h2>Distributions, fits and mapped routes</h2><ul><li><a href=\"/data-visualization/ridgeline-plots-density-normalization-bandwidth-and-overlap\">Ridgeline plots: compare distributions without hiding their size</a></li><li><a href=\"/data-visualization/scatterplot-regression-overlays-fit-scope-and-prediction-bands\">Regression overlays: separate fitted trend from individual spread</a></li><li><a href=\"/data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion\">Map boundaries: handle antimeridian crossings before drawing routes</a></li></ul><h2>Event alignment and chart interaction</h2><ul><li><a href=\"/data-visualization/event-aligned-time-series-baseline-windows-and-missing-periods\">Event-aligned charts: choose a baseline before comparing trajectories</a></li><li><a href=\"/data-visualization/interactive-chart-keyboard-focus-and-data-table-contract\">Interactive charts: make selection work without a pointer</a></li></ul><h2>Effect estimates and multivariable grids</h2><ul><li><a href=\"/data-visualization/forest-plots-effect-measures-null-lines-and-intervals\">Forest plots: align estimates, intervals and the no-effect value</a></li><li><a href=\"/data-visualization/scatterplot-matrices-pairwise-coverage-and-multiple-comparisons\">Scatterplot matrices: disclose which rows support each pair</a></li></ul><h2>Compact and moving time series</h2><ul><li><a href=\"/data-visualization/streamgraphs-centered-baselines-category-order-and-total-volume\">Streamgraphs: preserve totals behind a moving baseline</a></li><li><a href=\"/data-visualization/horizon-charts-band-encoding-baselines-and-decoding\">Horizon charts: trade vertical space for a harder value lookup</a></li><li><a href=\"/data-visualization/animated-charts-stable-identity-locked-scales-and-pause-state\">Animated charts: do not let motion invent data</a></li></ul><h2>Event and category evidence</h2><ul><li><a href=\"/data-visualization/survival-curves-risk-sets-censoring-and-tail-support\">Survival curves: show who remains at risk after each event</a></li><li><a href=\"/data-visualization/mosaic-plots-joint-area-conditional-rate-and-empty-cells\">Mosaic plots: make cell area match the underlying count</a></li></ul><h2>Compositions and process signals</h2><ul><li><a href=\"/data-visualization/ternary-plots-closed-compositions-zero-parts-and-total-loss\">Ternary plots: preserve the total behind a three-part composition</a></li><li><a href=\"/data-visualization/cusum-charts-reference-shifts-reset-and-alert-calibration\">CUSUM charts: accumulate small departures from a stable target</a></li></ul><h2>Flow and geographic comparisons</h2><ul><li><a href=\"/data-visualization/chord-diagrams-directed-flows-self-loops-and-sector-totals\">Chord diagrams: audit directed flows before drawing ribbons</a></li><li><a href=\"/data-visualization/bivariate-choropleths-two-rates-nine-classes-and-joint-legends\">Bivariate choropleths: map two rates with a readable joint legend</a></li></ul><h2>Hierarchy and probability evidence</h2><ul><li><a href=\"/data-visualization/dendrograms-linkage-distance-cut-height-and-leaf-order\">Dendrograms: read merge height without overreading leaf order</a></li><li><a href=\"/data-visualization/probability-calibration-plots-bin-counts-prevalence-and-drift\">Probability calibration plots: compare predicted risk with observed frequency</a></li></ul><h2>Model decisions and measurement agreement</h2><ul><li><a href=\"/data-visualization/precision-recall-curves-threshold-ties-prevalence-and-average-precision\">Precision–recall curves: preserve threshold ties and class prevalence</a></li><li><a href=\"/data-visualization/bland-altman-plots-paired-bias-agreement-limits-and-proportional-error\">Bland–Altman plots: assess paired measurement agreement</a></li></ul><h2>Set intersections and spatial surfaces</h2><ul><li><a href=\"/data-visualization/upset-plots-exclusive-intersections-set-universe-and-cardinality\">UpSet plots: count exact intersections without double counting</a></li><li><a href=\"/data-visualization/contour-plots-grid-masks-levels-and-interpolation-boundaries\">Contour plots: respect measured grids and interpolation boundaries</a></li></ul><h2>Classification decisions and errors</h2><ul><li><a href=\"/data-visualization/roc-curves-tied-thresholds-false-positive-rates-and-partial-auc\">ROC curves: read attainable thresholds and false-positive rates</a></li><li><a href=\"/data-visualization/confusion-matrices-class-order-row-normalization-and-abstentions\">Confusion matrices: fix class order, denominators and abstentions</a></li></ul><h2>Monitoring slow process shifts</h2><ul><li><a href=\"/data-visualization/ewma-control-charts-startup-limits-baseline-and-slow-drift\">EWMA control charts: detect slow shifts against a frozen baseline</a></li></ul><h2>Ranked outreach and regression checks</h2><ul><li><a href=\"/data-visualization/cumulative-gains-lift-score-ties-and-contact-capacity\">Cumulative gains and lift: rank contacts without hiding score ties</a></li><li><a href=\"/data-visualization/regression-residual-plots-fitted-values-segments-and-error-spread\">Regression residual plots: locate bias, spread and missing segments</a></li></ul><h2>Population structure and comparison</h2><ul><li><a href=\"/data-visualization/population-pyramids-age-bands-mirrored-scales-and-unknown-categories\">Population pyramids: compare age bands without losing the denominator</a></li></ul><h2>Inequality and ranked shares</h2><ul><li><a href=\"/data-visualization/lorenz-curves-ranked-shares-zero-values-and-gini-area\">Lorenz curves: audit ranked shares before quoting a Gini value</a></li></ul><h2>Process variation and scenario sensitivity</h2><ul><li><a href=\"/data-visualization/individuals-moving-range-charts-baseline-gaps-and-two-point-variation\">Individuals and moving-range charts: monitor level and local variation</a></li><li><a href=\"/data-visualization/tornado-sensitivity-charts-baseline-scenarios-and-asymmetric-effects\">Tornado charts: keep scenario ranges attached to their assumptions</a></li></ul><h2>Distribution area and cohort maturity</h2><ul><li><a href=\"/data-visualization/unequal-bin-histograms-density-area-and-boundary-policy\">Unequal-bin histograms: make rectangle area carry frequency</a></li><li><a href=\"/data-visualization/cohort-retention-heatmaps-maturity-denominators-and-return-events\">Cohort retention heatmaps: keep immature cells blank</a></li></ul><h2>Serial dependence and seasonal evidence</h2><ul><li><a href=\"/data-visualization/autocorrelation-plots-regular-lags-pair-counts-and-seasonality\">Autocorrelation plots: align equal-spaced periods before reading lag peaks</a></li></ul><h2>Observed spread and defect-rate monitoring</h2><ul><li><a href=\"/data-visualization/historical-percentile-ribbons-period-support-and-interval-meaning\">Historical percentile ribbons: show the spread of observations over time</a></li><li><a href=\"/data-visualization/u-charts-defects-per-unit-varying-exposure-and-frozen-limits\">U charts: monitor defect counts when inspection exposure changes</a></li></ul><h2>Seasonal pattern diagnostics</h2><ul><li><a href=\"/data-visualization/seasonal-subseries-plots-cycle-position-trend-and-incomplete-years\">Seasonal subseries plots: compare the same cycle position across years</a></li></ul><h2>Probability-scale distribution checks</h2><ul><li><a href=\"/data-visualization/pp-plots-reference-cdf-plotting-positions-and-tail-compression\">P–P plots: compare observed probabilities with a fixed reference CDF</a></li></ul><h2>Circular direction and exposure displays</h2><ul><li><a href=\"/data-visualization/wind-roses-direction-sectors-calm-share-and-speed-bands\">Wind roses: map direction, speed and calm conditions without losing the denominator</a></li></ul><h2>Ordinal survey response displays</h2><ul><li><a href=\"/data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators\">Likert diverging stacks: keep the neutral split and response denominator honest</a></li></ul><h2>Count-based geographic displays</h2><ul><li><a href=\"/data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area\">Dot-density maps: fixed dot value, reproducible placement and area meaning</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": null,
+    "tags": [
+      "data-visualization",
+      "learning path"
+    ],
+    "data": {
+      "seo_ready": true,
+      "content_format": "html",
+      "subject_root": "data-visualization",
+      "section_path": "data-visualization",
+      "modules": [
+        {
+          "title": "Start and build",
+          "lessons": [
+            "data-visualization/data-visualization-tutorial",
+            "data-visualization/chart-question-and-visual-encoding",
+            "data-visualization/aggregation-grain-and-denominator",
+            "data-visualization/scale-baseline-and-axis-integrity",
+            "data-visualization/distribution-and-outlier-displays",
+            "data-visualization/uncertainty-and-small-sample-display",
+            "data-visualization/accessible-color-and-text-alternatives",
+            "data-visualization/dashboard-filter-and-provenance"
+          ]
+        },
+        {
+          "title": "Apply the ideas",
+          "lessons": [
+            "data-visualization/receipt-review-dashboard-project",
+            "data-visualization/data-visualization-tutorial/project"
+          ]
+        },
+        {
+          "title": "Time, density, facets and matrices",
+          "lessons": [
+            "data-visualization/time-series-gaps-calendars-and-provisional-periods",
+            "data-visualization/scatterplot-overplotting-density-and-sampling-bias",
+            "data-visualization/small-multiples-shared-scales-and-facet-order",
+            "data-visualization/heatmap-missing-cells-and-color-domain"
+          ]
+        },
+        {
+          "title": "Maps, interaction, scale and exports",
+          "lessons": [
+            "data-visualization/choropleth-rates-boundaries-and-missing-regions",
+            "data-visualization/linked-filters-cohort-denominators-and-selection-state",
+            "data-visualization/large-series-level-of-detail-and-extrema",
+            "data-visualization/chart-export-manifest-data-and-render-version"
+          ]
+        },
+        {
+          "title": "Composition, scales and paired comparisons",
+          "lessons": [
+            "data-visualization/stacked-bars-composition-and-changing-denominators",
+            "data-visualization/log-and-symmetric-log-scales-with-zero-values",
+            "data-visualization/paired-change-slope-and-dumbbell-charts",
+            "data-visualization/empirical-cdf-percentiles-and-tail-reading"
+          ]
+        },
+        {
+          "title": "Flow, hierarchy, networks and events",
+          "lessons": [
+            "data-visualization/sankey-flow-conservation-and-unobserved-exits",
+            "data-visualization/treemap-hierarchy-leaf-sums-and-area-comparison",
+            "data-visualization/network-graph-identity-degree-and-layout-stability",
+            "data-visualization/chart-annotations-event-windows-and-causal-claims"
+          ]
+        },
+        {
+          "title": "Distribution and association",
+          "lessons": [
+            "data-visualization/box-violin-and-kde-bandwidth-for-group-comparisons",
+            "data-visualization/correlation-heatmap-pairwise-coverage-and-ordering"
+          ]
+        },
+        {
+          "title": "Forecasts and conversion",
+          "lessons": [
+            "data-visualization/forecast-fan-charts-prediction-intervals-and-horizon",
+            "data-visualization/funnel-chart-cohorts-stage-order-and-conversion"
+          ]
+        },
+        {
+          "title": "Dense points and signed gaps",
+          "lessons": [
+            "data-visualization/hexbin-density-grid-resolution-and-exposure",
+            "data-visualization/diverging-bars-zero-reference-and-signed-difference"
+          ]
+        },
+        {
+          "title": "Bridges, targets and dual axes",
+          "lessons": [
+            "data-visualization/waterfall-chart-bridge-reconciliation-and-subtotals",
+            "data-visualization/bullet-chart-target-bands-and-kpi-context",
+            "data-visualization/dual-axis-charts-independent-scales-and-spurious-alignment"
+          ]
+        },
+        {
+          "title": "Individual marks and complete days",
+          "lessons": [
+            "data-visualization/beeswarm-plots-collision-spacing-and-sample-count",
+            "data-visualization/calendar-heatmap-complete-days-time-zones-and-missingness"
+          ]
+        },
+        {
+          "title": "Profiles, ranks and process limits",
+          "lessons": [
+            "data-visualization/parallel-coordinates-normalization-axis-order-and-brushing",
+            "data-visualization/bump-chart-rank-ties-membership-and-period-coverage",
+            "data-visualization/p-charts-varying-denominators-and-process-baselines"
+          ]
+        },
+        {
+          "title": "Cumulative totals, uncertainty and quantiles",
+          "lessons": [
+            "data-visualization/pareto-chart-cumulative-share-and-category-boundary",
+            "data-visualization/asymmetric-error-bars-interval-type-and-axis-clipping",
+            "data-visualization/qq-plots-quantile-alignment-ties-and-tail-deviation"
+          ]
+        },
+        {
+          "title": "Mapped symbols and task timelines",
+          "lessons": [
+            "data-visualization/proportional-symbol-maps-area-scale-and-overlap",
+            "data-visualization/gantt-timelines-dependencies-overlap-and-date-bounds"
+          ]
+        },
+        {
+          "title": "Distributions, fits and mapped routes",
+          "lessons": [
+            "data-visualization/ridgeline-plots-density-normalization-bandwidth-and-overlap",
+            "data-visualization/scatterplot-regression-overlays-fit-scope-and-prediction-bands",
+            "data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion"
+          ]
+        },
+        {
+          "title": "Event alignment and chart interaction",
+          "lessons": [
+            "data-visualization/event-aligned-time-series-baseline-windows-and-missing-periods",
+            "data-visualization/interactive-chart-keyboard-focus-and-data-table-contract"
+          ]
+        },
+        {
+          "title": "Effect estimates and multivariable grids",
+          "lessons": [
+            "data-visualization/forest-plots-effect-measures-null-lines-and-intervals",
+            "data-visualization/scatterplot-matrices-pairwise-coverage-and-multiple-comparisons"
+          ]
+        },
+        {
+          "title": "Compact and moving time series",
+          "lessons": [
+            "data-visualization/streamgraphs-centered-baselines-category-order-and-total-volume",
+            "data-visualization/horizon-charts-band-encoding-baselines-and-decoding",
+            "data-visualization/animated-charts-stable-identity-locked-scales-and-pause-state"
+          ]
+        },
+        {
+          "title": "Event and category evidence",
+          "lessons": [
+            "data-visualization/survival-curves-risk-sets-censoring-and-tail-support",
+            "data-visualization/mosaic-plots-joint-area-conditional-rate-and-empty-cells"
+          ]
+        },
+        {
+          "title": "Compositions and process signals",
+          "lessons": [
+            "data-visualization/ternary-plots-closed-compositions-zero-parts-and-total-loss",
+            "data-visualization/cusum-charts-reference-shifts-reset-and-alert-calibration"
+          ]
+        },
+        {
+          "title": "Flow and geographic comparisons",
+          "lessons": [
+            "data-visualization/chord-diagrams-directed-flows-self-loops-and-sector-totals",
+            "data-visualization/bivariate-choropleths-two-rates-nine-classes-and-joint-legends"
+          ]
+        },
+        {
+          "title": "Hierarchy and probability evidence",
+          "lessons": [
+            "data-visualization/dendrograms-linkage-distance-cut-height-and-leaf-order",
+            "data-visualization/probability-calibration-plots-bin-counts-prevalence-and-drift"
+          ]
+        },
+        {
+          "title": "Model decisions and measurement agreement",
+          "lessons": [
+            "data-visualization/precision-recall-curves-threshold-ties-prevalence-and-average-precision",
+            "data-visualization/bland-altman-plots-paired-bias-agreement-limits-and-proportional-error"
+          ]
+        },
+        {
+          "title": "Set intersections and spatial surfaces",
+          "lessons": [
+            "data-visualization/upset-plots-exclusive-intersections-set-universe-and-cardinality",
+            "data-visualization/contour-plots-grid-masks-levels-and-interpolation-boundaries"
+          ]
+        },
+        {
+          "title": "Classification decisions and errors",
+          "lessons": [
+            "data-visualization/roc-curves-tied-thresholds-false-positive-rates-and-partial-auc",
+            "data-visualization/confusion-matrices-class-order-row-normalization-and-abstentions"
+          ]
+        },
+        {
+          "title": "Monitoring slow process shifts",
+          "lessons": [
+            "data-visualization/ewma-control-charts-startup-limits-baseline-and-slow-drift"
+          ]
+        },
+        {
+          "title": "Ranked outreach and regression checks",
+          "lessons": [
+            "data-visualization/cumulative-gains-lift-score-ties-and-contact-capacity",
+            "data-visualization/regression-residual-plots-fitted-values-segments-and-error-spread"
+          ]
+        },
+        {
+          "title": "Population structure and comparison",
+          "lessons": [
+            "data-visualization/population-pyramids-age-bands-mirrored-scales-and-unknown-categories"
+          ]
+        },
+        {
+          "title": "Inequality and ranked shares",
+          "lessons": [
+            "data-visualization/lorenz-curves-ranked-shares-zero-values-and-gini-area"
+          ]
+        },
+        {
+          "title": "Process variation and scenario sensitivity",
+          "lessons": [
+            "data-visualization/individuals-moving-range-charts-baseline-gaps-and-two-point-variation",
+            "data-visualization/tornado-sensitivity-charts-baseline-scenarios-and-asymmetric-effects"
+          ]
+        },
+        {
+          "title": "Distribution area and cohort maturity",
+          "lessons": [
+            "data-visualization/unequal-bin-histograms-density-area-and-boundary-policy",
+            "data-visualization/cohort-retention-heatmaps-maturity-denominators-and-return-events"
+          ]
+        },
+        {
+          "title": "Serial dependence and seasonal evidence",
+          "lessons": [
+            "data-visualization/autocorrelation-plots-regular-lags-pair-counts-and-seasonality"
+          ]
+        },
+        {
+          "title": "Observed spread and defect-rate monitoring",
+          "lessons": [
+            "data-visualization/historical-percentile-ribbons-period-support-and-interval-meaning",
+            "data-visualization/u-charts-defects-per-unit-varying-exposure-and-frozen-limits"
+          ]
+        },
+        {
+          "title": "Seasonal pattern diagnostics",
+          "lessons": [
+            "data-visualization/seasonal-subseries-plots-cycle-position-trend-and-incomplete-years"
+          ]
+        },
+        {
+          "title": "Probability-scale distribution checks",
+          "lessons": [
+            "data-visualization/pp-plots-reference-cdf-plotting-positions-and-tail-compression"
+          ]
+        },
+        {
+          "title": "Circular direction and exposure displays",
+          "lessons": [
+            "data-visualization/wind-roses-direction-sectors-calm-share-and-speed-bands"
+          ]
+        },
+        {
+          "title": "Ordinal survey response displays",
+          "lessons": [
+            "data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators"
+          ]
+        },
+        {
+          "title": "Count-based geographic displays",
+          "lessons": [
+            "data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area"
+          ]
+        }
+      ]
+    },
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8499,
+    "status": "published",
+    "published_at": "2026-10-07T08:22:48.087670+00:00",
+    "created_at": "2026-10-07T08:22:48.087670+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00"
+  },
+  {
+    "id": "21c6a570-7b8c-503f-aa5e-dac7096683cd",
+    "type": "article",
+    "path": "data-visualization/stacked-bars-composition-and-changing-denominators",
+    "title": "Stacked bars: separate composition from volume and preserve denominators",
+    "summary": "Use absolute and normalized stacks for different questions, and retain every segment count.",
+    "body": "<p>Use absolute and normalized stacks for different questions, and retain every segment count.</p><h2>A stack has two possible questions</h2><p>An absolute stacked bar shows a total and its parts in the same unit. A normalized bar forces every total to one and shows the mix instead. These are not interchangeable. If depot A closes 47 of 81 requests while depot B closes 470 of 810, both have the same closed share, but the latter carries ten times the workload. Place total and share in adjacent views when both matter. <a href=\"/data-visualization/aggregation-grain-and-denominator\">Define the denominator</a> before calculating either bar. The title should say whether the horizontal extent means requests or a fraction of eligible requests.</p><h2>Keep categories stable</h2><p>Assign each status one color and one position across periods. If a status disappears, retain its zero-valued place in the data contract rather than shifting every later segment. The unanchored middle segments in a stack are difficult to compare precisely; when one category is the focus, use a grouped bar or a separate trend. Sort bars by a declared metric, such as eligible volume, and keep that order fixed across comparison panels. <a href=\"/data-visualization/small-multiples-shared-scales-and-facet-order\">Facet ordering</a> follows the same rule.</p><h2>Handle absent and ineligible records</h2><p>A missing status is not necessarily a measured zero. If the warehouse omits unresolved requests, a normalized stack can show an apparently perfect closure rate even as the unobserved group grows. Reconcile segment counts to the cohort total, expose an unknown state, and reserve a separate no-exposure state when the denominator is zero. A percentage bar for zero eligible requests has no defined composition. <a href=\"/data-visualization/heatmap-missing-cells-and-color-domain\">Missing-state display</a> should use a label or pattern in addition to color.</p><h2>Audit every filter</h2><p>When a dashboard filters by region or week, recompute each segment count from the selected cohort and normalize only after filtering. Do not average prior percentages. Tooltips and exports should include segment count, denominator and percentage; rounded shares may sum to 99.9 or 100.1, which is a display effect rather than a data error. <a href=\"/data-visualization/linked-filters-cohort-denominators-and-selection-state\">Linked selections</a> must update totals and segments together. Test one-bar, zero-cohort and category-absent states before release.</p><h2>Worked contract</h2><pre><code class=\"language-python\">def composition_by_depot(\n    counts: dict[str, dict[str, int]], statuses: tuple[str, ...]\n) -&gt; dict[str, dict[str, tuple[int, float | None]]]:\n    if len(set(statuses)) != len(statuses) or not statuses:\n        raise ValueError(&quot;statuses must be unique and nonempty&quot;)\n    result = {}\n    for depot, segments in counts.items():\n        if set(segments) - set(statuses) or any(value &lt; 0 for value in segments.values()):\n            raise ValueError(&quot;unknown status or negative count&quot;)\n        total = sum(segments.values())\n        result[depot] = {\n            status: (segments.get(status, 0),\n                     segments.get(status, 0) / total if total else None)\n            for status in statuses\n        }\n    return result\n\nmix = composition_by_depot(\n    {&quot;north&quot;: {&quot;closed&quot;: 47, &quot;pending&quot;: 34},\n     &quot;south&quot;: {&quot;closed&quot;: 470, &quot;pending&quot;: 340}},\n    (&quot;closed&quot;, &quot;pending&quot;, &quot;unknown&quot;))\nassert mix[&quot;north&quot;][&quot;closed&quot;] == (47, 47 / 81)\nassert mix[&quot;south&quot;][&quot;closed&quot;] == (470, 470 / 810)\nassert mix[&quot;north&quot;][&quot;unknown&quot;] == (0, 0.0)</code></pre><h2>Performance and operating cost</h2><p>For D depots, S declared statuses and M supplied segment values, validation and construction take O(M + DS) expected time and O(DS) output space. Reusing a prebuilt status set removes repeated set construction in a larger implementation. Rendering a normalized bar still needs the absolute counts for labels and audit. The example treats an absent segment as observed zero only under the stated complete-status contract; without that contract, an absent segment must be marked unknown.</p><h3>Common Mistakes</h3><ul><li>Reading equal-width normalized bars as equal workloads.</li><li>Dropping unresolved statuses before calculating shares.</li><li>Changing stack order between weeks and implying a category moved.</li><li>Averaging percentages instead of adding segment counts first.</li></ul><h2>Validation drill</h2><p>Prepare 13 weekly depot bars with different cohort sizes. Show absolute and normalized versions, then remove one status record from a source extract and verify reconciliation fails rather than silently improving a percentage.</p><h2>Read next</h2><ul><li><a href=\"/data-visualization/aggregation-grain-and-denominator\">Aggregation grain and denominator: make every plotted mark auditable</a></li><li><a href=\"/data-visualization/small-multiples-shared-scales-and-facet-order\">Small multiples: compare groups with honest scales and facet order</a></li><li><a href=\"/data-visualization/linked-filters-cohort-denominators-and-selection-state\">Interactive dashboards: recompute cohorts after linked filters</a></li><li><a href=\"/data-visualization/heatmap-missing-cells-and-color-domain\">Heatmaps: make missing cells, rates and color domains explicit</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/streamgraphs-centered-baselines-category-order-and-total-volume\">Streamgraphs: preserve totals behind a moving baseline</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/mosaic-plots-joint-area-conditional-rate-and-empty-cells\">Mosaic plots: make cell area match the underlying count</a></li><li><a href=\"/data-visualization/ternary-plots-closed-compositions-zero-parts-and-total-loss\">Ternary plots: preserve the total behind a three-part composition</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/population-pyramids-age-bands-mirrored-scales-and-unknown-categories\">Population pyramids: compare age bands without losing the denominator</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators\">Likert diverging stacks: keep the neutral split and response denominator honest</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-visualization",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8716,
+    "status": "published",
+    "published_at": "2026-10-08T07:48:38.306081+00:00",
+    "created_at": "2026-10-08T07:48:38.306081+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "data-visualization/aggregation-grain-and-denominator",
+          "title": "Aggregation grain and denominator: make every plotted mark auditable"
+        },
+        {
+          "path": "data-visualization/small-multiples-shared-scales-and-facet-order",
+          "title": "Small multiples: compare groups with honest scales and facet order"
+        },
+        {
+          "path": "data-visualization/linked-filters-cohort-denominators-and-selection-state",
+          "title": "Interactive dashboards: recompute cohorts after linked filters"
+        },
+        {
+          "path": "data-visualization/heatmap-missing-cells-and-color-domain",
+          "title": "Heatmaps: make missing cells, rates and color domains explicit"
+        },
+        {
+          "path": "data-visualization/streamgraphs-centered-baselines-category-order-and-total-volume",
+          "title": "Streamgraphs: preserve totals behind a moving baseline"
+        },
+        {
+          "path": "data-visualization/mosaic-plots-joint-area-conditional-rate-and-empty-cells",
+          "title": "Mosaic plots: make cell area match the underlying count"
+        },
+        {
+          "path": "data-visualization/ternary-plots-closed-compositions-zero-parts-and-total-loss",
+          "title": "Ternary plots: preserve the total behind a three-part composition"
+        },
+        {
+          "path": "data-visualization/population-pyramids-age-bands-mirrored-scales-and-unknown-categories",
+          "title": "Population pyramids: compare age bands without losing the denominator"
+        },
+        {
+          "path": "data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators",
+          "title": "Likert diverging stacks: keep the neutral split and response denominator honest"
+        }
+      ]
+    }
+  },
+  {
+    "id": "aa6457de-844a-5e26-b564-82d492c184b3",
+    "type": "article",
+    "path": "data-visualization/diverging-bars-zero-reference-and-signed-difference",
+    "title": "Diverging bars: put signed differences on one shared zero",
+    "summary": "Choose a meaningful reference, keep a shared scale and retain both values behind every gap.",
+    "body": "<p>Choose a meaningful reference, keep a shared scale and retain both values behind every gap.</p><h2>The reference is the argument</h2><p>A diverging bar begins at zero and extends according to a signed difference. That zero must mean something: actual minus plan, current minus prior, or group A minus group B. Put the formula and unit near the axis. A negative result may mean a shortfall, a benefit or simply a lower measurement. Label the groups rather than assuming red always means bad. <a href=\"/data-visualization/scale-baseline-and-axis-integrity\">A shared baseline</a> lets readers compare directions.</p><h2>Keep both operands available</h2><p>A difference of 34 could arise from 47 versus 81 or 4,700 versus 4,734. The same bar length does not reveal operational scale. Tooltips and exports should contain both values, the reference version and any denominator used to make a rate. If teams differ sharply in size, a rate difference may answer the comparison better than counts. <a href=\"/data-visualization/aggregation-grain-and-denominator\">Denominator design</a> precedes color choice. A gap based on a missing or zero denominator is undefined, not a zero-length bar.</p><h2>Sort for the decision</h2><p>Ranking by signed difference groups shortfalls; ranking by absolute difference surfaces the largest departures in either direction. State the sort key. Do not reorder every small multiple independently if the reader must follow the same entity through time. <a href=\"/data-visualization/small-multiples-shared-scales-and-facet-order\">Shared facet order</a> preserves identity. For equal comparison of positive and negative magnitudes, set a symmetric numeric domain around zero. An asymmetric domain can compress one side. Never clip a long bar without an exact value label and visible break.</p><h2>Expose uncertainty</h2><p>A small bar near zero may be noise rather than stable movement. For estimates, add an interval marker and explain whether it crosses zero. The chart should not declare every positive value a success. A materiality threshold belongs on the plot only when its rule is documented and consistent across entities. <a href=\"/data-visualization/uncertainty-and-small-sample-display\">Small-sample uncertainty</a> matters most near the boundary. Include a text alternative listing signed gaps, both operands and the largest departures on either side.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from math import isfinite\n\ndef signed_plan_gaps(rows: list[tuple[str, float, float]]\n                     ) -&gt; list[tuple[str, float, float, float]]:\n    names = [name for name, _, _ in rows]\n    if len(names) != len(set(names)) or any(not name for name in names):\n        raise ValueError(&quot;entity names must be unique and nonempty&quot;)\n    if any(not isfinite(actual) or not isfinite(plan)\n           for _, actual, plan in rows):\n        raise ValueError(&quot;measurements must be finite&quot;)\n    return sorted(((name, actual, plan, actual - plan)\n                   for name, actual, plan in rows), key=lambda item: item[3])\n\ndepot_gaps = signed_plan_gaps([(&quot;north&quot;, 47, 81),\n                              (&quot;south&quot;, 113, 97),\n                              (&quot;west&quot;, 59, 59)])\nassert depot_gaps[0] == (&quot;north&quot;, 47, 81, -34)\nassert depot_gaps[-1][3] == 16</code></pre><h2>Performance and operating cost</h2><p>For N entities, computing differences takes O(N) time and sorting takes O(N log N) time with O(N) output space. Reusing order across facets avoids repeated sort decisions, though it may make one panel less locally ranked. The example calculates absolute signed differences. A rate gap needs validated denominators and a declared unit before plotting. A chart library&#x27;s autoscale should not override a specified symmetric domain.</p><h3>Common Mistakes</h3><ul><li>Coloring negative bars as bad when lower is preferable.</li><li>Discarding the actual and plan values after calculating a gap.</li><li>Using unequal left and right scales to exaggerate one direction.</li><li>Confusing percentage-point change with percent change.</li></ul><h2>Validation drill</h2><p>Plot 47 depots&#x27; actual-minus-plan gaps. Sort by signed difference, show both operands, then compare that ranking to a rate-gap view based on eligible volume.</p><h2>Read next</h2><ul><li><a href=\"/data-visualization/scale-baseline-and-axis-integrity\">Axis scales, baselines and labels: prevent a correct number from telling a false story</a></li><li><a href=\"/data-visualization/aggregation-grain-and-denominator\">Aggregation grain and denominator: make every plotted mark auditable</a></li><li><a href=\"/data-visualization/small-multiples-shared-scales-and-facet-order\">Small multiples: compare groups with honest scales and facet order</a></li><li><a href=\"/data-visualization/uncertainty-and-small-sample-display\">Uncertainty on charts: show denominators and intervals beside estimates</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/tornado-sensitivity-charts-baseline-scenarios-and-asymmetric-effects\">Tornado charts: keep scenario ranges attached to their assumptions</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators\">Likert diverging stacks: keep the neutral split and response denominator honest</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-visualization",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8729,
+    "status": "published",
+    "published_at": "2026-10-08T08:25:58.809498+00:00",
+    "created_at": "2026-10-08T08:25:58.809498+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "data-visualization/scale-baseline-and-axis-integrity",
+          "title": "Axis scales, baselines and labels: prevent a correct number from telling a false story"
+        },
+        {
+          "path": "data-visualization/aggregation-grain-and-denominator",
+          "title": "Aggregation grain and denominator: make every plotted mark auditable"
+        },
+        {
+          "path": "data-visualization/small-multiples-shared-scales-and-facet-order",
+          "title": "Small multiples: compare groups with honest scales and facet order"
+        },
+        {
+          "path": "data-visualization/uncertainty-and-small-sample-display",
+          "title": "Uncertainty on charts: show denominators and intervals beside estimates"
+        },
+        {
+          "path": "data-visualization/tornado-sensitivity-charts-baseline-scenarios-and-asymmetric-effects",
+          "title": "Tornado charts: keep scenario ranges attached to their assumptions"
+        },
+        {
+          "path": "data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators",
+          "title": "Likert diverging stacks: keep the neutral split and response denominator honest"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ea1c4b63-b0a4-5585-9438-eafc782a8548",
+    "type": "article",
+    "path": "data-visualization/uncertainty-and-small-sample-display",
+    "title": "Uncertainty on charts: show denominators and intervals beside estimates",
+    "summary": "A plotted estimate is not a population fact; its uncertainty and sample unit affect how strongly a visual difference can be read.",
+    "body": "<p>A plotted estimate is not a population fact; its uncertainty and sample unit affect how strongly a visual difference can be read.</p><h2>Show the independent count</h2><p>Two channels can both report a 75 percent completion rate, yet one may have 12 receipts and another 12,000. Put eligible counts near marks or in an accessible companion table. If customers submit repeated receipts, the independent count may be customers rather than rows. <a href=\"/applied-statistics/cluster-bootstrap-and-standard-error\">Cluster resampling</a> keeps those observations together.</p><h2>Choose an interval contract</h2><p>Specify the estimator, interval construction, confidence level and sampling unit. Error bars from an independent-row formula are misleading when assignments or outcomes cluster by reviewer. A confidence interval describes a repeated-sampling procedure; it is not a probability distribution over the displayed fixed rate. <a href=\"/applied-statistics/confidence-interval-coverage\">Coverage</a> requires a valid observation process.</p><h2>Separate overlap from decision</h2><p>Overlapping intervals do not by themselves establish that a difference is absent, and nonoverlap is not a universal experiment test. If the task is to compare channels, calculate and display an interval for the difference under the study design. Pair this with practical limits: a two-point change may matter only above a declared volume or cost threshold.</p><h2>Handle thin groups</h2><p>A filter may leave one receipt or none. Use a visible “insufficient data” state rather than a narrow-looking point with absent error bars. Check that each interval is within the metric domain and that chart tooling does not clip it without notice. Keep the raw numerator and denominator available for audit.</p><h2>Implementation</h2><pre><code class=\"language-python\">def interval_mark(point_rate, lower_rate, upper_rate, eligible_count):\n    if eligible_count &lt; 2:\n        return {&quot;state&quot;: &quot;insufficient_data&quot;, &quot;eligible_count&quot;: eligible_count}\n    if not 0 &lt;= lower_rate &lt;= point_rate &lt;= upper_rate &lt;= 1:\n        raise ValueError(&quot;invalid rate interval&quot;)\n    return {&quot;state&quot;: &quot;measured&quot;, &quot;point&quot;: point_rate,\n            &quot;lower&quot;: lower_rate, &quot;upper&quot;: upper_rate, &quot;eligible_count&quot;: eligible_count}</code></pre><h2>Performance and operating cost</h2><p>Formatting M intervals is O(M) time and space. Interval estimation may be much more expensive, especially when resampling clusters; calculate it in a versioned data job and render the stored estimate with its construction metadata.</p><h3>Common Mistakes</h3><ul><li>Do not draw error bars without naming their meaning.</li><li>Do not use receipt count as the independent sample size when customers repeat.</li><li>Do not interpret overlapping intervals as a complete test of a difference.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-visualization/distribution-and-outlier-displays\">Distribution plots: keep the tail, missing values and bin policy visible</a></li><li><a href=\"/data-visualization/dashboard-filter-and-provenance\">Dashboard filters and provenance: make every view reproducible</a></li><li><a href=\"/applied-statistics/confidence-interval-coverage\">Confidence intervals: interpret coverage and precision honestly</a></li><li><a href=\"/applied-statistics/cluster-bootstrap-and-standard-error\">Standard error and cluster bootstrap: resample the independent unit</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/choropleth-rates-boundaries-and-missing-regions\">Choropleth maps: normalize counts and audit boundary coverage</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/forecast-fan-charts-prediction-intervals-and-horizon\">Forecast fan charts: label interval meaning and forecast horizon</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/bullet-chart-target-bands-and-kpi-context\">Bullet charts: show a measure, target and performance bands honestly</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/p-charts-varying-denominators-and-process-baselines\">P charts: account for varying denominators before flagging a rate</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/asymmetric-error-bars-interval-type-and-axis-clipping\">Asymmetric error bars: tell readers what each endpoint means</a></li><li><a href=\"/data-visualization/qq-plots-quantile-alignment-ties-and-tail-deviation\">Q–Q plots: compare distribution shape beyond one summary number</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/forest-plots-effect-measures-null-lines-and-intervals\">Forest plots: align estimates, intervals and the no-effect value</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/dendrograms-linkage-distance-cut-height-and-leaf-order\">Dendrograms: read merge height without overreading leaf order</a></li><li><a href=\"/data-visualization/probability-calibration-plots-bin-counts-prevalence-and-drift\">Probability calibration plots: compare predicted risk with observed frequency</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/precision-recall-curves-threshold-ties-prevalence-and-average-precision\">Precision–recall curves: preserve threshold ties and class prevalence</a></li><li><a href=\"/data-visualization/bland-altman-plots-paired-bias-agreement-limits-and-proportional-error\">Bland–Altman plots: assess paired measurement agreement</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/roc-curves-tied-thresholds-false-positive-rates-and-partial-auc\">ROC curves: read attainable thresholds and false-positive rates</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/regression-residual-plots-fitted-values-segments-and-error-spread\">Regression residual plots: locate bias, spread and missing segments</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/cohort-retention-heatmaps-maturity-denominators-and-return-events\">Cohort retention heatmaps: keep immature cells blank</a></li><li><a href=\"/data-visualization/autocorrelation-plots-regular-lags-pair-counts-and-seasonality\">Autocorrelation plots: align equal-spaced periods before reading lag peaks</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/historical-percentile-ribbons-period-support-and-interval-meaning\">Historical percentile ribbons: show the spread of observations over time</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/pp-plots-reference-cdf-plotting-positions-and-tail-compression\">P–P plots: compare observed probabilities with a fixed reference CDF</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators\">Likert diverging stacks: keep the neutral split and response denominator honest</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-visualization"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8704,
+    "status": "published",
+    "published_at": "2026-10-05T05:17:20.359875+00:00",
+    "created_at": "2026-10-05T05:17:20.359875+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "data-visualization/distribution-and-outlier-displays",
+          "title": "Distribution plots: keep the tail, missing values and bin policy visible"
+        },
+        {
+          "path": "data-visualization/dashboard-filter-and-provenance",
+          "title": "Dashboard filters and provenance: make every view reproducible"
+        },
+        {
+          "path": "applied-statistics/confidence-interval-coverage",
+          "title": "Confidence intervals: interpret coverage and precision honestly"
+        },
+        {
+          "path": "applied-statistics/cluster-bootstrap-and-standard-error",
+          "title": "Standard error and cluster bootstrap: resample the independent unit"
+        },
+        {
+          "path": "data-visualization/choropleth-rates-boundaries-and-missing-regions",
+          "title": "Choropleth maps: normalize counts and audit boundary coverage"
+        },
+        {
+          "path": "data-visualization/forecast-fan-charts-prediction-intervals-and-horizon",
+          "title": "Forecast fan charts: label interval meaning and forecast horizon"
+        },
+        {
+          "path": "data-visualization/bullet-chart-target-bands-and-kpi-context",
+          "title": "Bullet charts: show a measure, target and performance bands honestly"
+        },
+        {
+          "path": "data-visualization/p-charts-varying-denominators-and-process-baselines",
+          "title": "P charts: account for varying denominators before flagging a rate"
+        },
+        {
+          "path": "data-visualization/asymmetric-error-bars-interval-type-and-axis-clipping",
+          "title": "Asymmetric error bars: tell readers what each endpoint means"
+        },
+        {
+          "path": "data-visualization/qq-plots-quantile-alignment-ties-and-tail-deviation",
+          "title": "Q–Q plots: compare distribution shape beyond one summary number"
+        },
+        {
+          "path": "data-visualization/forest-plots-effect-measures-null-lines-and-intervals",
+          "title": "Forest plots: align estimates, intervals and the no-effect value"
+        },
+        {
+          "path": "data-visualization/dendrograms-linkage-distance-cut-height-and-leaf-order",
+          "title": "Dendrograms: read merge height without overreading leaf order"
+        },
+        {
+          "path": "data-visualization/probability-calibration-plots-bin-counts-prevalence-and-drift",
+          "title": "Probability calibration plots: compare predicted risk with observed frequency"
+        },
+        {
+          "path": "data-visualization/precision-recall-curves-threshold-ties-prevalence-and-average-precision",
+          "title": "Precision–recall curves: preserve threshold ties and class prevalence"
+        },
+        {
+          "path": "data-visualization/bland-altman-plots-paired-bias-agreement-limits-and-proportional-error",
+          "title": "Bland–Altman plots: assess paired measurement agreement"
+        },
+        {
+          "path": "data-visualization/roc-curves-tied-thresholds-false-positive-rates-and-partial-auc",
+          "title": "ROC curves: read attainable thresholds and false-positive rates"
+        },
+        {
+          "path": "data-visualization/regression-residual-plots-fitted-values-segments-and-error-spread",
+          "title": "Regression residual plots: locate bias, spread and missing segments"
+        },
+        {
+          "path": "data-visualization/cohort-retention-heatmaps-maturity-denominators-and-return-events",
+          "title": "Cohort retention heatmaps: keep immature cells blank"
+        },
+        {
+          "path": "data-visualization/autocorrelation-plots-regular-lags-pair-counts-and-seasonality",
+          "title": "Autocorrelation plots: align equal-spaced periods before reading lag peaks"
+        },
+        {
+          "path": "data-visualization/historical-percentile-ribbons-period-support-and-interval-meaning",
+          "title": "Historical percentile ribbons: show the spread of observations over time"
+        },
+        {
+          "path": "data-visualization/pp-plots-reference-cdf-plotting-positions-and-tail-compression",
+          "title": "P–P plots: compare observed probabilities with a fixed reference CDF"
+        },
+        {
+          "path": "data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators",
+          "title": "Likert diverging stacks: keep the neutral split and response denominator honest"
+        }
+      ]
+    }
+  },
+  {
+    "id": "b9bdd832-2f41-5a5c-9abd-f298bc8172a3",
+    "type": "article",
+    "path": "data-visualization/aggregation-grain-and-denominator",
+    "title": "Aggregation grain and denominator: make every plotted mark auditable",
+    "summary": "A visual aggregate is trustworthy only when each source row, grouping key and denominator have a declared meaning.",
+    "body": "<p>A visual aggregate is trustworthy only when each source row, grouping key and denominator have a declared meaning.</p><h2>Fix the source grain</h2><p>A receipt table can contain one row per receipt while a status log contains several rows per receipt. Joining them and counting rows creates a review volume that rises when the workflow emits more events. Reduce the log to one terminal outcome per receipt before joining, or build an explicit event-level chart. <a href=\"/data-science/dataset-grain-and-join-cardinality\">Join cardinality</a> is a precondition for visual accuracy.</p><h2>Choose the denominator</h2><p>A chart titled “review completion rate” needs a rule for receipts that were submitted but not yet eligible, rejected at intake or still open. Keep numerator and denominator alongside the plotted rate in the data contract. When filtering by channel, recompute both counts for the filtered cohort; never filter precomputed overall rates and average them.</p><h2>Control time bins</h2><p>A daily chart needs one time zone, one interval convention and an explicit policy for late events. A receipt submitted at 23:58 and completed after midnight might belong to the submission-day cohort even though its completion event occurs next day. <a href=\"/time-series/observation-calendar-and-missing-periods\">Calendar policy</a> keeps those two clocks apart. Document whether incomplete days are omitted or shown as provisional.</p><h2>Reconcile the visual</h2><p>For two channels with 34 of 47 and 18 of 23 timely receipts, the combined rate is 52 of 70, about 74.3 percent. The simple average of the two channel percentages is different. Test that the dashboard total uses summed counts. Include an empty group and one duplicated receipt ID to catch silent inflation.</p><h2>Implementation</h2><pre><code class=\"language-python\">def weighted_completion_rate(channel_counts):\n    timely = 0\n    eligible = 0\n    for timely_count, eligible_count in channel_counts:\n        if not 0 &lt;= timely_count &lt;= eligible_count:\n            raise ValueError(&quot;invalid channel counts&quot;)\n        timely += timely_count\n        eligible += eligible_count\n    return None if eligible == 0 else timely / eligible</code></pre><h2>Performance and operating cost</h2><p>Aggregating N rows by C keys is O(N) expected time and O(C) state with a hash map. Sorting labels adds O(C log C). A database group-by can move the work closer to the source, but its join and filter contracts still need inspection.</p><h3>Common Mistakes</h3><ul><li>Do not average percentages when group sizes differ.</li><li>Do not count event rows as independent receipts.</li><li>Do not combine submission and completion timestamps without a cohort rule.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-visualization/chart-question-and-visual-encoding\">Chart design starts with a question, unit and visual encoding</a></li><li><a href=\"/data-visualization/dashboard-filter-and-provenance\">Dashboard filters and provenance: make every view reproducible</a></li><li><a href=\"/data-science/dataset-grain-and-join-cardinality\">Dataset grain and join cardinality: protect the unit of analysis</a></li><li><a href=\"/time-series/observation-calendar-and-missing-periods\">Time-series calendar: distinguish missing periods from measured zeros</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/time-series-gaps-calendars-and-provisional-periods\">Time-series charts: distinguish missing days, zeros and provisional periods</a></li><li><a href=\"/data-visualization/heatmap-missing-cells-and-color-domain\">Heatmaps: make missing cells, rates and color domains explicit</a></li><li><a href=\"/data-visualization/linked-filters-cohort-denominators-and-selection-state\">Interactive dashboards: recompute cohorts after linked filters</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/stacked-bars-composition-and-changing-denominators\">Stacked bars: separate composition from volume and preserve denominators</a></li><li><a href=\"/data-visualization/sankey-flow-conservation-and-unobserved-exits\">Sankey diagrams: reconcile flows before sizing links</a></li><li><a href=\"/data-visualization/treemap-hierarchy-leaf-sums-and-area-comparison\">Treemaps: validate hierarchy and leaf totals before assigning area</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/funnel-chart-cohorts-stage-order-and-conversion\">Funnel charts: hold the cohort still before calculating conversion</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/diverging-bars-zero-reference-and-signed-difference\">Diverging bars: put signed differences on one shared zero</a></li><li><a href=\"/data-visualization/waterfall-chart-bridge-reconciliation-and-subtotals\">Waterfall charts: reconcile every step to the closing total</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/p-charts-varying-denominators-and-process-baselines\">P charts: account for varying denominators before flagging a rate</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/pareto-chart-cumulative-share-and-category-boundary\">Pareto charts: reconcile the cumulative line to the categories</a></li><li><a href=\"/data-visualization/proportional-symbol-maps-area-scale-and-overlap\">Proportional-symbol maps: size circles by area, not radius</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/mosaic-plots-joint-area-conditional-rate-and-empty-cells\">Mosaic plots: make cell area match the underlying count</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/upset-plots-exclusive-intersections-set-universe-and-cardinality\">UpSet plots: count exact intersections without double counting</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/confusion-matrices-class-order-row-normalization-and-abstentions\">Confusion matrices: fix class order, denominators and abstentions</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/population-pyramids-age-bands-mirrored-scales-and-unknown-categories\">Population pyramids: compare age bands without losing the denominator</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/lorenz-curves-ranked-shares-zero-values-and-gini-area\">Lorenz curves: audit ranked shares before quoting a Gini value</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/wind-roses-direction-sectors-calm-share-and-speed-bands\">Wind roses: map direction, speed and calm conditions without losing the denominator</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators\">Likert diverging stacks: keep the neutral split and response denominator honest</a></li><li><a href=\"/data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area\">Dot-density maps: fixed dot value, reproducible placement and area meaning</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-visualization"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8701,
+    "status": "published",
+    "published_at": "2026-10-05T05:17:20.359875+00:00",
+    "created_at": "2026-10-05T05:17:20.359875+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "data-visualization/chart-question-and-visual-encoding",
+          "title": "Chart design starts with a question, unit and visual encoding"
+        },
+        {
+          "path": "data-visualization/dashboard-filter-and-provenance",
+          "title": "Dashboard filters and provenance: make every view reproducible"
+        },
+        {
+          "path": "data-science/dataset-grain-and-join-cardinality",
+          "title": "Dataset grain and join cardinality: protect the unit of analysis"
+        },
+        {
+          "path": "time-series/observation-calendar-and-missing-periods",
+          "title": "Time-series calendar: distinguish missing periods from measured zeros"
+        },
+        {
+          "path": "data-visualization/time-series-gaps-calendars-and-provisional-periods",
+          "title": "Time-series charts: distinguish missing days, zeros and provisional periods"
+        },
+        {
+          "path": "data-visualization/heatmap-missing-cells-and-color-domain",
+          "title": "Heatmaps: make missing cells, rates and color domains explicit"
+        },
+        {
+          "path": "data-visualization/linked-filters-cohort-denominators-and-selection-state",
+          "title": "Interactive dashboards: recompute cohorts after linked filters"
+        },
+        {
+          "path": "data-visualization/stacked-bars-composition-and-changing-denominators",
+          "title": "Stacked bars: separate composition from volume and preserve denominators"
+        },
+        {
+          "path": "data-visualization/sankey-flow-conservation-and-unobserved-exits",
+          "title": "Sankey diagrams: reconcile flows before sizing links"
+        },
+        {
+          "path": "data-visualization/treemap-hierarchy-leaf-sums-and-area-comparison",
+          "title": "Treemaps: validate hierarchy and leaf totals before assigning area"
+        },
+        {
+          "path": "data-visualization/funnel-chart-cohorts-stage-order-and-conversion",
+          "title": "Funnel charts: hold the cohort still before calculating conversion"
+        },
+        {
+          "path": "data-visualization/diverging-bars-zero-reference-and-signed-difference",
+          "title": "Diverging bars: put signed differences on one shared zero"
+        },
+        {
+          "path": "data-visualization/waterfall-chart-bridge-reconciliation-and-subtotals",
+          "title": "Waterfall charts: reconcile every step to the closing total"
+        },
+        {
+          "path": "data-visualization/p-charts-varying-denominators-and-process-baselines",
+          "title": "P charts: account for varying denominators before flagging a rate"
+        },
+        {
+          "path": "data-visualization/pareto-chart-cumulative-share-and-category-boundary",
+          "title": "Pareto charts: reconcile the cumulative line to the categories"
+        },
+        {
+          "path": "data-visualization/proportional-symbol-maps-area-scale-and-overlap",
+          "title": "Proportional-symbol maps: size circles by area, not radius"
+        },
+        {
+          "path": "data-visualization/mosaic-plots-joint-area-conditional-rate-and-empty-cells",
+          "title": "Mosaic plots: make cell area match the underlying count"
+        },
+        {
+          "path": "data-visualization/upset-plots-exclusive-intersections-set-universe-and-cardinality",
+          "title": "UpSet plots: count exact intersections without double counting"
+        },
+        {
+          "path": "data-visualization/confusion-matrices-class-order-row-normalization-and-abstentions",
+          "title": "Confusion matrices: fix class order, denominators and abstentions"
+        },
+        {
+          "path": "data-visualization/population-pyramids-age-bands-mirrored-scales-and-unknown-categories",
+          "title": "Population pyramids: compare age bands without losing the denominator"
+        },
+        {
+          "path": "data-visualization/lorenz-curves-ranked-shares-zero-values-and-gini-area",
+          "title": "Lorenz curves: audit ranked shares before quoting a Gini value"
+        },
+        {
+          "path": "data-visualization/wind-roses-direction-sectors-calm-share-and-speed-bands",
+          "title": "Wind roses: map direction, speed and calm conditions without losing the denominator"
+        },
+        {
+          "path": "data-visualization/likert-diverging-stacks-neutral-split-and-response-denominators",
+          "title": "Likert diverging stacks: keep the neutral split and response denominator honest"
+        },
+        {
+          "path": "data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area",
+          "title": "Dot-density maps: fixed dot value, reproducible placement and area meaning"
+        }
+      ]
+    }
+  },
+  {
+    "id": "e3d23881-a757-5c99-9c79-72878afabb98",
+    "type": "article",
+    "path": "data-visualization/choropleth-rates-boundaries-and-missing-regions",
+    "title": "Choropleth maps: normalize counts and audit boundary coverage",
+    "summary": "Join measures to the right polygons, use a stated denominator, and distinguish unmapped places from zero-valued regions.",
+    "body": "<p>Join measures to the right polygons, use a stated denominator, and distinguish unmapped places from zero-valued regions.</p><h2>Area color is not an event count</h2><p>A choropleth fills geographic regions according to a measure. Large polygons occupy more pixels and can dominate attention even when they contain few people or events. Raw incident counts often track exposure, such as population or active deliveries, more than risk. For a comparable rate, carry numerator and denominator for each polygon and specify the period. <a href=\"/applied-statistics/poisson-count-rate-and-exposure\">Exposure-based rates</a> explain why 8 incidents across 47,000 trips differ from 8 across 470 trips. A map can still show counts when workload is the question; label it as a count map.</p><h2>Join by stable region identity</h2><p>Names drift, abbreviations collide, and administrative boundaries change. Join facts to geometry with stable region IDs and a boundary version. Report unmatched fact IDs, polygons with no measure, duplicate assignments and overlapping boundaries before rendering. <a href=\"/geospatial-analytics/geometry-validation-and-spatial-joins\">Spatial joins</a> are a separate operation from coloring polygons; they can duplicate a record if geometries overlap. If one region splits midyear, a before-after map needs a common boundary basis or an explicit break. Do not let a chart library silently drop unmatched regions.</p><h2>Projection and extent shape perception</h2><p>A projection transforms coordinates into map space. It can distort area, shape or distance; no flat map preserves everything. For regional comparison, keep the same projection, extent and viewport across panels, and avoid interpreting the visible area of a polygon as its population. Insets for distant regions need clear labels and scale context. If exact comparison of rates matters more than location, provide a sorted bar chart alongside the map. <a href=\"/data-visualization/chart-question-and-visual-encoding\">Choose the visual</a> that serves the question, not merely the available geometry.</p><h2>Class breaks are an editorial decision</h2><p>Equal-width bins, quantile bins and fixed policy thresholds answer different questions. A quantile palette can assign different colors to tiny numeric differences when many regions cluster tightly; fixed thresholds can leave some colors unused. Print numeric breakpoints and keep them stable when comparing dates. Use a separate treatment for missing data and low-exposure suppression. <a href=\"/data-visualization/heatmap-missing-cells-and-color-domain\">Color-domain rules</a> carry over to map legends. Keep the original rate in the accessible table and tooltip; color bins are a summary, not the data.</p><h2>Protect sensitive locations</h2><p>Very small denominators can make rates unstable and expose information about a few people or facilities. Define a minimum publishable group size, aggregate or suppress as appropriate, and show a visible suppressed state. Do not infer that a blank region has zero risk. <a href=\"/geospatial-analytics/aggregation-and-location-privacy\">Location privacy</a> and <a href=\"/data-visualization/uncertainty-and-small-sample-display\">small-sample display</a> belong to the same release review. Test a region with no geometry, a polygon with no observation, a zero numerator and a zero denominator separately.</p><h2>Worked contract</h2><pre><code class=\"language-python\">def regional_rates(\n    boundary_ids: set[str],\n    incident_counts: dict[str, tuple[int, int]]\n) -&gt; dict[str, tuple[str, float | None]]:\n    unknown = set(incident_counts) - boundary_ids\n    if unknown:\n        raise ValueError(f&quot;facts without geometry: {sorted(unknown)}&quot;)\n    result = {}\n    for region_id in boundary_ids:\n        if region_id not in incident_counts:\n            result[region_id] = (&quot;missing&quot;, None)\n            continue\n        incidents, trips = incident_counts[region_id]\n        if not 0 &lt;= incidents &lt;= trips:\n            raise ValueError(&quot;invalid regional counts&quot;)\n        result[region_id] = (&quot;no-exposure&quot;, None) if trips == 0 else (\n            &quot;observed&quot;, incidents / trips)\n    return result\n\nrates = regional_rates({&quot;zone-47&quot;, &quot;zone-81&quot;, &quot;zone-94&quot;},\n                       {&quot;zone-47&quot;: (8, 470), &quot;zone-81&quot;: (0, 81)})\nassert rates[&quot;zone-47&quot;][1] == 8 / 470\nassert rates[&quot;zone-81&quot;] == (&quot;observed&quot;, 0.0)\nassert rates[&quot;zone-94&quot;] == (&quot;missing&quot;, None)</code></pre><h2>Performance and operating cost</h2><p>For B boundary IDs and M measured regions, this join-and-rate check takes O(B + M) expected time and O(B) output space using hash sets. Rendering cost depends on polygon vertex count, projection and viewport clipping, none of which this code performs. Simplify geometry only to a documented tolerance and keep an exact source for hit tests. A cached tile or geometry file must carry the same boundary version as the measures. The code distinguishes zero and missing; a real publication layer also enforces suppression and uncertainty policy.</p><h3>Common Mistakes</h3><ul><li>Coloring raw counts as if the map showed per-person or per-trip risk.</li><li>Joining on human-readable region names without checking unmatched and duplicated keys.</li><li>Treating a missing polygon or missing measure as zero.</li><li>Changing map bounds or class breaks between comparison dates.</li></ul><h2>Validation drill</h2><p>Map 23 service zones with one split boundary, one missing measure and one zone below the publishable exposure threshold. Reconcile region IDs and rates before drawing polygons; add a sorted rate table for exact comparison.</p><h2>Read next</h2><ul><li><a href=\"/data-visualization/heatmap-missing-cells-and-color-domain\">Heatmaps: make missing cells, rates and color domains explicit</a></li><li><a href=\"/data-visualization/uncertainty-and-small-sample-display\">Uncertainty on charts: show denominators and intervals beside estimates</a></li><li><a href=\"/geospatial-analytics/geometry-validation-and-spatial-joins\">Spatial joins: polygons, boundaries and duplicate matches</a></li><li><a href=\"/geospatial-analytics/aggregation-and-location-privacy\">Spatial aggregation: exposure, unstable cells and location privacy</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/hexbin-density-grid-resolution-and-exposure\">Hexbin density: count overlapping points without hiding exposure</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/proportional-symbol-maps-area-scale-and-overlap\">Proportional-symbol maps: size circles by area, not radius</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion\">Map boundaries: handle antimeridian crossings before drawing routes</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/bivariate-choropleths-two-rates-nine-classes-and-joint-legends\">Bivariate choropleths: map two rates with a readable joint legend</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/contour-plots-grid-masks-levels-and-interpolation-boundaries\">Contour plots: respect measured grids and interpolation boundaries</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area\">Dot-density maps: fixed dot value, reproducible placement and area meaning</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-visualization",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8712,
+    "status": "published",
+    "published_at": "2026-10-08T07:33:45.672300+00:00",
+    "created_at": "2026-10-08T07:33:45.672300+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "data-visualization/heatmap-missing-cells-and-color-domain",
+          "title": "Heatmaps: make missing cells, rates and color domains explicit"
+        },
+        {
+          "path": "data-visualization/uncertainty-and-small-sample-display",
+          "title": "Uncertainty on charts: show denominators and intervals beside estimates"
+        },
+        {
+          "path": "geospatial-analytics/geometry-validation-and-spatial-joins",
+          "title": "Spatial joins: polygons, boundaries and duplicate matches"
+        },
+        {
+          "path": "geospatial-analytics/aggregation-and-location-privacy",
+          "title": "Spatial aggregation: exposure, unstable cells and location privacy"
+        },
+        {
+          "path": "data-visualization/hexbin-density-grid-resolution-and-exposure",
+          "title": "Hexbin density: count overlapping points without hiding exposure"
+        },
+        {
+          "path": "data-visualization/proportional-symbol-maps-area-scale-and-overlap",
+          "title": "Proportional-symbol maps: size circles by area, not radius"
+        },
+        {
+          "path": "data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion",
+          "title": "Map boundaries: handle antimeridian crossings before drawing routes"
+        },
+        {
+          "path": "data-visualization/bivariate-choropleths-two-rates-nine-classes-and-joint-legends",
+          "title": "Bivariate choropleths: map two rates with a readable joint legend"
+        },
+        {
+          "path": "data-visualization/contour-plots-grid-masks-levels-and-interpolation-boundaries",
+          "title": "Contour plots: respect measured grids and interpolation boundaries"
+        },
+        {
+          "path": "data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area",
+          "title": "Dot-density maps: fixed dot value, reproducible placement and area meaning"
+        }
+      ]
+    }
+  },
+  {
+    "id": "7677149d-0286-57b1-9b3d-c3d979c4ee30",
+    "type": "article",
+    "path": "data-visualization/proportional-symbol-maps-area-scale-and-overlap",
+    "title": "Proportional-symbol maps: size circles by area, not radius",
+    "summary": "Declare the location meaning and value unit, then preserve zero, overlap and boundary context.",
+    "body": "<p>Declare the location meaning and value unit, then preserve zero, overlap and boundary context.</p><h2>A symbol has a location contract</h2><p>A circle over a map may represent a precise facility, a regional centroid or an approximate address. Those are not equivalent. State what the coordinate means and how much location precision the data support. <a href=\"/data-visualization/choropleth-rates-boundaries-and-missing-regions\">Choropleth maps</a> color whole regions; proportional symbols encode a value at a point or chosen anchor. Do not place a regional total at a centroid without telling the reader that the circle summarizes an area. If location is sensitive, aggregate or coarsen before publication rather than relying on small marker size to conceal it.</p><h2>Area should represent quantity</h2><p>If a symbol encodes a nonnegative count, its visual area should be proportional to that count. Doubling the radius multiplies area by four, exaggerating the larger value. Compute radius from the square root of value relative to a declared maximum. Use a visible reference legend with at least two example magnitudes. A zero count should remain a recorded zero, even if its circle has no area; a tiny outline or table entry may be needed to keep the location discoverable. <a href=\"/data-visualization/scale-baseline-and-axis-integrity\">Scale integrity</a> also means fixing the size domain across maps intended for comparison.</p><h2>Overlapping circles need an explicit policy</h2><p>Dense areas can hide smaller symbols under larger ones. Drawing order, opacity and zoom can all change what a reader sees. Try smaller maximum radius, outlines, clustering with disclosed counts, or an alternate ranked table. Do not let overlap remove records from the export. <a href=\"/data-visualization/hexbin-density-grid-resolution-and-exposure\">Hexbin density</a> may be better when the question is where point events concentrate, while a proportional-symbol map is better when each point already has a meaningful aggregate. Test overlapping facilities at the closest supported zoom and on a narrow phone viewport.</p><h2>Count and rate are different maps</h2><p>A large population center may dominate a count map while having a modest per-person rate. A rate can be mapped with symbol size only if the legend names its denominator and the sampling uncertainty is not buried. Often a count-sized symbol plus a separately encoded rate is too much for one map; use paired maps or a table. <a href=\"/data-visualization/aggregation-grain-and-denominator\">The denominator contract</a> must follow the geography and period. Export ID, coordinate meaning, count, denominator, computed rate, symbol radius and suppression state, so the map can be checked without its pixels.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from math import isfinite, sqrt\n\ndef area_scaled_radii(values: dict[str, float],\n                      maximum_radius: float) -&gt; dict[str, float]:\n    if not isfinite(maximum_radius) or maximum_radius &lt;= 0:\n        raise ValueError(&quot;maximum radius must be positive&quot;)\n    if not values or any(not place for place in values):\n        raise ValueError(&quot;locations must be named&quot;)\n    if any(not isfinite(value) or value &lt; 0 for value in values.values()):\n        raise ValueError(&quot;mapped values must be finite and nonnegative&quot;)\n    maximum_value = max(values.values())\n    if maximum_value == 0:\n        return {place: 0.0 for place in values}\n    return {place: maximum_radius * sqrt(value / maximum_value)\n            for place, value in values.items()}\n\nservice_calls = {&quot;north depot&quot;: 47, &quot;south depot&quot;: 188, &quot;west depot&quot;: 0}\nradii = area_scaled_radii(service_calls, 20)\nassert radii[&quot;south depot&quot;] == 20\nassert radii[&quot;north depot&quot;] == 10\nassert radii[&quot;west depot&quot;] == 0</code></pre><h2>Performance and operating cost</h2><p>For N locations, finding the maximum and calculating radii takes O(N) time and O(N) output space. The code sizes nonnegative values by area and leaves geographic projection, collision handling and legend generation to the map renderer. A production map must keep one fixed reference maximum across views that readers are expected to compare; recalculating it after every filter changes apparent size.</p><h3>Common Mistakes</h3><ul><li>Making radius proportional to count and thereby exaggerating area.</li><li>Treating a regional centroid as an exact event location.</li><li>Letting large symbols cover small ones without a table or overlap strategy.</li><li>Comparing maps whose size domains were auto-scaled independently.</li></ul><h2>Validation drill</h2><p>Map 59 service depots with zero, small and large call counts. Use area-scaled circles, disclose the location meaning and produce a fixed-size legend for two reporting periods.</p><h2>Read next</h2><ul><li><a href=\"/data-visualization/choropleth-rates-boundaries-and-missing-regions\">Choropleth maps: normalize counts and audit boundary coverage</a></li><li><a href=\"/data-visualization/scale-baseline-and-axis-integrity\">Axis scales, baselines and labels: prevent a correct number from telling a false story</a></li><li><a href=\"/data-visualization/hexbin-density-grid-resolution-and-exposure\">Hexbin density: count overlapping points without hiding exposure</a></li><li><a href=\"/data-visualization/aggregation-grain-and-denominator\">Aggregation grain and denominator: make every plotted mark auditable</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion\">Map boundaries: handle antimeridian crossings before drawing routes</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/wind-roses-direction-sectors-calm-share-and-speed-bands\">Wind roses: map direction, speed and calm conditions without losing the denominator</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area\">Dot-density maps: fixed dot value, reproducible placement and area meaning</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-visualization",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8741,
+    "status": "published",
+    "published_at": "2026-10-08T09:00:09.354862+00:00",
+    "created_at": "2026-10-08T09:00:09.354862+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "data-visualization/choropleth-rates-boundaries-and-missing-regions",
+          "title": "Choropleth maps: normalize counts and audit boundary coverage"
+        },
+        {
+          "path": "data-visualization/scale-baseline-and-axis-integrity",
+          "title": "Axis scales, baselines and labels: prevent a correct number from telling a false story"
+        },
+        {
+          "path": "data-visualization/hexbin-density-grid-resolution-and-exposure",
+          "title": "Hexbin density: count overlapping points without hiding exposure"
+        },
+        {
+          "path": "data-visualization/aggregation-grain-and-denominator",
+          "title": "Aggregation grain and denominator: make every plotted mark auditable"
+        },
+        {
+          "path": "data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion",
+          "title": "Map boundaries: handle antimeridian crossings before drawing routes"
+        },
+        {
+          "path": "data-visualization/wind-roses-direction-sectors-calm-share-and-speed-bands",
+          "title": "Wind roses: map direction, speed and calm conditions without losing the denominator"
+        },
+        {
+          "path": "data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area",
+          "title": "Dot-density maps: fixed dot value, reproducible placement and area meaning"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9f0b7ba5-ab60-582a-bdbb-27ee6d377679",
+    "type": "article",
+    "path": "data-visualization/map-antimeridian-wrapping-bounds-and-projection-distortion",
+    "title": "Map boundaries: handle antimeridian crossings before drawing routes",
+    "summary": "Normalize longitude, split crossings and treat projection distance as a display property.",
+    "body": "<p>Normalize longitude, split crossings and treat projection distance as a display property.</p><h2>Longitude has a seam</h2><p>A route from 177 degrees east to 178 degrees west crosses a narrow part of the Pacific. A renderer that simply connects numeric longitudes may draw a line across nearly the entire map. Choose a longitude convention, validate it at ingestion, and split a crossing before sending geometry to the visual layer. Keep the original coordinates as well as display segments. <a href=\"/data-visualization/proportional-symbol-maps-area-scale-and-overlap\">Symbol maps</a> also need a clear coordinate meaning; a route line needs the additional seam rule.</p><h2>A bounding box can wrap</h2><p>For an antimeridian-spanning area, a western longitude numerically greater than the eastern longitude can describe a small region. Do not automatically swap the two values or calculate width by direct subtraction. Compute wrapped angular span and tell a mapping library whether its viewport crosses the seam. A naive min-to-max bounding box may zoom to almost the whole world. <a href=\"/data-visualization/choropleth-rates-boundaries-and-missing-regions\">Region boundaries</a> need the same care when a polygon is split into multiple pieces for display.</p><h2>Projection changes visual geometry</h2><p>A flat map projects a curved surface. Pixel distance, area and direction can vary with projection and latitude. Use a projection appropriate to the question, and avoid estimating physical travel distance with screen coordinates. A straight segment drawn in longitude and latitude is not automatically the shortest path on Earth. When a route represents measured travel, retain the actual track; when it represents an abstract connection, label it as such. <a href=\"/data-visualization/scale-baseline-and-axis-integrity\">Scale integrity</a> applies to maps as well as charts.</p><h2>Preserve identity across pieces</h2><p>After a crossing is cut into two display segments, both pieces must retain one route ID so a tooltip, filter and export refer to the same underlying trip. A segment count is not a trip count. Include source coordinate order, time zone for event timestamps, geometry version and wrapping method in the export. Test endpoints exactly at positive and negative 180 degrees. <a href=\"/data-visualization/chart-export-manifest-data-and-render-version\">The export manifest</a> should record enough to reproduce the same viewport and splitting rule after a map library upgrade.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from math import isfinite\n\ndef split_dateline_segment(west: tuple[float, float],\n                           east: tuple[float, float]\n                          ) -&gt; list[list[tuple[float, float]]]:\n    lon_a, lat_a = west\n    lon_b, lat_b = east\n    if not all(isfinite(value) for value in (*west, *east)):\n        raise ValueError(&quot;coordinates must be finite&quot;)\n    if not (-180 &lt;= lon_a &lt;= 180 and -180 &lt;= lon_b &lt;= 180\n            and -90 &lt;= lat_a &lt;= 90 and -90 &lt;= lat_b &lt;= 90):\n        raise ValueError(&quot;longitude or latitude outside range&quot;)\n    difference = lon_b - lon_a\n    if abs(difference) &lt;= 180:\n        return [[west, east]]\n    adjusted_b = lon_b - 360 if difference &gt; 180 else lon_b + 360\n    seam = -180 if adjusted_b &lt; lon_a else 180\n    fraction = (seam - lon_a) / (adjusted_b - lon_a)\n    seam_lat = lat_a + fraction * (lat_b - lat_a)\n    opposite = 180 if seam == -180 else -180\n    return [[west, (seam, seam_lat)], [(opposite, seam_lat), east]]\n\nshipping_route = split_dateline_segment((177, -17), (-178, -18))\nassert shipping_route == [\n    [(177, -17), (180, -17.6)],\n    [(-180, -17.6), (-178, -18)],\n]</code></pre><h2>Performance and operating cost</h2><p>Splitting one two-point segment is O(1) time and space; a route with N points needs O(N) processing and output. The interpolation is linear in longitude and latitude for display geometry, not a geodesic calculation. For long-distance navigation or polar tracks, densify with a suitable geographic method before projecting. A production pipeline must define how exact-seam endpoints, multi-segment tracks and duplicate 180-degree coordinates are serialized.</p><h3>Common Mistakes</h3><ul><li>Drawing a nearly global line between two points that are close across the seam.</li><li>Swapping wrapped bounding-box longitudes and accidentally selecting most of the world.</li><li>Measuring real distance from flat-map pixels.</li><li>Counting two rendered pieces as two journeys.</li></ul><h2>Validation drill</h2><p>Draw 47 shipping tracks with three seam crossings. Keep one ID per journey, verify wrapped viewport width, and compare the exported track length with the number of display segments.</p><h2>Read next</h2><ul><li><a href=\"/data-visualization/proportional-symbol-maps-area-scale-and-overlap\">Proportional-symbol maps: size circles by area, not radius</a></li><li><a href=\"/data-visualization/choropleth-rates-boundaries-and-missing-regions\">Choropleth maps: normalize counts and audit boundary coverage</a></li><li><a href=\"/data-visualization/scale-baseline-and-axis-integrity\">Axis scales, baselines and labels: prevent a correct number from telling a false story</a></li><li><a href=\"/data-visualization/chart-export-manifest-data-and-render-version\">Chart exports: carry the data, filters and render contract together</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area\">Dot-density maps: fixed dot value, reproducible placement and area meaning</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-visualization",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8745,
+    "status": "published",
+    "published_at": "2026-10-08T09:17:29.481846+00:00",
+    "created_at": "2026-10-08T09:17:29.481846+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "data-visualization/proportional-symbol-maps-area-scale-and-overlap",
+          "title": "Proportional-symbol maps: size circles by area, not radius"
+        },
+        {
+          "path": "data-visualization/choropleth-rates-boundaries-and-missing-regions",
+          "title": "Choropleth maps: normalize counts and audit boundary coverage"
+        },
+        {
+          "path": "data-visualization/scale-baseline-and-axis-integrity",
+          "title": "Axis scales, baselines and labels: prevent a correct number from telling a false story"
+        },
+        {
+          "path": "data-visualization/chart-export-manifest-data-and-render-version",
+          "title": "Chart exports: carry the data, filters and render contract together"
+        },
+        {
+          "path": "data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area",
+          "title": "Dot-density maps: fixed dot value, reproducible placement and area meaning"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9b96b6bd-378b-59bf-86b6-ae367e964ef4",
+    "type": "article",
+    "path": "data-visualization/large-series-level-of-detail-and-extrema",
+    "title": "Large chart series: reduce marks without erasing spikes",
+    "summary": "Choose a visible-resolution data product and preserve first, last, minimum and maximum values in each bucket.",
+    "body": "<p>Choose a visible-resolution data product and preserve first, last, minimum and maximum values in each bucket.</p><h2>More samples than pixels need a display rule</h2><p>A line chart with hundreds of thousands of readings across a 900-pixel plot cannot show each reading distinctly. Sending every point still costs transfer, parsing, memory, layout and interaction time. A random sample or every-50th-point stride can erase a brief but operationally important spike. Decide whether the reader is inspecting shape, extrema, exact intervals or anomalies. <a href=\"/data-visualization/chart-question-and-visual-encoding\">The chart task</a> determines the reduction method. The full-resolution data remains the source; the plotted series is a deliberately derived view.</p><h2>Preserve a bounded envelope</h2><p>For each time bucket, retain its first, last, minimum and maximum observations, ordered by timestamp and deduplicated by identity. This keeps endpoints connected and exposes local peaks and troughs that a mean would smooth away. It is not lossless: the order of several internal turns and narrow oscillations may still be compressed. Show the bucket width or resolution when it affects interpretation, and fetch raw samples on zoom or request. If missing intervals exist, split segments before reducing; joining across a gap creates a fictional line. <a href=\"/data-visualization/time-series-gaps-calendars-and-provisional-periods\">Gap policy</a> applies before level of detail.</p><h2>Build levels against stable data versions</h2><p>Precomputed hourly, daily or pixel-width buckets must use a fixed time origin and a named aggregation function. If a late event revises an old bucket, invalidate that level together with raw data. Cache keys need range, resolution, filters, unit and source generation. A multi-resolution chart can request a coarser level during pan, then replace it with fine points after the interaction settles; label provisional rendering when it might change a decision. <a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving freshness</a> constrains what a pre-aggregated chart can claim.</p><h2>Keep exactness available</h2><p>Tooltips on reduced marks should describe the bucket, extrema and sample count. Calling a retained minimum a point-in-time average is wrong. A downloadable CSV should offer the filtered raw interval or clearly name the reduced level. If a user clicks a peak to investigate a machine stoppage, resolve it to source IDs rather than an arbitrary nearby display point. <a href=\"/data-visualization/chart-export-manifest-data-and-render-version\">The export manifest</a> should state whether the series is raw or reduced.</p><h2>Measure end-to-end cost</h2><p>Track transfer bytes, parse time, memory, first paint, pan latency and number of marks actually drawn. A server-side envelope can reduce browser work but adds query and cache-maintenance cost. A canvas renderer can draw many marks faster than DOM-based SVG, yet it needs deliberate keyboard and text alternatives. Test a single-sample range, identical timestamps, gaps and a narrow spike at each bucket boundary. The acceptance check is not only a speedup: the operational alert must remain visible at the default zoom.</p><h2>Worked contract</h2><pre><code class=\"language-python\">def extrema_envelope(samples: list[tuple[int, float]],\n                     bucket_size: int) -&gt; list[tuple[int, float]]:\n    if bucket_size &lt; 1 or any(samples[index][0] &gt;= samples[index + 1][0]\n                               for index in range(len(samples) - 1)):\n        raise ValueError(&quot;bucket size or time order is invalid&quot;)\n    reduced = []\n    for start in range(0, len(samples), bucket_size):\n        bucket = samples[start:start + bucket_size]\n        selected = {bucket[0], bucket[-1],\n                    min(bucket, key=lambda point: point[1]),\n                    max(bucket, key=lambda point: point[1])}\n        reduced.extend(sorted(selected, key=lambda point: point[0]))\n    return reduced\n\nreadings = [(47, 4.0), (48, 4.1), (49, 81.0), (50, 4.2),\n            (51, 4.0), (52, 3.9)]\nvisible = extrema_envelope(readings, 4)\nassert (49, 81.0) in visible and visible[0] == readings[0]\nassert len(visible) &lt;= 4 * ((len(readings) + 3) // 4)</code></pre><h2>Performance and operating cost</h2><p>For N sorted samples and bucket size B, the demonstration runs in O(N + (N/B) log 4) time and emits at most four observations per bucket, O(N/B) output space. Python slices hold up to O(B) temporary items. It assumes strictly increasing timestamps and one continuous segment; production data with same-time events needs an explicit tie policy, and gaps need separate segments. Maintaining a pyramid of levels increases storage but can make viewport requests proportional to visible resolution rather than total history.</p><h3>Common Mistakes</h3><ul><li>Taking every nth reading and deleting a short-lived alarm spike.</li><li>Reducing across a missing-data gap and drawing a continuous line.</li><li>Calling a retained minimum or maximum a bucket average.</li><li>Caching a reduced level without the filter and source-version keys.</li></ul><h2>Validation drill</h2><p>Reduce a 47,000-point sensor series to a 900-pixel view. Insert 19 one-point spikes at varied bucket positions and verify every spike survives the chosen display reduction; compare load and pan times with the raw series.</p><h2>Read next</h2><ul><li><a href=\"/data-visualization/time-series-gaps-calendars-and-provisional-periods\">Time-series charts: distinguish missing days, zeros and provisional periods</a></li><li><a href=\"/data-visualization/linked-filters-cohort-denominators-and-selection-state\">Interactive dashboards: recompute cohorts after linked filters</a></li><li><a href=\"/data-visualization/chart-export-manifest-data-and-render-version\">Chart exports: carry the data, filters and render contract together</a></li><li><a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a></li></ul><h2>Continue this visualization path</h2><ul><li><a href=\"/data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area\">Dot-density maps: fixed dot value, reproducible placement and area meaning</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-visualization",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-visualization",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8714,
+    "status": "published",
+    "published_at": "2026-10-08T07:33:45.672300+00:00",
+    "created_at": "2026-10-08T07:33:45.672300+00:00",
+    "updated_at": "2026-10-08T13:09:51.719662+00:00",
+    "data": {
+      "subject_root": "data-visualization/data-visualization-tutorial",
+      "section_path": "data-visualization/data-visualization-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "data-visualization/time-series-gaps-calendars-and-provisional-periods",
+          "title": "Time-series charts: distinguish missing days, zeros and provisional periods"
+        },
+        {
+          "path": "data-visualization/linked-filters-cohort-denominators-and-selection-state",
+          "title": "Interactive dashboards: recompute cohorts after linked filters"
+        },
+        {
+          "path": "data-visualization/chart-export-manifest-data-and-render-version",
+          "title": "Chart exports: carry the data, filters and render contract together"
+        },
+        {
+          "path": "data-engineering/serving-index-and-freshness-contract",
+          "title": "Serving indexes and freshness contracts"
+        },
+        {
+          "path": "data-visualization/dot-density-maps-fixed-dot-value-random-placement-and-area",
+          "title": "Dot-density maps: fixed dot value, reproducible placement and area meaning"
+        }
+      ]
+    }
+  }
+]

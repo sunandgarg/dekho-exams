@@ -1,0 +1,871 @@
+[
+  {
+    "id": "89f42295-36ab-574b-adef-fd6fabecc88e",
+    "type": "article",
+    "path": "natural-language-processing/dependency-paths-for-relation-candidates",
+    "title": "Use dependency paths to propose, not assert, entity relations",
+    "summary": "A short syntactic path can focus relation extraction, but negation, quotation and cross-sentence references still require evidence review.",
+    "body": "<p>A short syntactic path can focus relation extraction, but negation, quotation and cross-sentence references still require evidence review.</p><h2>Generate bounded candidates</h2><p>For two reviewed entity spans in a sentence, identify their syntactic heads and the path connecting them through the dependency tree. Path length and relation sequence can help a classifier decide which pairs deserve scoring. Limit by sentence, entity type and a measured path budget; aggressive pruning can lose long-distance dependencies. The parse must pass <a href=\"/natural-language-processing/dependency-tree-contract-and-token-alignment\">tree validation</a> first, and the entity spans must still round-trip to source text.</p><h2>Keep syntax as a feature</h2><p>“Service K did not restart Queue M” contains a path between two entities, but the negator changes the assertion. “The note says Service K restarts Queue M” reports a claim rather than an observed event. Passive voice can reverse apparent word order. Store the source clause, negation cue and speaker or quotation status with each candidate. A dependency path is a candidate generator, not a proof of relation. <a href=\"/natural-language-processing/relation-extraction-provenance\">Relation provenance</a> remains the release boundary.</p><h2>Audit pruning loss</h2><p>Measure candidate-pair recall before classifying relation labels. Include long sentences, parenthetical clauses, code-switched verbs and cross-sentence pronouns. If a required relation is often cross-sentence, add a separate discourse route rather than silently widening every path window. Keep candidate IDs tied to parser version and source revision. A new parser may change path length without any change in the underlying fact.</p><h2>Select the simplest useful feature</h2><p>Compare an entity-type plus local-word baseline, a dependency-path model and a contextual model against one incident-level split. A syntactic feature earns its cost only if it recovers reviewed relations or cuts false positives. Report end-to-end edge precision and recall, not path-classifier accuracy on gold pairs alone. The <a href=\"/natural-language-processing/incident-syntax-extraction-project\">incident project</a> turns this comparison into a release decision.</p><h2>Implementation</h2><pre><code class=\"language-python\">def ancestor_chain(token_index, heads):\n    chain = []\n    while token_index != -1:\n        chain.append(token_index)\n        token_index = heads[token_index]\n    return chain\n\ndef dependency_distance(left_token, right_token, heads):\n    left_chain = ancestor_chain(left_token, heads)\n    right_chain = ancestor_chain(right_token, heads)\n    right_positions = {token: offset for offset, token in enumerate(right_chain)}\n    return min((left_offset + right_positions[token]\n                for left_offset, token in enumerate(left_chain) if token in right_positions),\n               default=None)\n\nparse_heads = [1, -1, 1, 2]\nassert dependency_distance(0, 3, parse_heads) == 3\n</code></pre><h2>Performance and operating cost</h2><p>Walking both ancestor chains is O(h) time and O(h) space for tree height h; comparing every entity pair still costs O(e²·h) for e entities without candidate restrictions. Cache chains per sentence if throughput matters. The measured cost should include parsing and relation inference, not only this distance function. Pruning saves compute but can lower recall, so publish candidate recall alongside latency.</p><h3>Common Mistakes</h3><ul><li>Publishing a relation because two entities have a short path.</li><li>Dropping the negator or quoted context from evidence.</li><li>Evaluating only candidates that survived pruning.</li><li>Reusing paths after a parser or tokenizer update.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/dependency-tree-contract-and-token-alignment\">Dependency trees: token identity, heads and structural checks</a></li><li><a href=\"/natural-language-processing/incident-syntax-extraction-project\">Project: extract incident actions from validated syntax</a></li><li><a href=\"/natural-language-processing/relation-extraction-provenance\">Relation extraction with direction, negation and evidence</a></li><li><a href=\"/natural-language-processing/coreference-chains-and-mention-identity\">Coreference chains: track mentions without guessing identity</a></li><li><a href=\"/natural-language-processing/grouped-temporal-text-validation\">Text validation: split conversations, duplicates and time together</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 4741,
+    "status": "published",
+    "published_at": "2026-10-06T12:37:06.200950+00:00",
+    "created_at": "2026-10-06T12:37:06.200950+00:00",
+    "updated_at": "2026-10-06T12:37:06.200950+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "natural-language-processing/dependency-tree-contract-and-token-alignment",
+          "title": "Dependency trees: token identity, heads and structural checks"
+        },
+        {
+          "path": "natural-language-processing/incident-syntax-extraction-project",
+          "title": "Project: extract incident actions from validated syntax"
+        },
+        {
+          "path": "natural-language-processing/relation-extraction-provenance",
+          "title": "Relation extraction with direction, negation and evidence"
+        },
+        {
+          "path": "natural-language-processing/coreference-chains-and-mention-identity",
+          "title": "Coreference chains: track mentions without guessing identity"
+        },
+        {
+          "path": "natural-language-processing/grouped-temporal-text-validation",
+          "title": "Text validation: split conversations, duplicates and time together"
+        }
+      ]
+    }
+  },
+  {
+    "id": "b9394ae3-7646-56de-a8e0-496393c33f82",
+    "type": "article",
+    "path": "natural-language-processing/dependency-tree-contract-and-token-alignment",
+    "title": "Dependency trees: token identity, heads and structural checks",
+    "summary": "A dependency parser predicts head links between tokens. Validate the graph and token offsets before using its labels for extraction or search.",
+    "body": "<p>A dependency parser predicts head links between tokens. Validate the graph and token offsets before using its labels for extraction or search.</p><h2>Define the unit of syntax</h2><p>A dependency record names a token, its head token and a relation label. One token is the root; every other token has exactly one head in a basic tree. Token IDs belong to a specific sentence and tokenizer version, not a document-wide namespace. Store original character offsets beside them. If sentence segmentation changes, the same integer ID may refer to another word. <a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode tokenization</a> and <a href=\"/natural-language-processing/span-offset-annotation\">span offsets</a> are prerequisites for reproducible parses.</p><h2>Check the graph, not just a label list</h2><p>Reject out-of-range heads, self-links, multiple roots and cycles. Check that every token reaches the root. A parser may still produce a well-formed but linguistically wrong tree, so structural validation is only an intake gate. Keep punctuation and multiword expressions under the chosen annotation convention. An apostrophe, hyphenated product name or code-switched phrase can change token boundaries and every downstream arc.</p><h2>Evaluate useful relations</h2><p>Unlabeled attachment measures the selected head; labeled attachment also requires the relation. Calculate them on an agreed tokenization, excluding or including punctuation according to a documented policy. Break out long sentences, nonstandard spelling, mixed scripts and passive constructions. An aggregate attachment score does not prove that the subject-object relation needed by an extractor is correct. Evaluate the end task too, such as identifying the affected service in an incident note.</p><h2>Control version changes</h2><p>Bundle sentence segmenter, tokenizer, parser weights, relation map and normalization policy. Compare token boundary differences before comparing arcs across versions; otherwise an apparent parsing regression may be a changed segmenter. Keep a reviewed audit set with messages from the target domain. <a href=\"/natural-language-processing/dependency-paths-for-relation-candidates\">Dependency paths</a> uses validated trees to generate relation candidates, and the <a href=\"/natural-language-processing/incident-syntax-extraction-project\">project</a> exercises the full contract.</p><h2>Implementation</h2><pre><code class=\"language-python\">def validate_dependency_tree(heads):\n    token_count = len(heads)\n    roots = [index for index, head in enumerate(heads) if head == -1]\n    if len(roots) != 1:\n        raise ValueError(&quot;basic tree requires one root&quot;)\n    for token_index, head_index in enumerate(heads):\n        if head_index == -1:\n            continue\n        if not 0 &lt;= head_index &lt; token_count or head_index == token_index:\n            raise ValueError(&quot;invalid head index&quot;)\n        visited = {token_index}\n        cursor = head_index\n        while cursor != -1:\n            if cursor in visited:\n                raise ValueError(&quot;dependency cycle&quot;)\n            visited.add(cursor)\n            cursor = heads[cursor]\n    return roots[0]\n\nassert validate_dependency_tree([1, -1, 1, 2]) == 1\n</code></pre><h2>Performance and operating cost</h2><p>This simple validator follows parent pointers from every token and can take O(t²) time with O(t) temporary space for t tokens. A memoized graph walk reduces validation to O(t), useful for long documents; sentence-length inputs rarely make the simple version expensive. Parser inference, annotation and tokenization changes dominate operating cost. Record structural rejection rate separately from linguistic accuracy.</p><h3>Common Mistakes</h3><ul><li>Treating integer token IDs as stable across tokenizer versions.</li><li>Using a tree with a cycle because every token has a head.</li><li>Comparing attachment scores after changing punctuation or segmentation rules.</li><li>Assuming a well-formed graph proves the dependency labels are correct.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/dependency-paths-for-relation-candidates\">Use dependency paths to propose, not assert, entity relations</a></li><li><a href=\"/natural-language-processing/incident-syntax-extraction-project\">Project: extract incident actions from validated syntax</a></li><li><a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode and tokenization: preserve meaning at the text boundary</a></li><li><a href=\"/natural-language-processing/relation-extraction-provenance\">Relation extraction with direction, negation and evidence</a></li><li><a href=\"/natural-language-processing/span-offset-annotation\">Entity spans: align annotations to the original text</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/dependency-paths-for-relation-candidates\">Use dependency paths to propose, not assert, entity relations</a>.</p>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 4740,
+    "status": "published",
+    "published_at": "2026-10-06T12:37:06.200950+00:00",
+    "created_at": "2026-10-06T12:37:06.200950+00:00",
+    "updated_at": "2026-10-06T12:37:06.200950+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "natural-language-processing/dependency-paths-for-relation-candidates",
+          "title": "Use dependency paths to propose, not assert, entity relations"
+        },
+        {
+          "path": "natural-language-processing/incident-syntax-extraction-project",
+          "title": "Project: extract incident actions from validated syntax"
+        },
+        {
+          "path": "natural-language-processing/unicode-tokenization-boundary",
+          "title": "Unicode and tokenization: preserve meaning at the text boundary"
+        },
+        {
+          "path": "natural-language-processing/relation-extraction-provenance",
+          "title": "Relation extraction with direction, negation and evidence"
+        },
+        {
+          "path": "natural-language-processing/span-offset-annotation",
+          "title": "Entity spans: align annotations to the original text"
+        },
+        {
+          "path": "natural-language-processing/dependency-paths-for-relation-candidates",
+          "title": "Use dependency paths to propose, not assert, entity relations"
+        }
+      ]
+    }
+  },
+  {
+    "id": "c955bf75-a3b2-5b8d-95c2-53d4cbb2635a",
+    "type": "article",
+    "path": "natural-language-processing/entity-relation-ledger-project",
+    "title": "Project: build a reviewed entity-relation ledger from incident notes",
+    "summary": "Extract service dependencies from incident notes while preserving mention chains, evidence revisions and a human path for disputed edges.",
+    "body": "<p>Extract service dependencies from incident notes while preserving mention chains, evidence revisions and a human path for disputed edges.</p><h2>The ledger boundary</h2><p>The product team wants to ask which services depended on a queue during an incident. Do not insert model output directly into the authoritative service catalog. Create a ledger of proposed assertions with source document revision, entity mentions, relation direction, effective time and review state. A “not stated” result is valid. Restrict the relation vocabulary to operational questions the reviewer can actually verify.</p><h2>Prepare reviewed documents</h2><p>Capture incident notes before any cleanup that shifts character offsets. Annotate service and queue spans, local mention chains, candidate catalog IDs and relation evidence. Include negated and superseded statements. Group notes from the same incident in one split and reserve later incidents for final audit. Reviewers should settle whether “it” refers to the service or the queue before labeling the edge. Follow <a href=\"/natural-language-processing/coreference-chains-and-mention-identity\">mention identity</a> and <a href=\"/natural-language-processing/relation-extraction-provenance\">relation provenance</a> in that order.</p><h2>Gate the extraction</h2><p>Evaluate every stage, including exact entity spans, chain links, catalog links, candidate pair coverage and end-to-end reviewed edges. Set separate thresholds for false dependencies and missed dependencies; they have different costs. Send ambiguous pronouns, unknown catalog identities and negated assertions to review. Compare a simple rule baseline against the trained model. A gain in classifier F1 does not justify release if candidate generation loses rare cross-sentence edges.</p><h2>Operate revisions</h2><p>A reviewer can approve, reject or supersede an assertion. On a document revision, new proposed edges point to the new source digest; old approved edges remain in history but may be retired from the current graph view. Audit queries must filter state and time. Keep raw incident note permissions attached to evidence snippets. The published ledger exposes structured facts only to users authorized for the underlying documents.</p><h2>Implementation</h2><pre><code class=\"language-python\">def current_approved_edges(assertions, visible_source_revisions):\n    return [assertion for assertion in assertions\n            if assertion[&quot;state&quot;] == &quot;approved&quot;\n            and assertion[&quot;source_revision&quot;] in visible_source_revisions\n            and assertion.get(&quot;superseded_by&quot;) is None]\n\nledger = [\n    {&quot;edge_id&quot;: &quot;edge-47&quot;, &quot;state&quot;: &quot;approved&quot;, &quot;source_revision&quot;: &quot;note-v7&quot;, &quot;superseded_by&quot;: None},\n    {&quot;edge_id&quot;: &quot;edge-48&quot;, &quot;state&quot;: &quot;staged&quot;, &quot;source_revision&quot;: &quot;note-v8&quot;, &quot;superseded_by&quot;: None},\n]\nassert [row[&quot;edge_id&quot;] for row in current_approved_edges(ledger, {&quot;note-v7&quot;})] == [&quot;edge-47&quot;]\n</code></pre><h2>Performance and operating cost</h2><p>The in-memory view scan is O(n) time for n assertions and O(v) output space for v visible current edges. A database should index review state, source revision and supersession for larger ledgers. Extraction candidate generation and human adjudication dominate production cost. Measure review queue age and false approved edges, not only model throughput, before promoting extracted relations into a graph view.</p><h3>Common Mistakes</h3><ul><li>Writing predicted edges directly into the authoritative catalog.</li><li>Dropping old edge history when a note is corrected.</li><li>Showing evidence text to users who lack source access.</li><li>Evaluating only the relation classifier while ignoring coreference and entity linking errors.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/coreference-chains-and-mention-identity\">Coreference chains: track mentions without guessing identity</a></li><li><a href=\"/natural-language-processing/relation-extraction-provenance\">Relation extraction with direction, negation and evidence</a></li><li><a href=\"/natural-language-processing/support-entity-extraction-project\">Project: ship an auditable support-entity extractor</a></li><li><a href=\"/knowledge-graphs/knowledge-graphs-tutorial\">Knowledge Graphs Tutorial</a></li><li><a href=\"/natural-language-processing/text-serving-contract\">Text inference: package tokenizer, labels and reject paths</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/incident-syntax-extraction-project\">Project: extract incident actions from validated syntax</a>.</p>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 4722,
+    "status": "published",
+    "published_at": "2026-10-06T12:23:36.712218+00:00",
+    "created_at": "2026-10-06T12:23:36.712218+00:00",
+    "updated_at": "2026-10-06T12:36:40.281010+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "natural-language-processing/coreference-chains-and-mention-identity",
+          "title": "Coreference chains: track mentions without guessing identity"
+        },
+        {
+          "path": "natural-language-processing/relation-extraction-provenance",
+          "title": "Relation extraction with direction, negation and evidence"
+        },
+        {
+          "path": "natural-language-processing/support-entity-extraction-project",
+          "title": "Project: ship an auditable support-entity extractor"
+        },
+        {
+          "path": "knowledge-graphs/knowledge-graphs-tutorial",
+          "title": "Knowledge Graphs Tutorial"
+        },
+        {
+          "path": "natural-language-processing/text-serving-contract",
+          "title": "Text inference: package tokenizer, labels and reject paths"
+        },
+        {
+          "path": "natural-language-processing/incident-syntax-extraction-project",
+          "title": "Project: extract incident actions from validated syntax"
+        }
+      ]
+    }
+  },
+  {
+    "id": "d6b47f22-b0e5-556c-9c7d-149c4cc72726",
+    "type": "article",
+    "path": "natural-language-processing/incident-syntax-extraction-project",
+    "title": "Project: extract incident actions from validated syntax",
+    "summary": "Build an action extractor that checks parse structure, keeps negation and source evidence, and stages disputed service relations for review.",
+    "body": "<p>Build an action extractor that checks parse structure, keeps negation and source evidence, and stages disputed service relations for review.</p><h2>Set the output contract</h2><p>The incident team needs subject, action, object and observed status from notes such as a service restarting a queue. Define the difference between planned, attempted, completed and negated actions. Store character spans and source revision for all arguments. The output is a proposed action record, not an authoritative change log. Ambiguous pronouns and unknown service IDs go to review.</p><h2>Prepare domain examples</h2><p>Capture original incident notes with timestamps and speaker identity. Annotate entity spans, action cues, negation scope and reviewed service IDs. Include passive sentences, quoted commands, failed attempts, duplicated updates and later corrections. Group by incident and reserve recent incidents for audit. Validate parse heads and original offsets using <a href=\"/natural-language-processing/dependency-tree-contract-and-token-alignment\">the tree contract</a> before feature extraction.</p><h2>Compare paths with a baseline</h2><p>Use local lexical and entity-type rules as a first candidate generator. Add syntactic paths only if <a href=\"/natural-language-processing/dependency-paths-for-relation-candidates\">the dependency route</a> improves candidate recall or reduces false staged edges. Measure candidate recall, end-to-end exact action F1, false completed-action rate and review workload. Do not evaluate a relation classifier solely on gold entity pairs. Review examples where parsing fails but the lexical baseline succeeds.</p><h2>Stage and revoke</h2><p>Keep each proposed action with parser, tokenizer, entity model and rule versions. A reviewer approves, rejects or marks it superseded after a later note. Restrict evidence access to users who can read the incident. When the source changes, revalidate offsets and retire affected actions; never quietly update a previous approved record. <a href=\"/natural-language-processing/entity-relation-ledger-project\">The ledger project</a> provides the state model for that handoff.</p><h2>Implementation</h2><pre><code class=\"language-python\">def stage_incident_action(subject, verb, object_id, source_revision, status):\n    allowed_statuses = {&quot;planned&quot;, &quot;attempted&quot;, &quot;completed&quot;, &quot;negated&quot;}\n    if status not in allowed_statuses or not all((subject, verb, object_id, source_revision)):\n        raise ValueError(&quot;invalid incident action&quot;)\n    return {&quot;subject&quot;: subject, &quot;verb&quot;: verb, &quot;object&quot;: object_id,\n            &quot;source_revision&quot;: source_revision, &quot;observed_status&quot;: status,\n            &quot;review_state&quot;: &quot;staged&quot;}\n\naction = stage_incident_action(&quot;service-k&quot;, &quot;restart&quot;, &quot;queue-m&quot;, &quot;note-47-v3&quot;, &quot;attempted&quot;)\nassert action[&quot;observed_status&quot;] != &quot;completed&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The record gate is O(1) time and output space. Parsing every incident sentence and evaluating candidate pairs dominate compute; adjudication dominates human cost. Monitor p95 per-document latency, malformed parse rate, candidate recall and false completed actions together. A faster parser is not an improvement if it converts attempted or negated actions into approved completions.</p><h3>Common Mistakes</h3><ul><li>Equating “attempted to restart” with a completed restart.</li><li>Omitting source revision from a staged action.</li><li>Assuming all dependency parse outputs are structurally valid.</li><li>Letting an approved action remain current after its source was corrected.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/dependency-tree-contract-and-token-alignment\">Dependency trees: token identity, heads and structural checks</a></li><li><a href=\"/natural-language-processing/dependency-paths-for-relation-candidates\">Use dependency paths to propose, not assert, entity relations</a></li><li><a href=\"/natural-language-processing/entity-relation-ledger-project\">Project: build a reviewed entity-relation ledger from incident notes</a></li><li><a href=\"/natural-language-processing/coreference-chains-and-mention-identity\">Coreference chains: track mentions without guessing identity</a></li><li><a href=\"/natural-language-processing/relation-extraction-provenance\">Relation extraction with direction, negation and evidence</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 4742,
+    "status": "published",
+    "published_at": "2026-10-06T12:37:06.200950+00:00",
+    "created_at": "2026-10-06T12:37:06.200950+00:00",
+    "updated_at": "2026-10-06T12:37:06.200950+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "natural-language-processing/dependency-tree-contract-and-token-alignment",
+          "title": "Dependency trees: token identity, heads and structural checks"
+        },
+        {
+          "path": "natural-language-processing/dependency-paths-for-relation-candidates",
+          "title": "Use dependency paths to propose, not assert, entity relations"
+        },
+        {
+          "path": "natural-language-processing/entity-relation-ledger-project",
+          "title": "Project: build a reviewed entity-relation ledger from incident notes"
+        },
+        {
+          "path": "natural-language-processing/coreference-chains-and-mention-identity",
+          "title": "Coreference chains: track mentions without guessing identity"
+        },
+        {
+          "path": "natural-language-processing/relation-extraction-provenance",
+          "title": "Relation extraction with direction, negation and evidence"
+        }
+      ]
+    }
+  },
+  {
+    "id": "1f088f55-5e3d-5303-9e1a-c10ee78e4a36",
+    "type": "article",
+    "path": "natural-language-processing/localized-support-reply-project",
+    "title": "Project: release reviewed localized support replies",
+    "summary": "Translate a support reply only after placeholders, amounts, terminology, meaning and locale-specific review have passed explicit gates.",
+    "body": "<p>Translate a support reply only after placeholders, amounts, terminology, meaning and locale-specific review have passed explicit gates.</p><h2>Define the customer-visible contract</h2><p>The support agent drafts a reply about a pending refund. The translation must preserve pending status, amount, date, order reference and template placeholders. The agent remains accountable for sending it. Store source revision, target locale, translation bundle and reviewer decision. Unsupported locales return a manual translation request, not a nearest-language guess.</p><h2>Build the test set</h2><p>Collect reviewed source replies with repeated placeholders, mixed scripts, product names, negative statements and ambiguous pronouns. Preserve grouping by case and split by time. For each locale, ask bilingual reviewers to mark adequacy, terminology, harmful meaning changes and whether a customer could act incorrectly. Include messages where the source itself needs clarification. <a href=\"/natural-language-processing/translation-placeholder-and-terminology-contract\">The field contract</a> defines deterministic checks.</p><h2>Choose the release path</h2><p>Compare the current and candidate translation bundles on the same audit set. Run protected-field checks on every output and bilingual review on sampled high-risk messages. Block release for missing placeholders, reversed refund status or unsupported locale claims. Use <a href=\"/natural-language-processing/translation-evaluation-and-locale-slices\">locale-slice evaluation</a> to keep a strong majority language from hiding a weak minority locale. Keep the old bundle available for rollback.</p><h2>Operate human signoff</h2><p>Return a draft and validation report to the agent. A reviewer can edit or reject it; store corrections under access control and include their reason in the next evaluation cycle. Never send the raw machine output automatically merely because it passed a token check. Monitor correction rate, customer misunderstandings, p95 latency and protected-field failures. Retain only the text and review data needed under the support retention policy.</p><h2>Implementation</h2><pre><code class=\"language-python\">def prepare_localized_reply(source, translated, locale, supported_locales, approved):\n    if locale not in supported_locales:\n        return {&quot;state&quot;: &quot;manual-translation&quot;, &quot;reason&quot;: &quot;unsupported-locale&quot;}\n    import re\n    from collections import Counter\n    marker = re.compile(r&quot;\\{[a-z][a-z0-9_]*\\}&quot;)\n    if Counter(marker.findall(source)) != Counter(marker.findall(translated)):\n        return {&quot;state&quot;: &quot;blocked&quot;, &quot;reason&quot;: &quot;placeholder-mismatch&quot;}\n    if not approved:\n        return {&quot;state&quot;: &quot;needs-agent-signoff&quot;, &quot;text&quot;: translated}\n    return {&quot;state&quot;: &quot;approved-draft&quot;, &quot;text&quot;: translated}\n\nreply = prepare_localized_reply(&quot;Refund {amount} is pending.&quot;,\n                                &quot;Refund {amount} is pending.&quot;, &quot;hi-IN&quot;, {&quot;hi-IN&quot;}, False)\nassert reply[&quot;state&quot;] == &quot;needs-agent-signoff&quot;\n</code></pre><h2>Performance and operating cost</h2><p>The local marker comparison is O(n + m) time for source and target lengths and O(p) space for distinct placeholders. Translation inference, bilingual review and agent editing dominate total cost. Batch drafts only where privacy and latency allow it; never batch away signoff for high-impact replies. Track both automatic validation failures and meaning corrections so a low marker-error rate cannot mask poor translations.</p><h3>Common Mistakes</h3><ul><li>Sending an approved draft without the agent’s final action.</li><li>Falling back to a related locale without reviewed evidence.</li><li>Ignoring a changed amount because placeholders still match.</li><li>Training on agent corrections before checking their source revision and consent policy.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/translation-placeholder-and-terminology-contract\">Translation contracts for placeholders, numbers and terminology</a></li><li><a href=\"/natural-language-processing/translation-evaluation-and-locale-slices\">Evaluate translation by adequacy, terminology and locale slices</a></li><li><a href=\"/natural-language-processing/multilingual-ticket-routing-project\">Project: route multilingual tickets with measured abstention</a></li><li><a href=\"/natural-language-processing/privacy-safe-ticket-pipeline-project\">Project: enforce a privacy-safe support-text pipeline</a></li><li><a href=\"/natural-language-processing/text-serving-contract\">Text inference: package tokenizer, labels and reject paths</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 4745,
+    "status": "published",
+    "published_at": "2026-10-06T12:37:06.200950+00:00",
+    "created_at": "2026-10-06T12:37:06.200950+00:00",
+    "updated_at": "2026-10-06T12:37:06.200950+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "natural-language-processing/translation-placeholder-and-terminology-contract",
+          "title": "Translation contracts for placeholders, numbers and terminology"
+        },
+        {
+          "path": "natural-language-processing/translation-evaluation-and-locale-slices",
+          "title": "Evaluate translation by adequacy, terminology and locale slices"
+        },
+        {
+          "path": "natural-language-processing/multilingual-ticket-routing-project",
+          "title": "Project: route multilingual tickets with measured abstention"
+        },
+        {
+          "path": "natural-language-processing/privacy-safe-ticket-pipeline-project",
+          "title": "Project: enforce a privacy-safe support-text pipeline"
+        },
+        {
+          "path": "natural-language-processing/text-serving-contract",
+          "title": "Text inference: package tokenizer, labels and reject paths"
+        }
+      ]
+    }
+  },
+  {
+    "id": "c59fcd69-131b-5e0d-92e1-a40ca2bc568f",
+    "type": "article",
+    "path": "natural-language-processing/multilingual-calibration-and-fallback",
+    "title": "Calibrate multilingual text decisions and fallback routes",
+    "summary": "A shared classifier score is not equally trustworthy across languages. Evaluate each reviewed slice and send uncertain messages to a defined fallback.",
+    "body": "<p>A shared classifier score is not equally trustworthy across languages. Evaluate each reviewed slice and send uncertain messages to a defined fallback.</p><h2>One threshold rarely serves every slice</h2><p>A ticket router may assign the right queue to 91% of reviewed English tickets but only 62% of Romanized Hindi tickets. An aggregate score can conceal this gap if most traffic is English. Store reviewed language and script-mix slices separately from model guesses. Compare confidence against correctness within each slice, with support counts and uncertainty. Do not tune thresholds against the final test set. <a href=\"/natural-language-processing/classification-slices-and-abstention\">Classification slices</a> gives the base measurement pattern.</p><h2>Calibrate against held-out decisions</h2><p>Fit a calibration map or thresholds on a validation set that is separate from training and final audit data. Group messages by conversation and time before splitting; otherwise repeated phrasing gives optimistic probabilities. Estimate coverage, selective accuracy, wrong-queue cost and human-review volume for each candidate threshold. A threshold is part of the deployed decision rule, so a threshold change requires review even when weights remain the same. <a href=\"/natural-language-processing/grouped-temporal-text-validation\">Grouped temporal validation</a> defines the separation.</p><h2>Choose the safe branch</h2><p>A route can be automatic only when the score and slice policy permit it. Otherwise send to a specialist queue with the original text and a reason code, such as unsupported language mix or low margin between queues. Unknown language is not the same as low confidence; a message can be confidently misclassified when the model has never seen its dialect. Add an out-of-distribution review sample and monitor correction rates after release. The intake hints in <a href=\"/natural-language-processing/script-profile-and-code-switching-boundary\">script profiling</a> may select a review workflow, but they must not masquerade as a validated language detector.</p><h2>Monitor the moving distribution</h2><p>Track traffic counts, automatic coverage, error on reviewed samples and backlog by language and script slice. A sudden rise in mixed-script tickets may reflect a campaign, a product launch or a changed input channel. Sample some high-confidence auto-routes for review; otherwise you only observe labels for abstained tickets and underestimate errors. Freeze the label taxonomy and model bundle in <a href=\"/natural-language-processing/text-serving-contract\">the serving contract</a>.</p><h2>Implementation</h2><pre><code class=\"language-python\">def route_with_abstention(scores, thresholds, reviewed_slice):\n    if not scores:\n        return &quot;manual-review&quot;, &quot;no-scores&quot;\n    selected_queue = max(scores, key=scores.get)\n    threshold = thresholds.get(reviewed_slice)\n    if threshold is None:\n        return &quot;manual-review&quot;, &quot;unsupported-slice&quot;\n    if scores[selected_queue] &lt; threshold:\n        return &quot;manual-review&quot;, &quot;below-threshold&quot;\n    return selected_queue, &quot;automatic&quot;\n\nqueue_scores = {&quot;returns&quot;: 0.78, &quot;billing&quot;: 0.13, &quot;delivery&quot;: 0.09}\nassert route_with_abstention(queue_scores, {&quot;mixed-reviewed&quot;: 0.82}, &quot;mixed-reviewed&quot;) == (\n    &quot;manual-review&quot;, &quot;below-threshold&quot;\n)\n</code></pre><h2>Performance and operating cost</h2><p>Selecting the highest score is O(k) time for k queues and O(1) extra space. Calibration is an offline fit; serving a threshold lookup is constant time. The expensive part is review capacity: expected manual cases equal arrival volume multiplied by abstention rate. Report that forecast by slice, then compare it with the observed queue. Avoid very fine slice thresholds when support is too small; use a broader fallback until more reviewed examples exist.</p><h3>Common Mistakes</h3><ul><li>Treating raw softmax output as calibrated probability.</li><li>Optimizing every threshold on the final audit holdout.</li><li>Assuming a high score proves the message is in a supported language.</li><li>Measuring accuracy only on automatically accepted tickets.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/classification-slices-and-abstention\">Text classification evaluation: inspect slices and allow abstention</a></li><li><a href=\"/natural-language-processing/script-profile-and-code-switching-boundary\">Script profiles and code-switching boundaries in text intake</a></li><li><a href=\"/natural-language-processing/multilingual-ticket-routing-project\">Project: route multilingual tickets with measured abstention</a></li><li><a href=\"/natural-language-processing/grouped-temporal-text-validation\">Text validation: split conversations, duplicates and time together</a></li><li><a href=\"/natural-language-processing/text-serving-contract\">Text inference: package tokenizer, labels and reject paths</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/multilingual-ticket-routing-project\">Project: route multilingual tickets with measured abstention</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/product-feedback-aspect-project\">Project: turn mixed product feedback into reviewed aspect signals</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/translation-evaluation-and-locale-slices\">Evaluate translation by adequacy, terminology and locale slices</a>.</p>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 4704,
+    "status": "published",
+    "published_at": "2026-10-06T12:12:39.811500+00:00",
+    "created_at": "2026-10-06T12:12:39.811500+00:00",
+    "updated_at": "2026-10-06T12:36:40.281010+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "natural-language-processing/classification-slices-and-abstention",
+          "title": "Text classification evaluation: inspect slices and allow abstention"
+        },
+        {
+          "path": "natural-language-processing/script-profile-and-code-switching-boundary",
+          "title": "Script profiles and code-switching boundaries in text intake"
+        },
+        {
+          "path": "natural-language-processing/multilingual-ticket-routing-project",
+          "title": "Project: route multilingual tickets with measured abstention"
+        },
+        {
+          "path": "natural-language-processing/grouped-temporal-text-validation",
+          "title": "Text validation: split conversations, duplicates and time together"
+        },
+        {
+          "path": "natural-language-processing/text-serving-contract",
+          "title": "Text inference: package tokenizer, labels and reject paths"
+        },
+        {
+          "path": "natural-language-processing/multilingual-ticket-routing-project",
+          "title": "Project: route multilingual tickets with measured abstention"
+        },
+        {
+          "path": "natural-language-processing/product-feedback-aspect-project",
+          "title": "Project: turn mixed product feedback into reviewed aspect signals"
+        },
+        {
+          "path": "natural-language-processing/translation-evaluation-and-locale-slices",
+          "title": "Evaluate translation by adequacy, terminology and locale slices"
+        }
+      ]
+    }
+  },
+  {
+    "id": "03a9ac36-6aeb-5593-8260-e97d0c43178a",
+    "type": "subject",
+    "path": "natural-language-processing/nlp-tutorial",
+    "title": "Natural Language Processing Tutorial",
+    "summary": "Build text classifiers and extraction systems with explicit corpus, annotation, split, evaluation and serving contracts.",
+    "body": "<p>Build text classifiers and extraction systems with explicit corpus, annotation, split, evaluation and serving contracts.</p><h2>Learning path</h2><ul><li><a href=\"/natural-language-processing/corpus-identity-and-label-policy\">Text corpus contracts: identity, label timing and annotation rules</a></li><li><a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode and tokenization: preserve meaning at the text boundary</a></li><li><a href=\"/natural-language-processing/span-offset-annotation\">Entity spans: align annotations to the original text</a></li><li><a href=\"/natural-language-processing/sparse-text-baseline\">Sparse text baselines: fit vocabulary inside the training boundary</a></li><li><a href=\"/natural-language-processing/grouped-temporal-text-validation\">Text validation: split conversations, duplicates and time together</a></li><li><a href=\"/natural-language-processing/classification-slices-and-abstention\">Text classification evaluation: inspect slices and allow abstention</a></li><li><a href=\"/natural-language-processing/text-serving-contract\">Text inference: package tokenizer, labels and reject paths</a></li><li><a href=\"/natural-language-processing/ticket-routing-project\">Project: route support tickets with auditable text evaluation</a></li></ul><h2>Connected foundations</h2><p>Use the earlier data and model boundaries as prerequisites.</p><ul><li><a href=\"/machine-learning/machine-learning-tutorial\">Machine Learning Tutorial</a></li><li><a href=\"/deep-learning/deep-learning-tutorial\">Deep Learning Tutorial</a></li></ul><h2>Practice</h2><ul><li><a href=\"/natural-language-processing/nlp-tutorial/project\">Natural Language Processing: Projects</a></li></ul><p><strong>Continue into another subject:</strong> <a href=\"/multimodal-ai/multimodal-ai-tutorial\">Multimodal AI Tutorial</a>.</p><h2>Entity extraction and sequence labels</h2><ul><li><a href=\"/natural-language-processing/bio-labels-and-subword-alignment\">BIO labels and subword alignment for entity extraction</a></li><li><a href=\"/natural-language-processing/entity-decoding-and-span-evaluation\">Decode entities and evaluate exact spans, not token accuracy</a></li></ul><h2>Entity extraction and sequence labels project</h2><ul><li><a href=\"/natural-language-processing/support-entity-extraction-project\">Project: ship an auditable support-entity extractor</a></li></ul><h2>Multilingual text operations</h2><ul><li><a href=\"/natural-language-processing/script-profile-and-code-switching-boundary\">Script profiles and code-switching boundaries in text intake</a></li><li><a href=\"/natural-language-processing/multilingual-calibration-and-fallback\">Calibrate multilingual text decisions and fallback routes</a></li></ul><h2>Multilingual text operations project</h2><ul><li><a href=\"/natural-language-processing/multilingual-ticket-routing-project\">Project: route multilingual tickets with measured abstention</a></li></ul><h2>Semantic retrieval for text collections</h2><ul><li><a href=\"/natural-language-processing/text-embedding-pair-and-version-contract\">Text embeddings: pair labels, hard negatives and versioned vectors</a></li><li><a href=\"/natural-language-processing/hybrid-ranking-and-access-filters\">Hybrid text ranking with access filters and reranking</a></li></ul><h2>Semantic retrieval for text collections project</h2><ul><li><a href=\"/natural-language-processing/incident-runbook-search-project\">Project: release an incident-runbook search service</a></li></ul><h2>Source-grounded summarization</h2><ul><li><a href=\"/natural-language-processing/document-summary-evidence-contract\">Document summaries with sentence-level evidence contracts</a></li><li><a href=\"/natural-language-processing/summary-claim-verification-and-review\">Verify summary claims, corrections and human-review triggers</a></li></ul><h2>Source-grounded summarization project</h2><ul><li><a href=\"/natural-language-processing/incident-handoff-summary-project\">Project: publish evidence-backed incident handoff summaries</a></li></ul><h2>Discourse and relation extraction</h2><ul><li><a href=\"/natural-language-processing/coreference-chains-and-mention-identity\">Coreference chains: track mentions without guessing identity</a></li><li><a href=\"/natural-language-processing/relation-extraction-provenance\">Relation extraction with direction, negation and evidence</a></li></ul><h2>Discourse and relation extraction project</h2><ul><li><a href=\"/natural-language-processing/entity-relation-ledger-project\">Project: build a reviewed entity-relation ledger from incident notes</a></li></ul><h2>Privacy-aware text processing</h2><ul><li><a href=\"/natural-language-processing/pii-detection-and-redaction-boundary\">PII detection and redaction on original text offsets</a></li><li><a href=\"/natural-language-processing/redaction-audit-and-retention\">Audit redacted text flows, retention and re-identification risk</a></li></ul><h2>Privacy-aware text processing project</h2><ul><li><a href=\"/natural-language-processing/privacy-safe-ticket-pipeline-project\">Project: enforce a privacy-safe support-text pipeline</a></li></ul><h2>Aspect-level sentiment decisions</h2><ul><li><a href=\"/natural-language-processing/aspect-sentiment-target-and-negation-policy\">Aspect sentiment: bind opinions to targets and negation</a></li><li><a href=\"/natural-language-processing/aspect-sentiment-calibration-and-slices\">Aspect sentiment calibration across product and language slices</a></li></ul><h2>Aspect-level sentiment decisions project</h2><ul><li><a href=\"/natural-language-processing/product-feedback-aspect-project\">Project: turn mixed product feedback into reviewed aspect signals</a></li></ul><h2>Topic discovery and drift</h2><ul><li><a href=\"/natural-language-processing/topic-discovery-corpus-and-model-selection\">Topic discovery: corpus boundaries, model choice and human labels</a></li><li><a href=\"/natural-language-processing/topic-alignment-and-drift-review\">Topic drift: align changing clusters before reporting trends</a></li></ul><h2>Topic discovery and drift project</h2><ul><li><a href=\"/natural-language-processing/support-theme-monitoring-project\">Project: publish a reviewed support-theme monitor</a></li></ul><h2>Syntax and dependency structure</h2><ul><li><a href=\"/natural-language-processing/dependency-tree-contract-and-token-alignment\">Dependency trees: token identity, heads and structural checks</a></li><li><a href=\"/natural-language-processing/dependency-paths-for-relation-candidates\">Use dependency paths to propose, not assert, entity relations</a></li></ul><h2>Syntax and dependency structure project</h2><ul><li><a href=\"/natural-language-processing/incident-syntax-extraction-project\">Project: extract incident actions from validated syntax</a></li></ul><h2>Translation quality and localization</h2><ul><li><a href=\"/natural-language-processing/translation-placeholder-and-terminology-contract\">Translation contracts for placeholders, numbers and terminology</a></li><li><a href=\"/natural-language-processing/translation-evaluation-and-locale-slices\">Evaluate translation by adequacy, terminology and locale slices</a></li></ul><h2>Translation quality and localization project</h2><ul><li><a href=\"/natural-language-processing/localized-support-reply-project\">Project: release reviewed localized support replies</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7900,
+    "status": "published",
+    "published_at": "2026-10-04T20:58:23.502482+00:00",
+    "created_at": "2026-10-04T20:58:23.502482+00:00",
+    "updated_at": "2026-10-06T12:37:06.200950+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Corpus and representation",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "natural-language-processing/corpus-identity-and-label-policy",
+            "natural-language-processing/unicode-tokenization-boundary",
+            "natural-language-processing/span-offset-annotation",
+            "natural-language-processing/sparse-text-baseline"
+          ]
+        },
+        {
+          "title": "Evaluation and serving",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "natural-language-processing/grouped-temporal-text-validation",
+            "natural-language-processing/classification-slices-and-abstention",
+            "natural-language-processing/text-serving-contract"
+          ]
+        },
+        {
+          "title": "Entity extraction and sequence labels",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "natural-language-processing/bio-labels-and-subword-alignment",
+            "natural-language-processing/entity-decoding-and-span-evaluation"
+          ]
+        },
+        {
+          "title": "Multilingual text operations",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "natural-language-processing/script-profile-and-code-switching-boundary",
+            "natural-language-processing/multilingual-calibration-and-fallback"
+          ]
+        },
+        {
+          "title": "Semantic retrieval for text collections",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "natural-language-processing/text-embedding-pair-and-version-contract",
+            "natural-language-processing/hybrid-ranking-and-access-filters"
+          ]
+        },
+        {
+          "title": "Source-grounded summarization",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "natural-language-processing/document-summary-evidence-contract",
+            "natural-language-processing/summary-claim-verification-and-review"
+          ]
+        },
+        {
+          "title": "Discourse and relation extraction",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "natural-language-processing/coreference-chains-and-mention-identity",
+            "natural-language-processing/relation-extraction-provenance"
+          ]
+        },
+        {
+          "title": "Privacy-aware text processing",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "natural-language-processing/pii-detection-and-redaction-boundary",
+            "natural-language-processing/redaction-audit-and-retention"
+          ]
+        },
+        {
+          "title": "Aspect-level sentiment decisions",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "natural-language-processing/aspect-sentiment-target-and-negation-policy",
+            "natural-language-processing/aspect-sentiment-calibration-and-slices"
+          ]
+        },
+        {
+          "title": "Topic discovery and drift",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "natural-language-processing/topic-discovery-corpus-and-model-selection",
+            "natural-language-processing/topic-alignment-and-drift-review"
+          ]
+        },
+        {
+          "title": "Syntax and dependency structure",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "natural-language-processing/dependency-tree-contract-and-token-alignment",
+            "natural-language-processing/dependency-paths-for-relation-candidates"
+          ]
+        },
+        {
+          "title": "Translation quality and localization",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "natural-language-processing/translation-placeholder-and-terminology-contract",
+            "natural-language-processing/translation-evaluation-and-locale-slices"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "natural-language-processing/ticket-routing-project",
+            "natural-language-processing/support-entity-extraction-project",
+            "natural-language-processing/multilingual-ticket-routing-project",
+            "natural-language-processing/incident-runbook-search-project",
+            "natural-language-processing/incident-handoff-summary-project",
+            "natural-language-processing/entity-relation-ledger-project",
+            "natural-language-processing/privacy-safe-ticket-pipeline-project",
+            "natural-language-processing/product-feedback-aspect-project",
+            "natural-language-processing/support-theme-monitoring-project",
+            "natural-language-processing/incident-syntax-extraction-project",
+            "natural-language-processing/localized-support-reply-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Natural Language Processing",
+          "path": "natural-language-processing/nlp-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "natural-language-processing/nlp-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "d8f2f83a-c297-5438-b054-6b0f6e5a739d",
+    "type": "subject",
+    "path": "natural-language-processing/nlp-tutorial/project",
+    "title": "Natural Language Processing: Projects",
+    "summary": "A checked project for the Natural Language Processing curriculum.",
+    "body": "<p>Apply the Natural Language Processing curriculum to a checked project.</p><h2>Project brief</h2><ul><li><a href=\"/natural-language-processing/ticket-routing-project\">Project: route support tickets with auditable text evaluation</a></li></ul><h2>Required concepts</h2><ul><li><a href=\"/natural-language-processing/corpus-identity-and-label-policy\">Text corpus contracts: identity, label timing and annotation rules</a></li><li><a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode and tokenization: preserve meaning at the text boundary</a></li><li><a href=\"/natural-language-processing/span-offset-annotation\">Entity spans: align annotations to the original text</a></li><li><a href=\"/natural-language-processing/sparse-text-baseline\">Sparse text baselines: fit vocabulary inside the training boundary</a></li><li><a href=\"/natural-language-processing/grouped-temporal-text-validation\">Text validation: split conversations, duplicates and time together</a></li><li><a href=\"/natural-language-processing/classification-slices-and-abstention\">Text classification evaluation: inspect slices and allow abstention</a></li><li><a href=\"/natural-language-processing/text-serving-contract\">Text inference: package tokenizer, labels and reject paths</a></li></ul><h2>Completion standard</h2><p>Submit runnable work, a data or run manifest, measured results and failure-case evidence.</p><h2>Entity extraction and sequence labels</h2><ul><li><a href=\"/natural-language-processing/support-entity-extraction-project\">Project: ship an auditable support-entity extractor</a></li></ul><h2>Multilingual text operations</h2><ul><li><a href=\"/natural-language-processing/multilingual-ticket-routing-project\">Project: route multilingual tickets with measured abstention</a></li></ul><h2>Semantic retrieval for text collections</h2><ul><li><a href=\"/natural-language-processing/incident-runbook-search-project\">Project: release an incident-runbook search service</a></li></ul><h2>Source-grounded summarization</h2><ul><li><a href=\"/natural-language-processing/incident-handoff-summary-project\">Project: publish evidence-backed incident handoff summaries</a></li></ul><h2>Discourse and relation extraction</h2><ul><li><a href=\"/natural-language-processing/entity-relation-ledger-project\">Project: build a reviewed entity-relation ledger from incident notes</a></li></ul><h2>Privacy-aware text processing</h2><ul><li><a href=\"/natural-language-processing/privacy-safe-ticket-pipeline-project\">Project: enforce a privacy-safe support-text pipeline</a></li></ul><h2>Aspect-level sentiment decisions</h2><ul><li><a href=\"/natural-language-processing/product-feedback-aspect-project\">Project: turn mixed product feedback into reviewed aspect signals</a></li></ul><h2>Topic discovery and drift</h2><ul><li><a href=\"/natural-language-processing/support-theme-monitoring-project\">Project: publish a reviewed support-theme monitor</a></li></ul><h2>Syntax and dependency structure</h2><ul><li><a href=\"/natural-language-processing/incident-syntax-extraction-project\">Project: extract incident actions from validated syntax</a></li></ul><h2>Translation quality and localization</h2><ul><li><a href=\"/natural-language-processing/localized-support-reply-project\">Project: release reviewed localized support replies</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "natural-language-processing-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7901,
+    "status": "published",
+    "published_at": "2026-10-04T20:58:23.502482+00:00",
+    "created_at": "2026-10-04T20:58:23.502482+00:00",
+    "updated_at": "2026-10-06T12:37:06.200950+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Projects",
+          "lessons": [
+            "natural-language-processing/ticket-routing-project",
+            "natural-language-processing/support-entity-extraction-project",
+            "natural-language-processing/multilingual-ticket-routing-project",
+            "natural-language-processing/incident-runbook-search-project",
+            "natural-language-processing/incident-handoff-summary-project",
+            "natural-language-processing/entity-relation-ledger-project",
+            "natural-language-processing/privacy-safe-ticket-pipeline-project",
+            "natural-language-processing/product-feedback-aspect-project",
+            "natural-language-processing/support-theme-monitoring-project",
+            "natural-language-processing/incident-syntax-extraction-project",
+            "natural-language-processing/localized-support-reply-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Natural Language Processing",
+          "path": "natural-language-processing/nlp-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "natural-language-processing/nlp-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "755fb7c3-fa52-59fc-ad9f-b24b38fdc4bd",
+    "type": "article",
+    "path": "natural-language-processing/relation-extraction-provenance",
+    "title": "Relation extraction with direction, negation and evidence",
+    "summary": "Two entities appearing in one sentence do not prove a relationship. Store direction, time, negation and the supporting span with each extracted edge.",
+    "body": "<p>Two entities appearing in one sentence do not prove a relationship. Store direction, time, negation and the supporting span with each extracted edge.</p><h2>Define a typed relation contract</h2><p>An incident note might state “Service Delta depends on Queue K” or “Queue K no longer feeds Service Delta.” The entity pair alone is insufficient. Define allowed subject and object types, relation direction, effective time, negation and confidence. A relation is an assertion about a source revision, not a permanent graph fact. Reject arguments outside the allowed type set. <a href=\"/natural-language-processing/entity-decoding-and-span-evaluation\">Exact entity spans</a> must be checked before relation scoring.</p><h2>Construct examples without leakage</h2><p>Annotate the minimal evidence span that supports the relation and mark explicit no-relation pairs. Include near misses: co-occurring names, quoted historical architecture, hypothetical changes and negated dependencies. Review entity coreference first when the relation uses “it” or “the processor.” Split by incident, document and time so the same configuration sentence cannot appear in both training and audit. A model that memorizes service pairs will otherwise look accurate without reading the relation words.</p><h2>Evaluate both stages</h2><p>Report entity recall, pair candidate recall, relation precision and end-to-end edge F1. An edge is correct only when subject, predicate, object, direction and evidence revision match the reviewed record. Partial entity overlap is not enough if it changes which system owns an action. Track errors caused by coreference separately from relation classification. The <a href=\"/natural-language-processing/coreference-chains-and-mention-identity\">coreference path</a> defines when a mention can be promoted to a catalog identity.</p><h2>Publish as a reversible assertion</h2><p>Write edges to a staging ledger with source digest and review state. If the source retracts a claim, mark the edge superseded instead of silently deleting audit history. Require human approval for high-impact dependencies or ownership claims. A graph query should distinguish “observed in source,” “reviewed current” and “retired.” The <a href=\"/natural-language-processing/entity-relation-ledger-project\">applied ledger</a> makes those states visible; <a href=\"/knowledge-graphs/knowledge-graphs-tutorial\">knowledge graph foundations</a> cover later graph use.</p><h2>Implementation</h2><pre><code class=\"language-python\">def relation_assertion(subject, predicate, object_id, evidence, allowed_types):\n    subject_id, subject_type = subject\n    target_id, target_type = object_id\n    if (subject_type, predicate, target_type) not in allowed_types:\n        raise ValueError(&quot;relation type or direction is not allowed&quot;)\n    if not evidence[&quot;source_revision&quot;] or not evidence[&quot;quote&quot;].strip():\n        raise ValueError(&quot;source evidence is required&quot;)\n    return {&quot;subject&quot;: subject_id, &quot;predicate&quot;: predicate,\n            &quot;object&quot;: target_id, &quot;evidence&quot;: evidence, &quot;state&quot;: &quot;staged&quot;}\n\nallowed = {(&quot;SERVICE&quot;, &quot;DEPENDS_ON&quot;, &quot;QUEUE&quot;)}\nedge = relation_assertion((&quot;service-delta&quot;, &quot;SERVICE&quot;), &quot;DEPENDS_ON&quot;,\n    (&quot;queue-k&quot;, &quot;QUEUE&quot;), {&quot;source_revision&quot;: &quot;note-v7&quot;, &quot;quote&quot;: &quot;Delta depends on K&quot;}, allowed)\nassert edge[&quot;state&quot;] == &quot;staged&quot;\n</code></pre><h2>Performance and operating cost</h2><p>Contract validation is constant time per proposed edge with a hashed type set, aside from copying evidence text. Generating all entity pairs is O(e²) for e entities in a document; sentence windows and type constraints reduce candidates but can miss cross-sentence relations. Measure candidate recall before celebrating a faster classifier. Store source digests and staged edges to support revocation without losing provenance.</p><h3>Common Mistakes</h3><ul><li>Inferring a relation from co-occurrence alone.</li><li>Dropping negation or swapping subject and object.</li><li>Scoring relation labels only on gold entity pairs.</li><li>Publishing a graph edge without source revision and retirement state.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/coreference-chains-and-mention-identity\">Coreference chains: track mentions without guessing identity</a></li><li><a href=\"/natural-language-processing/entity-relation-ledger-project\">Project: build a reviewed entity-relation ledger from incident notes</a></li><li><a href=\"/natural-language-processing/entity-decoding-and-span-evaluation\">Decode entities and evaluate exact spans, not token accuracy</a></li><li><a href=\"/natural-language-processing/grouped-temporal-text-validation\">Text validation: split conversations, duplicates and time together</a></li><li><a href=\"/knowledge-graphs/knowledge-graphs-tutorial\">Knowledge Graphs Tutorial</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/entity-relation-ledger-project\">Project: build a reviewed entity-relation ledger from incident notes</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/dependency-paths-for-relation-candidates\">Use dependency paths to propose, not assert, entity relations</a>.</p>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 4721,
+    "status": "published",
+    "published_at": "2026-10-06T12:23:36.712218+00:00",
+    "created_at": "2026-10-06T12:23:36.712218+00:00",
+    "updated_at": "2026-10-06T12:36:40.281010+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "natural-language-processing/coreference-chains-and-mention-identity",
+          "title": "Coreference chains: track mentions without guessing identity"
+        },
+        {
+          "path": "natural-language-processing/entity-relation-ledger-project",
+          "title": "Project: build a reviewed entity-relation ledger from incident notes"
+        },
+        {
+          "path": "natural-language-processing/entity-decoding-and-span-evaluation",
+          "title": "Decode entities and evaluate exact spans, not token accuracy"
+        },
+        {
+          "path": "natural-language-processing/grouped-temporal-text-validation",
+          "title": "Text validation: split conversations, duplicates and time together"
+        },
+        {
+          "path": "knowledge-graphs/knowledge-graphs-tutorial",
+          "title": "Knowledge Graphs Tutorial"
+        },
+        {
+          "path": "natural-language-processing/entity-relation-ledger-project",
+          "title": "Project: build a reviewed entity-relation ledger from incident notes"
+        },
+        {
+          "path": "natural-language-processing/dependency-paths-for-relation-candidates",
+          "title": "Use dependency paths to propose, not assert, entity relations"
+        }
+      ]
+    }
+  },
+  {
+    "id": "e9ed7206-4216-5288-93aa-1545cdbd4c43",
+    "type": "article",
+    "path": "natural-language-processing/text-serving-contract",
+    "title": "Text inference: package tokenizer, labels and reject paths",
+    "summary": "A serving endpoint must use the fitted preprocessing artifact, stable class order and bounded request handling from the evaluated model.",
+    "body": "<p>A serving endpoint must use the fitted preprocessing artifact, stable class order and bounded request handling from the evaluated model.</p><h2>Bind the artifacts</h2><p>A model file alone does not define text behavior. Package normalization, tokenizer or vectorizer, class mapping and threshold with the weights. Verify their versions at startup. Rebuilding a vocabulary from incoming tickets changes feature positions and invalidates the classifier. <a href=\"/natural-language-processing/sparse-text-baseline\">Sparse baselines</a>] should serve through the fitted pipeline, not a second preprocessing script.</p><h2>Bound inputs</h2><p>Reject empty, undecodable and oversized messages before allocating large intermediate arrays. Set policy for attachments and unsupported languages. Preserve original ticket ID for idempotent routing requests, but keep customer text out of routine application logs. An inference response should identify model version, predicted queue and whether it abstained.</p><h2>Measure both speed and meaning</h2><p>Load the artifact once per worker, warm it and measure p95 latency with realistic text lengths and concurrency. Track rejection, abstention and queue distributions. A sudden shift may be a product launch, a source parser error or model behavior change; investigate before retraining. <a href=\"/mlops/drift-delayed-label-monitoring\">Monitoring</a>] separates these signals.</p><h2>Test a rollback</h2><p>Run known-good messages through candidate and current models. Confirm class names, preprocessing hash and accepted size range. Keep the previous complete artifact available. A deployment can pass health checks while swapping two class IDs, so include expected route outputs in the smoke set.</p><h2>Implementation</h2><pre><code class=\"language-python\">def route_ticket(request, loaded_pipeline, class_names, model_version):\n    if not request.ticket_id or not isinstance(request.text, str) or not request.text.strip():\n        raise ValueError(&quot;ticket ID and text required&quot;)\n    if len(request.text.encode(&quot;utf-8&quot;)) &gt; 180_000:\n        raise ValueError(&quot;ticket text exceeds byte limit&quot;)\n    predicted_queue = loaded_pipeline.predict([request.text])[0]\n    if predicted_queue not in class_names:\n        raise RuntimeError(&quot;model returned unknown queue&quot;)\n    return {&quot;ticket_id&quot;: request.ticket_id, &quot;queue&quot;: predicted_queue,\n            &quot;model_version&quot;: model_version}</code></pre><h2>Performance and operating cost</h2><p>Sparse inference visits input tokens and nonzero features; latency also includes decoding, queue wait and serialization. A text-length cap bounds worst-case memory and processing time.</p><h3>Common Mistakes</h3><ul><li>Do not rebuild vocabulary at serving time.</li><li>Do not omit class mapping from the deployed artifact.</li><li>Do not log raw customer text by default.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode and tokenization: preserve meaning at the text boundary</a></li><li><a href=\"/natural-language-processing/classification-slices-and-abstention\">Text classification evaluation: inspect slices and allow abstention</a></li><li><a href=\"/mlops/model-registry-promotion-gates\">Model promotion: require evidence before changing the serving pointer</a></li><li><a href=\"/mlops/inference-logging-privacy\">Inference logs: keep diagnostic joins without copying sensitive payloads</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/support-entity-extraction-project\">Project: ship an auditable support-entity extractor</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/hybrid-ranking-and-access-filters\">Hybrid text ranking with access filters and reranking</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/privacy-safe-ticket-pipeline-project\">Project: enforce a privacy-safe support-text pipeline</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/localized-support-reply-project\">Project: release reviewed localized support replies</a>.</p>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8106,
+    "status": "published",
+    "published_at": "2026-10-04T20:58:23.502482+00:00",
+    "created_at": "2026-10-04T20:58:23.502482+00:00",
+    "updated_at": "2026-10-06T12:36:40.281010+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "natural-language-processing/unicode-tokenization-boundary",
+          "title": "Unicode and tokenization: preserve meaning at the text boundary"
+        },
+        {
+          "path": "natural-language-processing/classification-slices-and-abstention",
+          "title": "Text classification evaluation: inspect slices and allow abstention"
+        },
+        {
+          "path": "mlops/model-registry-promotion-gates",
+          "title": "Model promotion: require evidence before changing the serving pointer"
+        },
+        {
+          "path": "mlops/inference-logging-privacy",
+          "title": "Inference logs: keep diagnostic joins without copying sensitive payloads"
+        },
+        {
+          "path": "retrieval-ai/corpus-permissions-and-document-lifecycle",
+          "title": "Retrieval corpus contracts: identity, permissions and document lifecycle"
+        },
+        {
+          "path": "deep-learning/causal-target-shift-and-padding-loss",
+          "title": "Causal target shifts and padding-aware loss"
+        },
+        {
+          "path": "natural-language-processing/support-entity-extraction-project",
+          "title": "Project: ship an auditable support-entity extractor"
+        },
+        {
+          "path": "natural-language-processing/hybrid-ranking-and-access-filters",
+          "title": "Hybrid text ranking with access filters and reranking"
+        },
+        {
+          "path": "natural-language-processing/privacy-safe-ticket-pipeline-project",
+          "title": "Project: enforce a privacy-safe support-text pipeline"
+        },
+        {
+          "path": "natural-language-processing/localized-support-reply-project",
+          "title": "Project: release reviewed localized support replies"
+        }
+      ]
+    }
+  },
+  {
+    "id": "cbfe67ae-fe92-5ab4-a483-2b1fb25ce7bc",
+    "type": "article",
+    "path": "natural-language-processing/translation-evaluation-and-locale-slices",
+    "title": "Evaluate translation by adequacy, terminology and locale slices",
+    "summary": "Reference overlap can screen translation changes, but a release needs human checks for meaning, protected fields and harm in each supported locale.",
+    "body": "<p>Reference overlap can screen translation changes, but a release needs human checks for meaning, protected fields and harm in each supported locale.</p><h2>Freeze comparable inputs</h2><p>Construct a reviewed audit set from actual supported workflows, not only clean benchmark sentences. Keep near-duplicate conversations in one split. Record source, reference translation, locale, domain, protected tokens and reviewer notes. A single source may have several valid translations, so an overlap score can penalize acceptable wording. Use corpus-level automated metrics as a regression signal and retain their tokenization settings with the report. <a href=\"/natural-language-processing/grouped-temporal-text-validation\">The split contract</a> avoids copied ticket leakage.</p><h2>Review meaning and obligation</h2><p>Ask bilingual reviewers whether the target preserves actor, action, tense, negation, amount and uncertainty. Score terminology separately from fluency. A translation that sounds native yet says a refund has arrived when the source says it is pending is operationally wrong. Review source-to-target and target-to-source where helpful, but back-translation alone is not proof because two errors can cancel. <a href=\"/natural-language-processing/translation-placeholder-and-terminology-contract\">Protected-field validation</a> catches deterministic failures first.</p><h2>Report slices honestly</h2><p>Break out short requests, long instructions, mixed scripts, formal and informal registers, product-specific vocabulary and each locale. Small slices should show support counts and uncertainty, not a confident green badge. Track the rate of untranslatable or ambiguous source messages and the number sent for clarification. If a locale lacks reviewed evidence, keep human approval as the default. The <a href=\"/natural-language-processing/script-profile-and-code-switching-boundary\">script profile</a> may describe input, but it is not a locale truth label.</p><h2>Set a release gate</h2><p>Require zero protected-token failures on the audit set, a minimum reviewed adequacy level by supported locale, an acceptable harmful-error count and a documented human fallback. Compare the same inputs across old and new bundles. A model update can improve average overlap while regressing a rare safety instruction. Monitor production correction reasons and human edit time after release. The <a href=\"/natural-language-processing/localized-support-reply-project\">reply project</a> applies the gate.</p><h2>Implementation</h2><pre><code class=\"language-python\">def translation_release_gate(locale_audits):\n    if not locale_audits:\n        raise ValueError(&quot;at least one reviewed locale is required&quot;)\n    for locale, audit in locale_audits.items():\n        if audit[&quot;reviewed_cases&quot;] &lt; 47:\n            return False, f&quot;insufficient-review:{locale}&quot;\n        if audit[&quot;protected_token_failures&quot;] or audit[&quot;harmful_meaning_errors&quot;]:\n            return False, f&quot;critical-error:{locale}&quot;\n        if audit[&quot;adequacy_pass_rate&quot;] &lt; 0.91:\n            return False, f&quot;adequacy:{locale}&quot;\n    return True, &quot;reviewed-locales-pass&quot;\n\naudits = {&quot;hi-IN&quot;: {&quot;reviewed_cases&quot;: 53, &quot;protected_token_failures&quot;: 0,\n                     &quot;harmful_meaning_errors&quot;: 0, &quot;adequacy_pass_rate&quot;: 0.94}}\nassert translation_release_gate(audits)[0]\n</code></pre><h2>Performance and operating cost</h2><p>The gate is O(l) time and O(1) extra space for l locale audits. Human bilingual evaluation is the main cost; sample by risk and traffic, but keep a fixed minimum for every locale you claim to support. Automated metrics are cheap once references exist, yet they can miss semantic reversals. Report reviewer time, rejection reasons and post-release edits with model latency.</p><h3>Common Mistakes</h3><ul><li>Using one aggregate overlap score as proof of translation quality.</li><li>Calling a locale supported with only a handful of reviewed cases.</li><li>Treating protected-token success as evidence that meaning is preserved.</li><li>Changing metric tokenization between model versions.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/translation-placeholder-and-terminology-contract\">Translation contracts for placeholders, numbers and terminology</a></li><li><a href=\"/natural-language-processing/localized-support-reply-project\">Project: release reviewed localized support replies</a></li><li><a href=\"/natural-language-processing/grouped-temporal-text-validation\">Text validation: split conversations, duplicates and time together</a></li><li><a href=\"/natural-language-processing/script-profile-and-code-switching-boundary\">Script profiles and code-switching boundaries in text intake</a></li><li><a href=\"/natural-language-processing/classification-slices-and-abstention\">Text classification evaluation: inspect slices and allow abstention</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 4744,
+    "status": "published",
+    "published_at": "2026-10-06T12:37:06.200950+00:00",
+    "created_at": "2026-10-06T12:37:06.200950+00:00",
+    "updated_at": "2026-10-06T12:37:06.200950+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "natural-language-processing/translation-placeholder-and-terminology-contract",
+          "title": "Translation contracts for placeholders, numbers and terminology"
+        },
+        {
+          "path": "natural-language-processing/localized-support-reply-project",
+          "title": "Project: release reviewed localized support replies"
+        },
+        {
+          "path": "natural-language-processing/grouped-temporal-text-validation",
+          "title": "Text validation: split conversations, duplicates and time together"
+        },
+        {
+          "path": "natural-language-processing/script-profile-and-code-switching-boundary",
+          "title": "Script profiles and code-switching boundaries in text intake"
+        },
+        {
+          "path": "natural-language-processing/classification-slices-and-abstention",
+          "title": "Text classification evaluation: inspect slices and allow abstention"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9adc24c9-b35c-542e-bc9c-d012e0b621ce",
+    "type": "article",
+    "path": "natural-language-processing/translation-placeholder-and-terminology-contract",
+    "title": "Translation contracts for placeholders, numbers and terminology",
+    "summary": "A translation can read naturally while changing an order identifier, amount, safety instruction or variable placeholder. Protect nonlinguistic tokens before evaluating style.",
+    "body": "<p>A translation can read naturally while changing an order identifier, amount, safety instruction or variable placeholder. Protect nonlinguistic tokens before evaluating style.</p><h2>Classify what may change</h2><p>A customer message may contain a currency amount, date, order ID, product name and a template marker such as {ticket_id}. Some values require exact preservation; others need locale-aware formatting. Write a per-field policy. A placeholder should be protected by a typed sentinel whose mapping is stored securely, then restored and validated after translation. Do not assume the model will copy braces or digits faithfully. Keep the source revision, target locale and glossary version in the request manifest.</p><h2>Separate language quality from field integrity</h2><p>A fluent sentence with the wrong amount is a failed translation. Run deterministic checks for protected tokens, expected identifiers, markup and numeric policy before human quality review. A repeated identifier may occur twice; compare multiplicity, not just set membership. Allow grammatical inflection of approved terms where the locale requires it, and review terminology in context. <a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode handling</a> matters when normalization changes visible punctuation or digits.</p><h2>Make ambiguity visible</h2><p>A short source may not specify who acted, whether a refund is completed or what “it” refers to. Translators and models should not invent that context. Retain an uncertainty marker and request clarification for customer-facing high-impact copy. Preserve negation and modality. Review source and target side by side, including protected fields and back-linked evidence. The <a href=\"/natural-language-processing/translation-evaluation-and-locale-slices\">evaluation path</a> covers adequacy and locale slices beyond exact-token checks.</p><h2>Package the serving rule</h2><p>Version model, tokenizer, glossary, locale normalization, sentinel encoding and restore validator as one bundle. A failure to restore all placeholders must stop publication. Include inputs with adjacent placeholders, mixed scripts, repeated order IDs and right-to-left text in the audit set. The <a href=\"/natural-language-processing/localized-support-reply-project\">localized-reply project</a> uses this contract before a message reaches a customer.</p><h2>Implementation</h2><pre><code class=\"language-python\">from collections import Counter\nimport re\n\nPLACEHOLDER = re.compile(r&quot;\\{[a-z][a-z0-9_]*\\}&quot;)\n\ndef validate_placeholders(source_text, translated_text):\n    source = Counter(PLACEHOLDER.findall(source_text))\n    translated = Counter(PLACEHOLDER.findall(translated_text))\n    if source != translated:\n        raise ValueError(&quot;placeholder names or counts changed&quot;)\n    return translated\n\nsource = &quot;Case {ticket_id} is assigned to {agent_name}.&quot;\ntarget = &quot;{agent_name} is assigned case {ticket_id}.&quot;\nassert validate_placeholders(source, target)[&quot;{ticket_id}&quot;] == 1\n</code></pre><h2>Performance and operating cost</h2><p>Scanning source and target is O(n + m) time and O(p) space for p distinct placeholders. Translation inference and bilingual review dominate operating cost. Deterministic validation is cheap and should run on every result, but it cannot prove meaning preservation. A protected token may survive while the sentence reverses negation, so combine field checks with reviewed adequacy samples.</p><h3>Common Mistakes</h3><ul><li>Checking placeholder sets but missing a duplicated or deleted occurrence.</li><li>Assuming all numbers should be copied unchanged across locale formats.</li><li>Accepting fluent text that reverses negation or completion status.</li><li>Changing glossary or sentinel rules without versioning the translation bundle.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/translation-evaluation-and-locale-slices\">Evaluate translation by adequacy, terminology and locale slices</a></li><li><a href=\"/natural-language-processing/localized-support-reply-project\">Project: release reviewed localized support replies</a></li><li><a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode and tokenization: preserve meaning at the text boundary</a></li><li><a href=\"/natural-language-processing/multilingual-calibration-and-fallback\">Calibrate multilingual text decisions and fallback routes</a></li><li><a href=\"/natural-language-processing/text-serving-contract\">Text inference: package tokenizer, labels and reject paths</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/translation-evaluation-and-locale-slices\">Evaluate translation by adequacy, terminology and locale slices</a>.</p>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 4743,
+    "status": "published",
+    "published_at": "2026-10-06T12:37:06.200950+00:00",
+    "created_at": "2026-10-06T12:37:06.200950+00:00",
+    "updated_at": "2026-10-06T12:37:06.200950+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "natural-language-processing/translation-evaluation-and-locale-slices",
+          "title": "Evaluate translation by adequacy, terminology and locale slices"
+        },
+        {
+          "path": "natural-language-processing/localized-support-reply-project",
+          "title": "Project: release reviewed localized support replies"
+        },
+        {
+          "path": "natural-language-processing/unicode-tokenization-boundary",
+          "title": "Unicode and tokenization: preserve meaning at the text boundary"
+        },
+        {
+          "path": "natural-language-processing/multilingual-calibration-and-fallback",
+          "title": "Calibrate multilingual text decisions and fallback routes"
+        },
+        {
+          "path": "natural-language-processing/text-serving-contract",
+          "title": "Text inference: package tokenizer, labels and reject paths"
+        },
+        {
+          "path": "natural-language-processing/translation-evaluation-and-locale-slices",
+          "title": "Evaluate translation by adequacy, terminology and locale slices"
+        }
+      ]
+    }
+  },
+  {
+    "id": "0c66b0a7-0e84-5231-b2ce-dfb855453168",
+    "type": "article",
+    "path": "natural-language-processing/unicode-tokenization-boundary",
+    "title": "Unicode and tokenization: preserve meaning at the text boundary",
+    "summary": "Text preprocessing is a versioned transform that must preserve characters relevant to labels, spans and serving behavior.",
+    "body": "<p>Text preprocessing is a versioned transform that must preserve characters relevant to labels, spans and serving behavior.</p><h2>Start with the task</h2><p>Lowercasing, accent removal and punctuation deletion are choices, not automatic cleaning. An invoice code containing a hyphen may differ from one without it; negation can reverse a support request. Keep raw text and a versioned transformed representation. Test emoji, mixed scripts, composed accents, line breaks and ticket IDs before applying a global rule. <a href=\"/natural-language-processing/corpus-identity-and-label-policy\">The corpus contract</a>] decides which changes preserve meaning.</p><h2>Choose a token boundary</h2><p>A word tokenizer, character n-grams and subword tokenizer create different vocabularies and unknown-token behavior. Record the tokenizer implementation, version, vocabulary and special-token map with the model. A model trained with one token map cannot safely serve another. For extraction tasks, keep a mapping from token positions back to original character offsets; normalized text may not have identical offsets.</p><h2>Measure what is lost</h2><p>Count empty outputs, unknown tokens and lengths before and after truncation by language or channel. A maximum length of 256 units can cut a long ticket before the actual request; inspect where the answer sits. When truncating, state whether you keep the beginning, end or selected segments. <a href=\"/natural-language-processing/span-offset-annotation\">Span annotations</a>] need the original text coordinate system.</p><h2>Exercise edge cases</h2><p>Use fixtures with a one-character ticket, a non-Latin message, combining marks and an unusually long message. Verify that each produces a deliberate output or a named rejection. Compare training and serving token IDs on the same raw bytes. A visual text match does not prove byte or token equality.</p><h2>Implementation</h2><pre><code class=\"language-python\">import unicodedata\n\ndef normalize_ticket_text(raw_text):\n    if not isinstance(raw_text, str) or not raw_text.strip():\n        raise ValueError(&quot;empty ticket text&quot;)\n    normalized = unicodedata.normalize(&quot;NFC&quot;, raw_text)\n    normalized = &quot; &quot;.join(normalized.split())\n    if len(normalized) &gt; 120_000:\n        raise ValueError(&quot;ticket exceeds processing limit&quot;)\n    return normalized</code></pre><h2>Performance and operating cost</h2><p>Normalization scans O(C) characters and creates O(C) output storage. Tokenization is usually linear in input length but vocabulary lookup and long-sequence model cost depend on the chosen architecture.</p><h3>Common Mistakes</h3><ul><li>Do not remove punctuation without checking task meaning.</li><li>Do not apply a new tokenizer to an old fitted model.</li><li>Do not interpret normalized offsets as raw-text offsets.</li></ul><h2>Read next</h2><ul><li><a href=\"/natural-language-processing/sparse-text-baseline\">Sparse text baselines: fit vocabulary inside the training boundary</a></li><li><a href=\"/natural-language-processing/span-offset-annotation\">Entity spans: align annotations to the original text</a></li><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/natural-language-processing/text-serving-contract\">Text inference: package tokenizer, labels and reject paths</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/scaled-dot-product-attention-mask-contract\">Scaled dot-product attention and mask contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/script-profile-and-code-switching-boundary\">Script profiles and code-switching boundaries in text intake</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/pii-detection-and-redaction-boundary\">PII detection and redaction on original text offsets</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/natural-language-processing/dependency-tree-contract-and-token-alignment\">Dependency trees: token identity, heads and structural checks</a>.</p>",
+    "category": "AI & Data",
+    "subject": "natural-language-processing",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "natural-language-processing"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8101,
+    "status": "published",
+    "published_at": "2026-10-04T20:58:23.502482+00:00",
+    "created_at": "2026-10-04T20:58:23.502482+00:00",
+    "updated_at": "2026-10-06T12:36:40.281010+00:00",
+    "data": {
+      "subject_root": "natural-language-processing/nlp-tutorial",
+      "section_path": "natural-language-processing/nlp-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "natural-language-processing/sparse-text-baseline",
+          "title": "Sparse text baselines: fit vocabulary inside the training boundary"
+        },
+        {
+          "path": "natural-language-processing/span-offset-annotation",
+          "title": "Entity spans: align annotations to the original text"
+        },
+        {
+          "path": "deep-learning/tensor-shape-dtype-contract",
+          "title": "Tensor contracts: shape, dtype, device and mask"
+        },
+        {
+          "path": "natural-language-processing/text-serving-contract",
+          "title": "Text inference: package tokenizer, labels and reject paths"
+        },
+        {
+          "path": "deep-learning/scaled-dot-product-attention-mask-contract",
+          "title": "Scaled dot-product attention and mask contracts"
+        },
+        {
+          "path": "natural-language-processing/script-profile-and-code-switching-boundary",
+          "title": "Script profiles and code-switching boundaries in text intake"
+        },
+        {
+          "path": "natural-language-processing/pii-detection-and-redaction-boundary",
+          "title": "PII detection and redaction on original text offsets"
+        },
+        {
+          "path": "natural-language-processing/dependency-tree-contract-and-token-alignment",
+          "title": "Dependency trees: token identity, heads and structural checks"
+        }
+      ]
+    }
+  }
+]

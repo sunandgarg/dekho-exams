@@ -1,0 +1,1518 @@
+[
+  {
+    "id": "50de2962-5b32-564a-b6f7-ea34c646bccb",
+    "type": "article",
+    "path": "data-engineering/billing-pipeline-operations-project",
+    "title": "Project: operate a daily billing pipeline",
+    "summary": "Release a daily billing DAG whose readiness checks, retry rules, lineage, SLO and replay manifest survive a late source and an uncertain export acknowledgement.",
+    "body": "<p>Release a daily billing DAG whose readiness checks, retry rules, lineage, SLO and replay manifest survive a late source and an uncertain export acknowledgement.</p><h2>Specify the product</h2><p>Finance needs one committed bill total per account and event day by 08:30. The grain is account plus day; input orders and exchange rates arrive in separate bounded manifests. A missing source interval blocks publication. An empty but complete order interval is valid and yields a zero-row fact with an explicit completion marker, not an invented carry-forward total.</p><h2>Build the DAG</h2><p>Create readiness tasks for both sources, a transform pinned to their snapshot IDs, a uniqueness and sum reconciliation task, a snapshot commit, and an export task keyed by interval and output snapshot. A late rate source should leave yesterday&#x27;s published snapshot untouched. <a href=\"/data-engineering/dag-intervals-and-idempotent-tasks\">Idempotent task outputs</a> make a retry converge instead of appending another bill.</p><h2>Inject three failures</h2><p>First, send half a source batch without its completion manifest; no transform should run. Second, make one account produce a duplicate business key; quarantine or fail the candidate, keeping the last good snapshot. Third, let the export receiver accept the file but drop the acknowledgement; a retry must use the same idempotency key and produce one remote artifact. <a href=\"/data-engineering/failure-classification-and-retry-budget\">Retry policy</a> should stop on the duplicate-key defect.</p><h2>Evaluate the consumer promise</h2><p>For each interval, calculate whether complete inputs, quality and publication met 08:30. Keep source lag and processing duration as separate diagnostics. Record a run manifest with input snapshots, code digest, counts, output snapshot and export key; emit lineage to the finance report. <a href=\"/data-engineering/pipeline-slos-and-error-budgets\">The SLO</a> counts a late but correct interval as late, and an on-time wrong interval as bad.</p><h2>Deliver a release packet</h2><p>Include an interval diagram, a contract for each source, the retry table, a manifest from one successful run, evidence for all three injected failures, a query that checks one-row-per-account-day, and an operator action for each alert. Run an exact replay from retained inputs and compare the canonical output digest. If a source version is unavailable, name the limit rather than asserting reproducibility.</p><h2>Implementation</h2><pre><code class=\"language-python\">from collections import defaultdict\n\norder_rows = [\n    {&quot;account&quot;: &quot;acct-47&quot;, &quot;day&quot;: 47, &quot;amount_cents&quot;: 7300},\n    {&quot;account&quot;: &quot;acct-47&quot;, &quot;day&quot;: 47, &quot;amount_cents&quot;: 2500},\n    {&quot;account&quot;: &quot;acct-83&quot;, &quot;day&quot;: 47, &quot;amount_cents&quot;: 4100},\n]\n\ndef bill_totals(records):\n    totals = defaultdict(int)\n    for record in records:\n        if record[&quot;amount_cents&quot;] &lt; 0:\n            raise ValueError(&quot;negative order amount requires separate refund flow&quot;)\n        totals[(record[&quot;account&quot;], record[&quot;day&quot;])] += record[&quot;amount_cents&quot;]\n    return dict(totals)\n\ntotals = bill_totals(order_rows)\nassert totals[(&quot;acct-47&quot;, 47)] == 9800\nassert sum(totals.values()) == sum(row[&quot;amount_cents&quot;] for row in order_rows)</code></pre><h2>Performance and operating cost</h2><p>Aggregation is O(N) expected time and O(A) space for N orders and A account-day keys. Production cost includes pinned input retention, validation scans, transactional publication, monitoring and occasional replay. A fast transform is not a successful release if its source or export boundary is unverified.</p><h3>Common Mistakes</h3><ul><li>Do not treat an incomplete batch as a legitimate zero-row interval.</li><li>Do not retry an export with a new key after an uncertain acknowledgement.</li><li>Do not call a scheduler-green run good when its published totals fail reconciliation.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/dag-intervals-and-idempotent-tasks\">DAG intervals and idempotent task outputs</a></li><li><a href=\"/data-engineering/dependency-readiness-and-source-freshness\">Dependency readiness and source freshness</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li><li><a href=\"/data-engineering/failure-classification-and-retry-budget\">Failure classification and retry budgets</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li><li><a href=\"/data-engineering/receipt-pipeline-replay-project\">Project: build a replayable receipt pipeline with an atomic publish gate</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7833,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/dag-intervals-and-idempotent-tasks",
+          "title": "DAG intervals and idempotent task outputs"
+        },
+        {
+          "path": "data-engineering/dependency-readiness-and-source-freshness",
+          "title": "Dependency readiness and source freshness"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        },
+        {
+          "path": "data-engineering/failure-classification-and-retry-budget",
+          "title": "Failure classification and retry budgets"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        },
+        {
+          "path": "data-engineering/receipt-pipeline-replay-project",
+          "title": "Project: build a replayable receipt pipeline with an atomic publish gate"
+        },
+        {
+          "path": "data-engineering/revenue-mart-release-project",
+          "title": "Project: release a reconciled revenue mart"
+        },
+        {
+          "path": "data-engineering/streaming-risk-ledger-project",
+          "title": "Project: release a recoverable streaming risk ledger"
+        }
+      ]
+    }
+  },
+  {
+    "id": "4aa4a19e-f0c1-5d8a-b3ba-6783958493e8",
+    "type": "article",
+    "path": "data-engineering/data-classification-and-access-boundaries",
+    "title": "Data classification and access boundaries",
+    "summary": "Classification labels data by sensitivity and allowed use; access boundaries turn those labels into enforceable permissions at each pipeline stage.",
+    "body": "<p>Classification labels data by sensitivity and allowed use; access boundaries turn those labels into enforceable permissions at each pipeline stage.</p><h2>Classify the fields actually stored</h2><p>A payments pipeline may carry account ID, merchant ID, card token, postal code and derived risk score. Classify raw values, joinable pseudonyms and aggregates separately. A hashed account ID may still identify someone when the mapping is available or the input space is small. Record the purpose, retention and authorized readers for every sensitive field, not only the table name.</p><h2>Keep raw and serving zones distinct</h2><p>Landing stores the minimum source payload needed for replay under restricted roles. Transformation workers receive only the fields needed for their task; an analytics mart publishes approved columns and aggregates. <a href=\"/data-engineering/source-contract-and-raw-landing\">Raw landing</a> should not become a broad query playground. Limit export, temporary tables, logs and failed-record queues too, since those paths often copy sensitive values.</p><h2>Bind permission to identity and purpose</h2><p>Grant access to service identities and named job roles, then map human users to reviewed groups. Avoid shared credentials that erase accountability. A pipeline operator may need to inspect health and row counts without reading full payment identifiers. A data steward may approve a new use but should not have to run the compute job. Separation makes incident review possible.</p><h2>Propagate labels through derivations</h2><p>A joined table inherits the sensitivity of its inputs unless the derivation provably removes it for the authorized use. Small group counts can reveal an individual even when direct identifiers are absent. Keep lineage from source fields to output fields, and require a new access review when a new join or export makes previously separate attributes linkable. <a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Lineage</a> provides the dependency map.</p><h2>Verify denial as well as approval</h2><p>Test that an approved report role can read its aggregate, that an analyst role cannot read raw account IDs, and that an operations role sees logs with values redacted. Record which identity ran the test and which policy version applied. A permission policy is incomplete until the denied paths are exercised.</p><h2>Implementation</h2><pre><code class=\"language-python\">FIELD_POLICY = {\n    &quot;account_id&quot;: {&quot;class&quot;: &quot;restricted&quot;, &quot;roles&quot;: {&quot;risk_service&quot;}},\n    &quot;merchant_region&quot;: {&quot;class&quot;: &quot;internal&quot;, &quot;roles&quot;: {&quot;risk_service&quot;, &quot;analyst&quot;}},\n    &quot;daily_count&quot;: {&quot;class&quot;: &quot;aggregate&quot;, &quot;roles&quot;: {&quot;risk_service&quot;, &quot;analyst&quot;}},\n}\n\ndef permitted_fields(role, requested):\n    denied = [name for name in requested if role not in FIELD_POLICY[name][&quot;roles&quot;]]\n    if denied:\n        raise PermissionError(&quot;requested fields exceed role policy&quot;)\n    return requested\n\nassert permitted_fields(&quot;analyst&quot;, [&quot;merchant_region&quot;, &quot;daily_count&quot;])\ntry:\n    permitted_fields(&quot;analyst&quot;, [&quot;account_id&quot;])\nexcept PermissionError:\n    pass\nelse:\n    raise AssertionError(&quot;restricted field was exposed&quot;)</code></pre><h2>Performance and operating cost</h2><p>A set-membership check takes O(F) time for F requested fields and O(F) policy metadata. Real access controls add identity lookup, policy evaluation, audit writes and possibly query rewriting. Denying an unauthorized scan early is cheaper than filtering sensitive records after they have already moved to a less trusted stage.</p><h3>Common Mistakes</h3><ul><li>Do not treat a hash as automatically anonymous.</li><li>Do not forget logs, exports and quarantine tables when classifying data.</li><li>Do not rely on a role name without testing both allowed and denied queries.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7865,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        },
+        {
+          "path": "data-engineering/source-contract-and-raw-landing",
+          "title": "Data source contracts: preserve raw records before transformation"
+        }
+      ]
+    }
+  },
+  {
+    "id": "0b3a6048-ae60-5c15-b799-5c385e461318",
+    "type": "subject",
+    "path": "data-engineering/data-engineering-tutorial",
+    "title": "Data Engineering Tutorial",
+    "summary": "Build replayable, governed data products: streaming state, temporal joins, access policies, cost and release evidence.",
+    "body": "<p>Build replayable, governed data products: streaming state, temporal joins, access policies, cost and release evidence.</p><h2>Learning path</h2><ul><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li><li><a href=\"/data-engineering/incremental-watermark-and-ties\">Incremental extraction: advance a compound watermark without losing ties</a></li><li><a href=\"/data-engineering/cdc-replay-and-deletes\">Change data capture: apply updates and deletes by source order</a></li><li><a href=\"/data-engineering/idempotent-load-and-checkpoint\">Idempotent loads: commit target rows and extraction progress together</a></li><li><a href=\"/data-engineering/event-time-and-late-arrivals\">Event time and late arrivals: close windows with an explicit correction policy</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-engineering/warehouse-history-asof-join\">Warehouse history: join facts to the dimension version valid at event time</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li><li><a href=\"/data-engineering/receipt-pipeline-replay-project\">Project: build a replayable receipt pipeline with an atomic publish gate</a></li></ul><h2>Connected foundation</h2><p>Bring the earlier analysis and evaluation contracts into this subject.</p><ul><li><a href=\"/data-science/data-science-for-beginners\">Data Science for Beginners</a></li><li><a href=\"/data-science/reproducible-analysis-snapshot\">Reproducible analysis snapshots: pin data, code and cutoff together</a></li></ul><h2>Practice</h2><p>Complete the project with its failure-case evidence.</p><ul><li><a href=\"/data-engineering/data-engineering-tutorial/project\">Data Engineering: Projects</a></li></ul><p><strong>Continue into another subject:</strong> <a href=\"/streaming-analytics/streaming-analytics-tutorial\">Streaming Analytics Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/feature-stores/feature-stores-tutorial\">Feature Stores Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/knowledge-graphs/knowledge-graphs-tutorial\">Knowledge Graphs Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/synthetic-data/synthetic-data-tutorial\">Synthetic Data &amp; Simulation Tutorial</a>.</p><h2>Storage contracts and table design</h2><ul><li><a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">Schema compatibility and consumer rollout</a></li><li><a href=\"/data-engineering/parquet-row-groups-and-column-pruning\">Parquet row groups, projection and scan cost</a></li><li><a href=\"/data-engineering/partition-planning-and-skew\">Partition planning, pruning and skew</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li></ul><h2>Versioned order-lake release project</h2><ul><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li></ul><h2>Orchestration and production operations</h2><ul><li><a href=\"/data-engineering/dag-intervals-and-idempotent-tasks\">DAG intervals and idempotent task outputs</a></li><li><a href=\"/data-engineering/dependency-readiness-and-source-freshness\">Dependency readiness and source freshness</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li><li><a href=\"/data-engineering/failure-classification-and-retry-budget\">Failure classification and retry budgets</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul><h2>Daily billing operations project</h2><ul><li><a href=\"/data-engineering/billing-pipeline-operations-project\">Project: operate a daily billing pipeline</a></li></ul><h2>Distributed execution and data movement</h2><ul><li><a href=\"/data-engineering/shuffle-boundaries-and-local-combiners\">Shuffle boundaries and local combiners</a></li><li><a href=\"/data-engineering/broadcast-join-and-build-side-limits\">Broadcast joins and build-side limits</a></li><li><a href=\"/data-engineering/skewed-keys-and-salted-aggregation\">Skewed keys and salted aggregation</a></li><li><a href=\"/data-engineering/task-retries-and-atomic-partition-output\">Task retries and atomic partition output</a></li></ul><h2>Distributed invoice rollup</h2><ul><li><a href=\"/data-engineering/distributed-invoice-rollup-project\">Project: release a distributed invoice rollup</a></li></ul><h2>Warehouse models and metric contracts</h2><ul><li><a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain and measure additivity</a></li><li><a href=\"/data-engineering/conformed-dimensions-and-surrogate-keys\">Conformed dimensions and surrogate keys</a></li><li><a href=\"/data-engineering/late-arriving-dimensions-and-fact-repair\">Late-arriving dimensions and fact repair</a></li><li><a href=\"/data-engineering/semantic-metric-contract-and-reconciliation\">Semantic metric contracts and reconciliation</a></li></ul><h2>Revenue mart release</h2><ul><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li></ul><h2>Streaming state and recovery</h2><ul><li><a href=\"/data-engineering/keyed-state-checkpoints-and-recovery\">Keyed state, checkpoints and recovery</a></li><li><a href=\"/data-engineering/watermark-retention-and-late-corrections\">Watermark retention and late corrections</a></li><li><a href=\"/data-engineering/stream-table-join-and-reference-versions\">Stream-table joins and reference versions</a></li><li><a href=\"/data-engineering/stream-backpressure-and-catch-up-budget\">Stream backpressure and catch-up budget</a></li></ul><h2>Streaming risk ledger</h2><ul><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li></ul><h2>Governance, access and cost</h2><ul><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a></li><li><a href=\"/data-engineering/pipeline-cost-attribution-and-right-sizing\">Pipeline cost attribution and right-sizing</a></li></ul><h2>Governed customer mart</h2><ul><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7600,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Source and replay",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "data-engineering/source-contract-and-raw-landing",
+            "data-engineering/incremental-watermark-and-ties",
+            "data-engineering/cdc-replay-and-deletes",
+            "data-engineering/idempotent-load-and-checkpoint"
+          ]
+        },
+        {
+          "title": "Time, quality and publication",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "data-engineering/event-time-and-late-arrivals",
+            "data-engineering/quality-quarantine-and-reconciliation",
+            "data-engineering/warehouse-history-asof-join",
+            "data-engineering/backfill-publication-boundary"
+          ]
+        },
+        {
+          "title": "Storage contracts and table design",
+          "summary": "A connected release path from contract to verified operation.",
+          "lessons": [
+            "data-engineering/schema-compatibility-and-consumer-rollout",
+            "data-engineering/parquet-row-groups-and-column-pruning",
+            "data-engineering/partition-planning-and-skew",
+            "data-engineering/lakehouse-snapshot-and-atomic-commit",
+            "data-engineering/compaction-retention-and-replay-horizon",
+            "data-engineering/deletion-propagation-and-erasure-proof"
+          ]
+        },
+        {
+          "title": "Orchestration and production operations",
+          "summary": "A connected release path from contract to verified operation.",
+          "lessons": [
+            "data-engineering/dag-intervals-and-idempotent-tasks",
+            "data-engineering/dependency-readiness-and-source-freshness",
+            "data-engineering/pipeline-lineage-and-impact-analysis",
+            "data-engineering/pipeline-slos-and-error-budgets",
+            "data-engineering/failure-classification-and-retry-budget",
+            "data-engineering/replay-manifest-and-audit-trail"
+          ]
+        },
+        {
+          "title": "Distributed execution and data movement",
+          "summary": "Run the implementation and failure checks before the project.",
+          "lessons": [
+            "data-engineering/shuffle-boundaries-and-local-combiners",
+            "data-engineering/broadcast-join-and-build-side-limits",
+            "data-engineering/skewed-keys-and-salted-aggregation",
+            "data-engineering/task-retries-and-atomic-partition-output"
+          ]
+        },
+        {
+          "title": "Warehouse models and metric contracts",
+          "summary": "Run the implementation and failure checks before the project.",
+          "lessons": [
+            "data-engineering/fact-grain-and-measure-additivity",
+            "data-engineering/conformed-dimensions-and-surrogate-keys",
+            "data-engineering/late-arriving-dimensions-and-fact-repair",
+            "data-engineering/semantic-metric-contract-and-reconciliation"
+          ]
+        },
+        {
+          "title": "Streaming state and recovery",
+          "summary": "Work through the failure and release checks, then complete the project.",
+          "lessons": [
+            "data-engineering/keyed-state-checkpoints-and-recovery",
+            "data-engineering/watermark-retention-and-late-corrections",
+            "data-engineering/stream-table-join-and-reference-versions",
+            "data-engineering/stream-backpressure-and-catch-up-budget"
+          ]
+        },
+        {
+          "title": "Governance, access and cost",
+          "summary": "Work through the failure and release checks, then complete the project.",
+          "lessons": [
+            "data-engineering/data-classification-and-access-boundaries",
+            "data-engineering/row-policy-and-column-mask-tests",
+            "data-engineering/dataset-ownership-and-change-approval",
+            "data-engineering/pipeline-cost-attribution-and-right-sizing"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "data-engineering/receipt-pipeline-replay-project",
+            "data-engineering/versioned-order-lake-release-project",
+            "data-engineering/billing-pipeline-operations-project",
+            "data-engineering/distributed-invoice-rollup-project",
+            "data-engineering/revenue-mart-release-project",
+            "data-engineering/streaming-risk-ledger-project",
+            "data-engineering/governed-customer-mart-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Data Engineering",
+          "path": "data-engineering/data-engineering-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "data-engineering/data-engineering-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "c712b504-52c2-5860-ba39-b408de5247cb",
+    "type": "subject",
+    "path": "data-engineering/data-engineering-tutorial/project",
+    "title": "Data Engineering: Projects",
+    "summary": "A checked project for the Data Engineering curriculum.",
+    "body": "<p>Build and review a complete Data Engineering project.</p><h2>Project brief</h2><ul><li><a href=\"/data-engineering/receipt-pipeline-replay-project\">Project: build a replayable receipt pipeline with an atomic publish gate</a></li></ul><h2>Required concepts</h2><ul><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li><li><a href=\"/data-engineering/incremental-watermark-and-ties\">Incremental extraction: advance a compound watermark without losing ties</a></li><li><a href=\"/data-engineering/cdc-replay-and-deletes\">Change data capture: apply updates and deletes by source order</a></li><li><a href=\"/data-engineering/idempotent-load-and-checkpoint\">Idempotent loads: commit target rows and extraction progress together</a></li><li><a href=\"/data-engineering/event-time-and-late-arrivals\">Event time and late arrivals: close windows with an explicit correction policy</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-engineering/warehouse-history-asof-join\">Warehouse history: join facts to the dimension version valid at event time</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li></ul><h2>Completion standard</h2><p>Submit inputs, runnable work, measured output, failure-case results and a short decision note.</p><h2>Versioned order-lake release project</h2><ul><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li></ul><h2>Daily billing operations project</h2><ul><li><a href=\"/data-engineering/billing-pipeline-operations-project\">Project: operate a daily billing pipeline</a></li></ul><h2>Distributed invoice rollup</h2><ul><li><a href=\"/data-engineering/distributed-invoice-rollup-project\">Project: release a distributed invoice rollup</a></li></ul><h2>Revenue mart release</h2><ul><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li></ul><h2>Streaming risk ledger</h2><ul><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li></ul><h2>Governed customer mart</h2><ul><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7601,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Projects",
+          "lessons": [
+            "data-engineering/receipt-pipeline-replay-project",
+            "data-engineering/versioned-order-lake-release-project",
+            "data-engineering/billing-pipeline-operations-project",
+            "data-engineering/distributed-invoice-rollup-project",
+            "data-engineering/revenue-mart-release-project",
+            "data-engineering/streaming-risk-ledger-project",
+            "data-engineering/governed-customer-mart-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Data Engineering",
+          "path": "data-engineering/data-engineering-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "data-engineering/data-engineering-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "370ee589-37b6-5124-8dc8-e8353a22bb91",
+    "type": "article",
+    "path": "data-engineering/dataset-ownership-and-change-approval",
+    "title": "Dataset ownership and change approval",
+    "summary": "A dataset owner accepts its meaning, access and change process; a pipeline maintainer owns the job that computes it, and consumers own their use of it.",
+    "body": "<p>A dataset owner accepts its meaning, access and change process; a pipeline maintainer owns the job that computes it, and consumers own their use of it.</p><h2>Name the decision makers</h2><p>For a customer mart, record a business owner for field meaning, a steward for classification, a technical maintainer for pipeline health and a security approver for new sensitive access. One person can fill several roles in a small team, but each decision still needs an accountable name. An unowned table should not silently become a production dependency.</p><h2>Make the contract reviewable</h2><p>Store row grain, keys, update cadence, freshness target, null meaning, correction policy, allowed uses and retention beside the dataset. Link the upstream sources and known consumers through <a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">lineage</a>. A consumer should be able to determine whether a changed field is safe without searching chat history or reverse engineering a dashboard query.</p><h2>Classify changes by effect</h2><p>A new optional field may be backward-compatible for readers but still change classification or cost. Renaming a key, altering its grain or changing a metric denominator is a breaking semantic change even if the schema remains valid. <a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">Schema rollout</a> handles code compatibility; owner approval covers business meaning and access.</p><h2>Stage a measurable migration</h2><p>Publish the proposed contract and sample output, notify known consumers, run old and new calculations on the same pinned input, and record count or metric differences. Set a dual-read or deprecation window when needed. Promotion requires named approval, validation evidence and a rollback pointer. A pass from automated tests alone cannot approve a new use of sensitive data.</p><h2>Keep evidence after release</h2><p>Attach change ID, approving roles, input snapshot, code revision, access-policy revision and consumer communication to the release manifest. If a downstream report changes, the operator can explain whether the cause was new source data, a model change or a policy change. <a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests</a> provide the technical half of that explanation.</p><h2>Implementation</h2><pre><code class=\"language-python\">required_approvals = {\n    &quot;grain_change&quot;: {&quot;business_owner&quot;, &quot;technical_maintainer&quot;},\n    &quot;new_sensitive_field&quot;: {&quot;data_steward&quot;, &quot;security_approver&quot;},\n}\n\ndef release_approved(change_type, signed_roles):\n    required = required_approvals[change_type]\n    return required.issubset(set(signed_roles))\n\nassert not release_approved(&quot;new_sensitive_field&quot;, [&quot;data_steward&quot;])\nassert release_approved(&quot;new_sensitive_field&quot;, [&quot;data_steward&quot;, &quot;security_approver&quot;])</code></pre><h2>Performance and operating cost</h2><p>An approval membership check is O(A) for A signed roles and needs little memory; the significant cost is the dual-run, consumer testing and retained release evidence. That cost should be proportional to impact. Automate discovery and comparison so humans review the meaning and authorized use, rather than manually repeating deterministic checks.</p><h3>Common Mistakes</h3><ul><li>Do not equate schema compatibility with semantic compatibility.</li><li>Do not let a maintainer approve a new sensitive use by default.</li><li>Do not discard the contract version once a migration finishes.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">Schema compatibility and consumer rollout</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7867,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/schema-compatibility-and-consumer-rollout",
+          "title": "Schema compatibility and consumer rollout"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        }
+      ]
+    }
+  },
+  {
+    "id": "24eb5570-02f4-55c9-9cf4-5135c28a7fa5",
+    "type": "article",
+    "path": "data-engineering/event-time-and-late-arrivals",
+    "title": "Event time and late arrivals: close windows with an explicit correction policy",
+    "summary": "Event-time processing groups records by when they occurred, while a watermark states how much out-of-order arrival a live aggregate is prepared to wait for.",
+    "body": "<p>Event-time processing groups records by when they occurred, while a watermark states how much out-of-order arrival a live aggregate is prepared to wait for.</p><h2>Two clocks answer different questions</h2><p>A receipt submitted at 23:58 may reach the pipeline after midnight. Event-time reporting assigns it to the submission day; ingestion-time reporting assigns it to the day it arrived. Neither is automatically correct. State the business question, record both clocks, and measure the delay distribution. A watermark such as maximum observed event time minus a configured lateness allowance tells the processor which windows it considers complete.</p><h2>Do not confuse complete with final</h2><p>A watermark is a processing policy, not evidence that no older event will ever arrive. Events later than the allowed delay need an explicit route: revise prior aggregates, publish a restatement, or quarantine them with a manual reconciliation queue. Dropping them without a count changes historical rates silently. <a href=\"/data-science/metric-denominator-and-cohort\">Cohort metrics</a>] need the same late-arrival rule in reports.</p><h2>Bound state and correction cost</h2><p>Holding open windows consumes memory proportional to active keys and windows. A long allowed lateness period improves completeness but delays publication and enlarges state. A short period improves freshness but causes more corrections. Measure late-event rate, aggregate revisions and state size rather than picking an arbitrary delay.</p><h2>Test across the boundary</h2><p>Feed events in this order: a timely receipt, a newer-day receipt, then a late receipt for the prior day. Verify the prior-day total and correction signal under the chosen policy. Also test duplicate delivery and timezone conversion. A window keyed by local midnight can shift during daylight-saving transitions.</p><h2>Implementation</h2><pre><code class=\"language-python\">from datetime import timedelta\n\nlatest_event_time = max(event.event_time for event in received_events)\nwatermark = latest_event_time - timedelta(hours=3)\nfor event in received_events:\n    if event.event_time &lt; watermark:\n        late_events.append(event)\n    else:\n        open_windows[event.event_time.date()].append(event)</code></pre><h2>Performance and operating cost</h2><p>Each event can be assigned in O(1) expected time, but open state grows with active windows and keys. Corrections may require rebuilding downstream aggregates even when ingestion itself is cheap.</p><h3>Common Mistakes</h3><ul><li>Do not use ingest time when the metric is defined by event time.</li><li>Do not drop records past a watermark without an explicit count and repair path.</li><li>Do not describe an event-time window as immutable before correction policy closes it.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-science/metric-denominator-and-cohort\">Metric denominators and cohorts: make a rate reproducible</a></li><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/feature-training-serving-parity\">Training-serving parity: compare feature values at one prediction clock</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/streaming-analytics/event-time-window-and-boundaries\">Event-time windows: place each event by occurrence, not arrival</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/partition-planning-and-skew\">Partition planning, pruning and skew</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/watermark-retention-and-late-corrections\">Watermark retention and late corrections</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7804,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "data-engineering/backfill-publication-boundary",
+          "title": "Backfills: rebuild history without exposing a half-written result"
+        },
+        {
+          "path": "data-engineering/quality-quarantine-and-reconciliation",
+          "title": "Data quality gates: quarantine bad rows and reconcile complete batches"
+        },
+        {
+          "path": "data-science/metric-denominator-and-cohort",
+          "title": "Metric denominators and cohorts: make a rate reproducible"
+        },
+        {
+          "path": "data-engineering/source-contract-and-raw-landing",
+          "title": "Data source contracts: preserve raw records before transformation"
+        },
+        {
+          "path": "mlops/feature-training-serving-parity",
+          "title": "Training-serving parity: compare feature values at one prediction clock"
+        },
+        {
+          "path": "streaming-analytics/event-time-window-and-boundaries",
+          "title": "Event-time windows: place each event by occurrence, not arrival"
+        },
+        {
+          "path": "data-engineering/partition-planning-and-skew",
+          "title": "Partition planning, pruning and skew"
+        },
+        {
+          "path": "data-engineering/watermark-retention-and-late-corrections",
+          "title": "Watermark retention and late corrections"
+        }
+      ]
+    }
+  },
+  {
+    "id": "509e306b-c1ee-5847-b8a7-57c2e72ce668",
+    "type": "article",
+    "path": "data-engineering/governed-customer-mart-project",
+    "title": "Project: release a governed customer mart",
+    "summary": "Release a customer analytics mart with declared field sensitivity, tested row policies, named approvals and measurable cost per published row.",
+    "body": "<p>Release a customer analytics mart with declared field sensitivity, tested row policies, named approvals and measurable cost per published row.</p><h2>Specify the product boundary</h2><p>The mart has one row per customer and reporting day, with region, eligible-order count and net captured cents. Raw landing retains namespaced customer IDs under a restricted role; analysts see regional aggregates and masked tokens. Record field classifications, allowed uses, retention, consumer roles and the business owner before creating the serving view.</p><h2>Build and reconcile the release</h2><p>Pin source snapshots, deduplicate captures by stable ID, resolve the dimension version valid at event time and aggregate at the declared grain. Reconcile source and mart cents by day, then publish one immutable snapshot. <a href=\"/data-engineering/fact-grain-and-measure-additivity\">Grain rules</a> prevent capture multiplication. Keep quarantine counts and unresolved customer keys visible to the operator.</p><h2>Test permissions as consumers</h2><p>Query the actual serving view as north-region analyst, west-region analyst, finance service and an unauthorized identity. Assert exact allowed row IDs, masked token values and denied access to raw landing. Try a join and export path available to each role. <a href=\"/data-engineering/row-policy-and-column-mask-tests\">Policy tests</a> must fail when a new sensitive field appears without an explicit allowlist decision.</p><h2>Approve and cost the change</h2><p>Introduce a new postal-zone field and run classification review before exposing it. The business owner approves its meaning; the steward and security approver decide access. Compare old and new output on the same input and retain a rollback pointer. Attribute compute attempts, storage generations and validation scans to this release, then report cost per accepted million rows.</p><h2>Deliver audit evidence</h2><p>Provide the source contract, data classification matrix, role-query transcript, field lineage, signed change record, reconciliation report, cost attribution and snapshot manifest. Simulate a denied analyst query and a failed compute attempt; neither should leak raw data or disappear from the cost ledger. Record who can authorize a repair or rollback.</p><h2>Implementation</h2><pre><code class=\"language-python\">captures = [\n    {&quot;id&quot;: &quot;cap-47&quot;, &quot;customer&quot;: &quot;cust-7&quot;, &quot;region&quot;: &quot;north&quot;, &quot;cents&quot;: 5200},\n    {&quot;id&quot;: &quot;cap-48&quot;, &quot;customer&quot;: &quot;cust-8&quot;, &quot;region&quot;: &quot;west&quot;, &quot;cents&quot;: 1700},\n]\n\ndef regional_mart(rows):\n    identities = set()\n    totals = {}\n    for row in rows:\n        if row[&quot;id&quot;] in identities:\n            raise ValueError(&quot;duplicate capture&quot;)\n        identities.add(row[&quot;id&quot;])\n        totals[row[&quot;region&quot;]] = totals.get(row[&quot;region&quot;], 0) + row[&quot;cents&quot;]\n    return totals\n\nassert regional_mart(captures) == {&quot;north&quot;: 5200, &quot;west&quot;: 1700}</code></pre><h2>Performance and operating cost</h2><p>The reference aggregation takes O(N) expected time and O(N + G) memory for N captures and G regions because it checks identities. Production cost includes versioned joins, access-policy evaluation, release validation, retained snapshots and failed attempts. Report cost against accepted output and keep policy tests in the release gate even when their scans add expense.</p><h3>Common Mistakes</h3><ul><li>Do not publish a new derived identifier before classifying it.</li><li>Do not validate permissions with an administrator account.</li><li>Do not price only the final successful compute attempt.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a></li><li><a href=\"/data-engineering/pipeline-cost-attribution-and-right-sizing\">Pipeline cost attribution and right-sizing</a></li><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7869,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        },
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/dataset-ownership-and-change-approval",
+          "title": "Dataset ownership and change approval"
+        },
+        {
+          "path": "data-engineering/pipeline-cost-attribution-and-right-sizing",
+          "title": "Pipeline cost attribution and right-sizing"
+        },
+        {
+          "path": "data-engineering/revenue-mart-release-project",
+          "title": "Project: release a reconciled revenue mart"
+        }
+      ]
+    }
+  },
+  {
+    "id": "a13ef589-2fba-5cad-9c36-affbd44fd2ce",
+    "type": "article",
+    "path": "data-engineering/idempotent-load-and-checkpoint",
+    "title": "Idempotent loads: commit target rows and extraction progress together",
+    "summary": "An idempotent load produces the same target state after a retry and ties its progress marker to committed output.",
+    "body": "<p>An idempotent load produces the same target state after a retry and ties its progress marker to committed output.</p><h2>Expect at-least-once work</h2><p>A worker can write a receipt batch and crash before acknowledging it. The scheduler then replays the same batch. If the target only appends, the result doubles. Use a stable receipt key or source event ID and an upsert or deduplication rule. An upsert needs conflict semantics: a later version may replace an earlier one, but an old replay must not overwrite a newer value.</p><h2>Place the checkpoint with the write</h2><p>In one database transaction, validate a batch, apply its rows, and record the last source position. Either both commit or neither does. If target and checkpoint live in different systems, a single local transaction cannot cover them; design a replay-and-reconcile protocol instead of claiming exactly-once delivery. <a href=\"/data-engineering/incremental-watermark-and-ties\">Compound extraction markers</a>] define which page to read next.</p><h2>Make mutations observable</h2><p>Record rows inserted, rows updated, stale events skipped and rejected records separately. A no-op retry should still confirm the batch identity was seen. Test a crash before commit, a crash immediately after commit, and the same batch delivered twice. The final target rows and checkpoint must match the uninterrupted run.</p><h2>Separate identity from batch position</h2><p>A batch ID prevents a repeated file from applying twice, but it cannot by itself prevent an older correction file from overwriting a newer receipt. Retain row-level version or source position for mutable records. <a href=\"/data-engineering/cdc-replay-and-deletes\">CDC ordering</a>] makes this especially important.</p><h2>Implementation</h2><pre><code class=\"language-python\">with database:\n    if not database.execute(\n        &quot;SELECT 1 FROM processed_batches WHERE batch_id = ?&quot;,\n        (batch_id,)).fetchone():\n        database.executemany(\n            &quot;INSERT INTO receipts(receipt_id, amount_cents) VALUES(?, ?) &quot;\n            &quot;ON CONFLICT(receipt_id) DO UPDATE SET amount_cents=excluded.amount_cents&quot;,\n            receipt_rows)\n        database.execute(\n            &quot;INSERT INTO processed_batches(batch_id, last_position) VALUES(?, ?)&quot;,\n            (batch_id, last_source_position))</code></pre><h2>Performance and operating cost</h2><p>With indexed keys, batch upserts cost about O(B log N) for B rows in a table of N rows; transaction logs and unique indexes add write amplification. Reconciliation scans can dominate very large backfills.</p><h3>Common Mistakes</h3><ul><li>Do not acknowledge a batch before its target transaction commits.</li><li>Do not claim a batch ID protects against out-of-order row versions.</li><li>Do not claim exactly-once effects across two independent stores without a recovery protocol.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/incremental-watermark-and-ties\">Incremental extraction: advance a compound watermark without losing ties</a></li><li><a href=\"/data-engineering/cdc-replay-and-deletes\">Change data capture: apply updates and deletes by source order</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/failure-classification-and-retry-budget\">Failure classification and retry budgets</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/keyed-state-checkpoints-and-recovery\">Keyed state, checkpoints and recovery</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7803,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "data-engineering/incremental-watermark-and-ties",
+          "title": "Incremental extraction: advance a compound watermark without losing ties"
+        },
+        {
+          "path": "data-engineering/cdc-replay-and-deletes",
+          "title": "Change data capture: apply updates and deletes by source order"
+        },
+        {
+          "path": "data-engineering/backfill-publication-boundary",
+          "title": "Backfills: rebuild history without exposing a half-written result"
+        },
+        {
+          "path": "data-engineering/quality-quarantine-and-reconciliation",
+          "title": "Data quality gates: quarantine bad rows and reconcile complete batches"
+        },
+        {
+          "path": "data-engineering/failure-classification-and-retry-budget",
+          "title": "Failure classification and retry budgets"
+        },
+        {
+          "path": "data-engineering/keyed-state-checkpoints-and-recovery",
+          "title": "Keyed state, checkpoints and recovery"
+        }
+      ]
+    }
+  },
+  {
+    "id": "6a3fa097-6369-5243-aeef-664edfa7d133",
+    "type": "article",
+    "path": "data-engineering/keyed-state-checkpoints-and-recovery",
+    "title": "Keyed state, checkpoints and recovery",
+    "summary": "A stateful stream operator remembers values by key; a checkpoint binds that state to an input position so recovery can replay consistently.",
+    "body": "<p>A stateful stream operator remembers values by key; a checkpoint binds that state to an input position so recovery can replay consistently.</p><h2>Define the state boundary</h2><p>A payment-risk counter is keyed by account, not by worker. The engine may move account 47 to another worker after scaling, so the counter must be restorable independently of process memory. Record the input offsets, keyed state and operator version as one recoverable point. <a href=\"/data-engineering/idempotent-load-and-checkpoint\">Batch checkpoints</a> follow the same replay principle, although stream state persists across many windows.</p><h2>Treat a checkpoint as a consistent cut</h2><p>A checkpoint cannot pair state that has processed event 83 with a source offset that resumes at event 79; replay would count four events twice. In-flight records and channel alignment matter when operators receive multiple inputs. An unaligned mode can store those in-flight buffers, trading checkpoint speed under backpressure for larger snapshots. Measure completion time and snapshot bytes together.</p><h2>Separate engine recovery from sink effects</h2><p>A restored counter may be exact while an external notification sent just before failure is repeated. Use a transactional sink tied to checkpoint completion or an idempotency key derived from business event identity. <a href=\"/streaming-analytics/idempotent-sink-and-replay\">Idempotent sinks</a> explain that boundary. Do not promise end-to-end exactly once from an engine checkpoint alone.</p><h2>Plan state growth and migration</h2><p>A key that never expires remains in a keyed store indefinitely. Set time-to-live from business retention and late-event policy, then document what happens when a dormant key returns. Serializer or schema changes can make an old checkpoint unreadable. Rehearse restore from a retained snapshot before the release, including a rescale to a different worker count.</p><h2>Exercise failure between checkpoints</h2><p>Feed a pinned event log, capture a checkpoint after event 47, process event 48, then stop the worker before the next checkpoint. Recover from event 47 and assert the published output has one effect for event 48. Also test corrupted state, a missing checkpoint file and an incompatible serializer; each needs an explicit stop or rollback path.</p><h2>Implementation</h2><pre><code class=\"language-python\">events = [(&quot;acct-47&quot;, &quot;evt-47&quot;, 1200), (&quot;acct-47&quot;, &quot;evt-48&quot;, 900)]\n\ndef apply_events(state, seen, records):\n    totals = dict(state)\n    identities = set(seen)\n    for account_id, event_id, cents in records:\n        if event_id in identities:\n            continue\n        totals[account_id] = totals.get(account_id, 0) + cents\n        identities.add(event_id)\n    return totals, identities\n\ncheckpoint_state, checkpoint_seen = apply_events({}, set(), events[:1])\nrecovered_state, recovered_seen = apply_events(checkpoint_state, checkpoint_seen, events[1:])\nassert recovered_state == {&quot;acct-47&quot;: 2100}\nassert apply_events(recovered_state, recovered_seen, events[1:])[0] == recovered_state</code></pre><h2>Performance and operating cost</h2><p>Processing N records takes O(N) expected time; keyed totals occupy O(K) memory for K active accounts and deduplication occupies O(E) for retained event identities. A real engine stores this state outside the Python process. Checkpoint I/O and restore duration grow with state size and buffered records, so retention and snapshot cadence are operating decisions.</p><h3>Common Mistakes</h3><ul><li>Do not restart from a source offset newer than the restored state.</li><li>Do not call an external side effect exactly once without a sink protocol.</li><li>Do not change state serialization without a restore rehearsal.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/event-time-and-late-arrivals\">Event time and late arrivals: close windows with an explicit correction policy</a></li><li><a href=\"/data-engineering/idempotent-load-and-checkpoint\">Idempotent loads: commit target rows and extraction progress together</a></li><li><a href=\"/data-engineering/stream-backpressure-and-catch-up-budget\">Stream backpressure and catch-up budget</a></li><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li><li><a href=\"/streaming-analytics/idempotent-sink-and-replay\">Idempotent streaming sinks: make retries safe across failures</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7860,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/event-time-and-late-arrivals",
+          "title": "Event time and late arrivals: close windows with an explicit correction policy"
+        },
+        {
+          "path": "data-engineering/idempotent-load-and-checkpoint",
+          "title": "Idempotent loads: commit target rows and extraction progress together"
+        },
+        {
+          "path": "data-engineering/stream-backpressure-and-catch-up-budget",
+          "title": "Stream backpressure and catch-up budget"
+        },
+        {
+          "path": "data-engineering/streaming-risk-ledger-project",
+          "title": "Project: release a recoverable streaming risk ledger"
+        },
+        {
+          "path": "streaming-analytics/idempotent-sink-and-replay",
+          "title": "Idempotent streaming sinks: make retries safe across failures"
+        }
+      ]
+    }
+  },
+  {
+    "id": "fd0a5bbc-ddb6-5a91-b834-957f559ab4dc",
+    "type": "article",
+    "path": "data-engineering/parquet-row-groups-and-column-pruning",
+    "title": "Parquet row groups, projection and scan cost",
+    "summary": "Parquet groups rows into row groups and stores each column's values together, so a query can skip unneeded columns and sometimes whole row groups.",
+    "body": "<p>Parquet groups rows into row groups and stores each column&#x27;s values together, so a query can skip unneeded columns and sometimes whole row groups.</p><h2>Connect layout to a query</h2><p>An order analyst selecting order ID, status, and amount from a 63-column table should not scan every column chunk. Column projection avoids irrelevant bytes. If a row group has useful min and max statistics for event date, a date filter may skip that group; the engine must still read a group whose range overlaps the filter. Statistics are an optimization, not a correctness filter.</p><h2>Distinguish file from table</h2><p>A Parquet file contains data and footer metadata. It does not, by itself, supply a multi-file transaction, snapshot isolation, or a reliable table-wide deletion protocol. Use a table format or a controlled manifest when readers need a consistent set of files. <a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Snapshot publication</a> makes that distinction concrete.</p><h2>Plan row groups and files together</h2><p>A very small row group has high metadata overhead and weak scan amortization. A huge row group may waste reads when predicates are selective and can limit parallel work. Many tiny files increase listing, open, planning, and task-launch costs even if the compressed bytes are few. Choose sizes from representative queries and measured storage behavior rather than one universal target.</p><h2>Sort for the filters that matter</h2><p>Grouping nearby event dates can make row-group ranges tighter and improve skipping for time-bounded queries. Sorting on every candidate column is impossible; it adds write work and may help one query while hurting another. Compare bytes scanned, files opened, and elapsed time before and after a layout change. <a href=\"/data-engineering/partition-planning-and-skew\">Partition design</a> determines a coarser pruning boundary.</p><h2>Watch evolving schemas</h2><p>Files written under several schemas can coexist. Readers must resolve missing columns, field types, and defaults consistently across them. A read that silently converts missing amount to zero can create false revenue. <a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">The schema contract</a> should state whether the field is absent, null, or truly zero.</p><h2>Implementation</h2><pre><code class=\"language-python\">row_group_stats = [\n    {&quot;file&quot;: &quot;orders-a&quot;, &quot;min_day&quot;: 40, &quot;max_day&quot;: 46, &quot;bytes&quot;: 120_000},\n    {&quot;file&quot;: &quot;orders-b&quot;, &quot;min_day&quot;: 47, &quot;max_day&quot;: 53, &quot;bytes&quot;: 145_000},\n    {&quot;file&quot;: &quot;orders-c&quot;, &quot;min_day&quot;: 54, &quot;max_day&quot;: 60, &quot;bytes&quot;: 132_000},\n]\n\ndef candidate_groups(groups, first_day, last_day):\n    return [group for group in groups\n            if group[&quot;max_day&quot;] &gt;= first_day and group[&quot;min_day&quot;] &lt;= last_day]\n\nscan = candidate_groups(row_group_stats, 48, 50)\nassert [group[&quot;file&quot;] for group in scan] == [&quot;orders-b&quot;]\nassert sum(group[&quot;bytes&quot;] for group in scan) == 145_000</code></pre><h2>Performance and operating cost</h2><p>Planning from G row-group statistics takes O(G) work in this example; a table catalog may prune earlier. Projection reduces bytes for unused columns, while row-group skipping reduces candidate groups. Neither eliminates a costly join or an incorrect table grain.</p><h3>Common Mistakes</h3><ul><li>Do not call a Parquet file an ACID table.</li><li>Do not expect min/max skipping when ranges overlap widely or statistics are absent.</li><li>Do not optimize compressed bytes alone while file-open overhead dominates.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/partition-planning-and-skew\">Partition planning, pruning and skew</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">Schema compatibility and consumer rollout</a></li><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/task-retries-and-atomic-partition-output\">Task retries and atomic partition output</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/pipeline-cost-attribution-and-right-sizing\">Pipeline cost attribution and right-sizing</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7821,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/partition-planning-and-skew",
+          "title": "Partition planning, pruning and skew"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/compaction-retention-and-replay-horizon",
+          "title": "Compaction, retention and the replay horizon"
+        },
+        {
+          "path": "data-engineering/schema-compatibility-and-consumer-rollout",
+          "title": "Schema compatibility and consumer rollout"
+        },
+        {
+          "path": "data-engineering/versioned-order-lake-release-project",
+          "title": "Project: release a versioned order lake"
+        },
+        {
+          "path": "data-engineering/task-retries-and-atomic-partition-output",
+          "title": "Task retries and atomic partition output"
+        },
+        {
+          "path": "data-engineering/pipeline-cost-attribution-and-right-sizing",
+          "title": "Pipeline cost attribution and right-sizing"
+        }
+      ]
+    }
+  },
+  {
+    "id": "703a86e0-d676-502b-b4d6-0792317e5721",
+    "type": "article",
+    "path": "data-engineering/pipeline-cost-attribution-and-right-sizing",
+    "title": "Pipeline cost attribution and right-sizing",
+    "summary": "Cost attribution ties compute, storage, transfer and retries to a dataset release so a faster pipeline is not mistaken for a cheaper one.",
+    "body": "<p>Cost attribution ties compute, storage, transfer and retries to a dataset release so a faster pipeline is not mistaken for a cheaper one.</p><h2>Define a unit of work</h2><p>For a daily customer mart, cost per accepted million rows or per published partition is more useful than a monthly warehouse bill. Capture input bytes, output bytes, worker time, storage generations, network transfer and reruns by job and dataset ID. A large cost can be justified when data volume rises; a rising unit cost with stable volume signals inefficiency.</p><h2>Separate baseline from incident spend</h2><p>A retry storm can double compute while producing one release. Attribute all attempts to that release rather than charging only the successful run. Include quarantine reprocessing, backfills and retained snapshots. <a href=\"/data-engineering/failure-classification-and-retry-budget\">Retry budgets</a> prevent transient faults from silently becoming the main cost driver.</p><h2>Locate the expensive boundary</h2><p>Column pruning can avoid reading unused Parquet fields; partition pruning avoids irrelevant time ranges; a local combiner reduces shuffle bytes. Each changes a different bill component. <a href=\"/data-engineering/parquet-row-groups-and-column-pruning\">Read pruning</a> and <a href=\"/data-engineering/shuffle-boundaries-and-local-combiners\">shuffle reduction</a> should be measured on the same pinned input and query plan. Buying more workers before locating the bottleneck may only make the mistake more expensive.</p><h2>Right-size without missing the deadline</h2><p>Downsizing a job may cut hourly compute but extend runtime beyond an agreed freshness SLO, while extreme parallelism can raise setup, shuffle and sink contention. Compare cost, p95 completion and largest task memory over several representative intervals. Keep a capacity margin for a backfill or a larger day. The cheapest successful run is not always the cheapest reliable service.</p><h2>Verify bill-to-release mapping</h2><p>Require every billable job and storage prefix to carry a dataset or shared-platform tag. Reconcile tagged cost with provider totals and track an unattributed bucket. A tag on the coordinator alone misses workers and intermediate storage. Review estimates against bills, then revise the per-unit model; it is an instrument, not an invoice.</p><h2>Implementation</h2><pre><code class=\"language-python\">runs = [\n    {&quot;release&quot;: &quot;mart-47&quot;, &quot;attempt&quot;: 1, &quot;compute_cents&quot;: 390, &quot;rows&quot;: 0},\n    {&quot;release&quot;: &quot;mart-47&quot;, &quot;attempt&quot;: 2, &quot;compute_cents&quot;: 470, &quot;rows&quot;: 240_000},\n]\n\ndef cost_per_million_accepted(rows):\n    spent = sum(row[&quot;compute_cents&quot;] for row in rows)\n    accepted = sum(row[&quot;rows&quot;] for row in rows)\n    if accepted &lt;= 0:\n        raise ValueError(&quot;no accepted output&quot;)\n    return spent * 1_000_000 / accepted\n\nassert round(cost_per_million_accepted(runs), 2) == 3583.33</code></pre><h2>Performance and operating cost</h2><p>Aggregating R run records takes O(R) time and O(1) additional memory. The larger cost model needs provider billing exports, storage inventory and usage tags, which can lag real time. Sample query and task metrics at a resolution that explains the bill, and avoid retaining high-cardinality telemetry indefinitely merely to optimize a small pipeline.</p><h3>Common Mistakes</h3><ul><li>Do not ignore failed attempts when pricing one successful release.</li><li>Do not optimize hourly rate while freshness and catch-up fail.</li><li>Do not treat untagged spend as zero.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/parquet-row-groups-and-column-pruning\">Parquet row groups, projection and scan cost</a></li><li><a href=\"/data-engineering/shuffle-boundaries-and-local-combiners\">Shuffle boundaries and local combiners</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li><li><a href=\"/data-engineering/failure-classification-and-retry-budget\">Failure classification and retry budgets</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7868,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/parquet-row-groups-and-column-pruning",
+          "title": "Parquet row groups, projection and scan cost"
+        },
+        {
+          "path": "data-engineering/shuffle-boundaries-and-local-combiners",
+          "title": "Shuffle boundaries and local combiners"
+        },
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        },
+        {
+          "path": "data-engineering/failure-classification-and-retry-budget",
+          "title": "Failure classification and retry budgets"
+        }
+      ]
+    }
+  },
+  {
+    "id": "27c73df9-bd98-50ac-84ac-f62311fd3efa",
+    "type": "article",
+    "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+    "title": "Pipeline lineage and impact analysis",
+    "summary": "Lineage records which input datasets and transformations produced an output, allowing a changed source or failed run to be traced to affected consumers.",
+    "body": "<p>Lineage records which input datasets and transformations produced an output, allowing a changed source or failed run to be traced to affected consumers.</p><h2>Record concrete dataset identities</h2><p>A name such as orders is ambiguous across environments, regions and snapshots. Use a namespace, dataset name, version or snapshot ID, and run ID. Record input and output versions at completion, even when a job declares its expected dependencies in code. <a href=\"/data-engineering/replay-manifest-and-audit-trail\">The run manifest</a> links observed lineage to the exact published artifact.</p><h2>Avoid false edges</h2><p>A job may read customers and orders but independently write a customer count and an order total. Treating every input as a source of every output invents dependencies that do not exist. Capture edges at the transformation or output-field level when impact decisions require that precision. A coarse DAG remains useful for initial discovery, but it should not claim exact column provenance.</p><h2>Use lineage to plan a change</h2><p>Before changing amount_cents to a new currency unit, traverse descendants to find reports, features, exports and caches. For each consumer, identify owner, compatibility requirement, test fixture and rollout order. <a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">Schema rollout</a> needs this dependency list. The existence of a lineage edge alone does not prove the consumer can decode or interpret the change.</p><h2>Use lineage during an incident</h2><p>If an incorrect exchange-rate table was published at 06:10, find runs that consumed that version and outputs they published. Mark those outputs suspect, pause their downstream publication, repair the source, and replay affected intervals. A broad table-level edge may overstate the blast radius; that&#x27;s safer than missing a real descendant, but costs more recovery work.</p><h2>Keep manual data flows visible</h2><p>Not every export, notebook or one-off upload emits metadata events. Maintain a register for critical manual transfers and periodically compare read logs to the catalog. A lineage graph can be technically correct for observed jobs yet incomplete for the business. <a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion work</a> cannot rely only on instrumented edges.</p><h2>Implementation</h2><pre><code class=\"language-python\">from collections import deque\n\ndownstream = {\n    &quot;raw.orders&quot;: {&quot;curated.orders&quot;, &quot;audit.order_events&quot;},\n    &quot;curated.orders&quot;: {&quot;finance.daily_revenue&quot;, &quot;ml.order_features&quot;},\n    &quot;audit.order_events&quot;: set(),\n    &quot;finance.daily_revenue&quot;: set(),\n    &quot;ml.order_features&quot;: set(),\n}\n\ndef affected_datasets(graph, changed):\n    seen, pending = set(), deque([changed])\n    while pending:\n        dataset = pending.popleft()\n        for child in graph.get(dataset, ()):\n            if child not in seen:\n                seen.add(child)\n                pending.append(child)\n    return seen\n\nassert &quot;finance.daily_revenue&quot; in affected_datasets(downstream, &quot;raw.orders&quot;)</code></pre><h2>Performance and operating cost</h2><p>A breadth-first traversal is O(V + E) over V datasets and E dependency edges, with O(V) memory. Producing and retaining accurate run-level lineage costs instrumentation and catalog storage. Missing edges are a bigger risk than traversal speed.</p><h3>Common Mistakes</h3><ul><li>Do not infer every input feeds every output in a multi-output job.</li><li>Do not use a dataset name without environment and version identity.</li><li>Do not assume an instrumented graph includes manual exports.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">Schema compatibility and consumer rollout</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li><li><a href=\"/data-engineering/billing-pipeline-operations-project\">Project: operate a daily billing pipeline</a></li><li><a href=\"/knowledge-graphs/knowledge-graphs-tutorial\">Knowledge Graphs Tutorial</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7829,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/schema-compatibility-and-consumer-rollout",
+          "title": "Schema compatibility and consumer rollout"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        },
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        },
+        {
+          "path": "data-engineering/billing-pipeline-operations-project",
+          "title": "Project: operate a daily billing pipeline"
+        },
+        {
+          "path": "knowledge-graphs/knowledge-graphs-tutorial",
+          "title": "Knowledge Graphs Tutorial"
+        },
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        }
+      ]
+    }
+  },
+  {
+    "id": "dad2d780-79e2-557e-a5fb-21d8fbf7f508",
+    "type": "article",
+    "path": "data-engineering/pipeline-slos-and-error-budgets",
+    "title": "Pipeline SLOs, freshness and error budgets",
+    "summary": "A pipeline service-level objective states the measurable share of intervals whose usable data arrives before a consumer deadline with the required quality.",
+    "body": "<p>A pipeline service-level objective states the measurable share of intervals whose usable data arrives before a consumer deadline with the required quality.</p><h2>Define a good interval</h2><p>For the finance daily table, define success as a committed day partition by 08:30 local time, all required source manifests complete, accepted plus quarantined count equal to extracted count, and no critical quality violation. A scheduler&#x27;s green task status is not enough. The user-facing unit is a usable interval, so measure it from the consumer&#x27;s query path.</p><h2>Calculate the budget</h2><p>An objective of 99% good daily intervals over a 100-day rolling window permits one bad interval. A target of 99.9% on only 30 daily intervals is hard to interpret because one failure moves the observed rate by more than three percentage points. Select a window and unit with enough opportunities, or use a weekly or per-run target with clear meaning.</p><h2>Separate symptoms</h2><p>Track source lag, processing duration, quality rejection rate and publication delay alongside the final good-interval indicator. A late source and a slow transform require different owners. <a href=\"/data-engineering/dependency-readiness-and-source-freshness\">Readiness</a> tells whether the source delivered; <a href=\"/data-engineering/failure-classification-and-retry-budget\">failure classification</a> tells whether retrying helps.</p><h2>Alert for action</h2><p>Page a human when the consumer deadline is at risk and the team can act, not on every transient task retry. A warning can trigger at 07:50 when the source is missing; an incident can trigger at 08:30 when no valid snapshot is published. Include affected dataset, interval, run ID, last good snapshot and runbook path in the alert.</p><h2>Use the budget in release decisions</h2><p>If recent intervals exhausted the failure budget, postpone a risky schema change and repair the unstable pipeline first. The budget is not a reason to hide bad intervals or lower quality gates. A data product with a strict deletion or financial correctness requirement may need a separate zero-tolerance guardrail even when its freshness objective permits rare lateness.</p><h2>Implementation</h2><pre><code class=\"language-python\">daily_intervals = [\n    {&quot;day&quot;: 47, &quot;ready&quot;: True, &quot;quality_ok&quot;: True, &quot;published_minute&quot;: 506},\n    {&quot;day&quot;: 48, &quot;ready&quot;: True, &quot;quality_ok&quot;: True, &quot;published_minute&quot;: 518},\n    {&quot;day&quot;: 49, &quot;ready&quot;: False, &quot;quality_ok&quot;: False, &quot;published_minute&quot;: None},\n]\n\ndef good_interval_rate(records, deadline_minute=510):\n    if not records:\n        raise ValueError(&quot;no intervals&quot;)\n    good = sum(record[&quot;ready&quot;] and record[&quot;quality_ok&quot;]\n               and record[&quot;published_minute&quot;] is not None\n               and record[&quot;published_minute&quot;] &lt;= deadline_minute\n               for record in records)\n    return good / len(records)\n\nassert good_interval_rate(daily_intervals) == 1 / 3</code></pre><h2>Performance and operating cost</h2><p>Aggregating N intervals is O(N) time and O(1) extra space. Monitoring cost comes from trustworthy source and publication timestamps, retention of interval outcomes, and alerts with enough context to act. A small denominator can make percentage targets misleading.</p><h3>Common Mistakes</h3><ul><li>Do not measure only task success when the published table is unusable.</li><li>Do not set an SLO without a consumer deadline and quality condition.</li><li>Do not treat a freshness allowance as permission to publish wrong financial data.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/dependency-readiness-and-source-freshness\">Dependency readiness and source freshness</a></li><li><a href=\"/data-engineering/failure-classification-and-retry-budget\">Failure classification and retry budgets</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li><li><a href=\"/data-engineering/billing-pipeline-operations-project\">Project: operate a daily billing pipeline</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/stream-backpressure-and-catch-up-budget\">Stream backpressure and catch-up budget</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7830,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/dependency-readiness-and-source-freshness",
+          "title": "Dependency readiness and source freshness"
+        },
+        {
+          "path": "data-engineering/failure-classification-and-retry-budget",
+          "title": "Failure classification and retry budgets"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        },
+        {
+          "path": "data-engineering/billing-pipeline-operations-project",
+          "title": "Project: operate a daily billing pipeline"
+        },
+        {
+          "path": "data-engineering/quality-quarantine-and-reconciliation",
+          "title": "Data quality gates: quarantine bad rows and reconcile complete batches"
+        },
+        {
+          "path": "data-engineering/stream-backpressure-and-catch-up-budget",
+          "title": "Stream backpressure and catch-up budget"
+        }
+      ]
+    }
+  },
+  {
+    "id": "e496d17c-0160-5761-970b-ed5c640bd7f8",
+    "type": "article",
+    "path": "data-engineering/revenue-mart-release-project",
+    "title": "Project: release a reconciled revenue mart",
+    "summary": "Build an invoice and payment mart with declared fact grain, versioned customer identities, late-dimension repair and one metric contract.",
+    "body": "<p>Build an invoice and payment mart with declared fact grain, versioned customer identities, late-dimension repair and one metric contract.</p><h2>Write the contract</h2><p>Use one fact row per capture event and a stable capture ID. Carry signed cents, event time, source position, customer source namespace and natural key. A customer dimension has a durable identity plus surrogate keys for historical versions. State which time the revenue report uses and whether reversal events net against the original day or the reversal day.</p><h2>Build the load</h2><p>Land raw captures, deduplicate by capture ID and source position, resolve the dimension version valid at capture time, and stage the fact table. Use an explicit unknown member for late customers. Reconcile accepted plus quarantined records with the source interval and compare signed cents before publication. <a href=\"/data-engineering/fact-grain-and-measure-additivity\">The grain contract</a> prevents many-to-many joins from inflating revenue.</p><h2>Define a consumer metric</h2><p>Publish net captured cents and eligible attempt counts as components, then calculate payment success rate from those components. Keep metric version, source snapshot, cutoff and currency rule beside the release. <a href=\"/data-engineering/semantic-metric-contract-and-reconciliation\">The metric contract</a> should identify a reversal and an ineligible test event unambiguously.</p><h2>Inject change and lateness</h2><p>Create two captures for one order, reverse part of one capture, then deliver a customer region change whose effective time falls between the two. Delay the customer dimension for one capture. Verify that its fact remains visible under unknown, a later repair changes only its dimension key, and the total cents remain identical.</p><h2>Prove the release</h2><p>Supply source and target schemas, grain and key assertions, as-of lookup tests, the unresolved-member queue, reconciliation by day and currency, a metric fixture, and two versioned snapshots before and after repair. The consumer should see one complete version at a time. Record an operator path for a source correction that arrives after the normal window.</p><h2>Implementation</h2><pre><code class=\"language-python\">captures = [\n    {&quot;capture_id&quot;: &quot;cap-47&quot;, &quot;customer&quot;: &quot;cust-7&quot;, &quot;day&quot;: 47, &quot;cents&quot;: 6100},\n    {&quot;capture_id&quot;: &quot;cap-48&quot;, &quot;customer&quot;: &quot;cust-7&quot;, &quot;day&quot;: 47, &quot;cents&quot;: 2400},\n    {&quot;capture_id&quot;: &quot;rev-49&quot;, &quot;customer&quot;: &quot;cust-7&quot;, &quot;day&quot;: 48, &quot;cents&quot;: -1100},\n]\n\ndef revenue_release(rows):\n    if len({row[&quot;capture_id&quot;] for row in rows}) != len(rows):\n        raise ValueError(&quot;capture grain violated&quot;)\n    by_day = {}\n    for row in rows:\n        by_day[row[&quot;day&quot;]] = by_day.get(row[&quot;day&quot;], 0) + row[&quot;cents&quot;]\n    assert sum(by_day.values()) == sum(row[&quot;cents&quot;] for row in rows)\n    return by_day\n\nassert revenue_release(captures) == {47: 8500, 48: -1100}</code></pre><h2>Performance and operating cost</h2><p>The reference aggregation is O(N) expected time and O(N + D) memory for N captures and D days. A production mart also pays for version-aware dimension lookups, validation, retained snapshots and restatements. Fast queries do not compensate for an undefined grain or unreconciled source.</p><h3>Common Mistakes</h3><ul><li>Do not collapse two captures into one order row without a written measure rule.</li><li>Do not overwrite old region history when the customer moves.</li><li>Do not silently suppress a fact just because its dimension is late.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain and measure additivity</a></li><li><a href=\"/data-engineering/conformed-dimensions-and-surrogate-keys\">Conformed dimensions and surrogate keys</a></li><li><a href=\"/data-engineering/late-arriving-dimensions-and-fact-repair\">Late-arriving dimensions and fact repair</a></li><li><a href=\"/data-engineering/semantic-metric-contract-and-reconciliation\">Semantic metric contracts and reconciliation</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7849,
+    "status": "published",
+    "published_at": "2026-10-06T05:28:49.615773+00:00",
+    "created_at": "2026-10-06T05:28:49.615773+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/fact-grain-and-measure-additivity",
+          "title": "Fact grain and measure additivity"
+        },
+        {
+          "path": "data-engineering/conformed-dimensions-and-surrogate-keys",
+          "title": "Conformed dimensions and surrogate keys"
+        },
+        {
+          "path": "data-engineering/late-arriving-dimensions-and-fact-repair",
+          "title": "Late-arriving dimensions and fact repair"
+        },
+        {
+          "path": "data-engineering/semantic-metric-contract-and-reconciliation",
+          "title": "Semantic metric contracts and reconciliation"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        }
+      ]
+    }
+  },
+  {
+    "id": "22cc3150-2866-5190-9150-0fb3d7298580",
+    "type": "article",
+    "path": "data-engineering/row-policy-and-column-mask-tests",
+    "title": "Row policy and column mask tests",
+    "summary": "A row policy limits which records an identity can read; a column mask changes the value it sees, so both need tests at the consumer query boundary.",
+    "body": "<p>A row policy limits which records an identity can read; a column mask changes the value it sees, so both need tests at the consumer query boundary.</p><h2>State the intended visibility</h2><p>A regional support analyst may see only customers assigned to their region, with account token masked. A finance service may read all regions but only the aggregate billing amount. Write this as an identity-by-field matrix, including null and unknown region cases. An unassigned customer should not become visible merely because the policy comparison returns an unexpected null value.</p><h2>Test through the same query path</h2><p>A unit test of a masking expression cannot prove the BI connection, view ownership and role mapping apply it. Execute representative SELECTs as each real role against the published view. Verify allowed row IDs, denied row IDs and exact masked values. Then try a join, export and materialized copy if those paths are available to the role.</p><h2>Guard policy inputs</h2><p>If an administrator can edit the analyst-to-region mapping, that mapping is part of the security boundary. Version it, review changes and test a user moved between regions. Default-deny when membership is absent or ambiguous. A policy that reads a mutable lookup can produce different historical query results; retain audit evidence of the mapping used.</p><h2>Account for derived exposure</h2><p>Masking a direct account token is insufficient if a combination of postal code, event time and rare merchant makes the person identifiable. Review derived columns and small cohorts under the same classification rules. <a href=\"/data-engineering/data-classification-and-access-boundaries\">The classification contract</a> decides which joins and exports are allowed, while the row and mask policies enforce the resulting boundary.</p><h2>Recheck after schema changes</h2><p>Adding a new sensitive column can bypass an explicit mask list if the view uses wildcard selection. Require an allowlist of exposed fields and run policy tests as part of the release gate. Confirm that an authorized role still sees the values it needs; over-masking can break operations and create unsafe workarounds.</p><h2>Implementation</h2><pre><code class=\"language-python\">customers = [\n    {&quot;id&quot;: &quot;cust-47&quot;, &quot;region&quot;: &quot;north&quot;, &quot;token&quot;: &quot;tok-4731&quot;},\n    {&quot;id&quot;: &quot;cust-83&quot;, &quot;region&quot;: &quot;west&quot;, &quot;token&quot;: &quot;tok-8394&quot;},\n]\n\ndef support_view(rows, assigned_region):\n    return [{&quot;id&quot;: row[&quot;id&quot;], &quot;region&quot;: row[&quot;region&quot;], &quot;token&quot;: &quot;[masked]&quot;}\n            for row in rows if assigned_region is not None\n            and row[&quot;region&quot;] == assigned_region]\n\nassert support_view(customers, &quot;north&quot;) == [\n    {&quot;id&quot;: &quot;cust-47&quot;, &quot;region&quot;: &quot;north&quot;, &quot;token&quot;: &quot;[masked]&quot;}]\nassert support_view(customers, None) == []</code></pre><h2>Performance and operating cost</h2><p>A full in-memory scan is O(N) time and O(R) output for N rows and R authorized rows. A database may push row filters into indexed access, but complex policy functions can prevent pruning or add per-row work. Benchmark the authorized query plan without weakening the policy, and test the actual database role rather than only this reference function.</p><h3>Common Mistakes</h3><ul><li>Do not test masking only through an administrator connection.</li><li>Do not make unknown region membership mean all regions.</li><li>Do not expose newly added columns through wildcard views.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a></li><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7866,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        },
+        {
+          "path": "data-engineering/dataset-ownership-and-change-approval",
+          "title": "Dataset ownership and change approval"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        }
+      ]
+    }
+  },
+  {
+    "id": "73abef56-8434-57b1-92b4-69cbf516905b",
+    "type": "article",
+    "path": "data-engineering/schema-compatibility-and-consumer-rollout",
+    "title": "Schema compatibility and consumer rollout",
+    "summary": "A schema contract defines how producers encode records and which historical and future records each consumer can read.",
+    "body": "<p>A schema contract defines how producers encode records and which historical and future records each consumer can read.</p><h2>Separate wire compatibility from meaning</h2><p>Adding a nullable field can be harmless for a decoder yet still break a downstream calculation that assumes the field is always present. Renaming an amount field while keeping its numeric type may preserve bytes but change business meaning. Record field identity, units, null behavior, keys, and deletion meaning in the contract. <a href=\"/data-engineering/source-contract-and-raw-landing\">Raw landing</a> should retain the original payload and its schema version so a corrected parser can replay it.</p><h2>Choose the reader and writer order</h2><p>Backward compatibility asks whether a new reader can consume older records; forward compatibility asks whether an older reader can consume records from a new writer. A rollout with persistent historical files needs a reader that understands old versions. A mixed fleet of consumers may also need old readers to understand new writes. Check the chosen compatibility rule against every supported version when old files or clients can survive more than one release.</p><h2>Exercise an actual consumer fixture</h2><p>A registry check cannot test that a billing report still interprets cents as cents. Keep representative payloads from each supported version, including nulls, deleted entities, and unexpected enum values. Decode them with the candidate consumer, validate the resulting normalized record, then run the aggregate that matters. A failing contract test should block publication before <a href=\"/data-engineering/quality-quarantine-and-reconciliation\">quality gates</a> see the changed data.</p><h2>Publish in stages</h2><p>First deploy consumers that accept both old and new payloads. Then permit producers to emit the new version and monitor decode errors and unknown-field counts. Only retire old parsing after the retention horizon and dependent consumers have moved. A breaking change belongs in a new stream or versioned dataset with an explicit migration, not an unannounced reinterpretation of the existing one.</p><h2>Make failure reversible</h2><p>Keep the last known-good schema and a rollback switch for the writer. Rolling back the binary alone does not remove records already emitted in the new format. If a new writer emitted 47 incompatible records, quarantine those records by event ID, repair or translate them, and replay from the raw log with the same deduplication key.</p><h2>Implementation</h2><pre><code class=\"language-python\">SUPPORTED = {2: {&quot;order_id&quot;, &quot;amount_cents&quot;},\n             3: {&quot;order_id&quot;, &quot;amount_cents&quot;, &quot;currency&quot;}}\n\ndef normalize_order(payload, schema_version):\n    if schema_version not in SUPPORTED:\n        raise ValueError(&quot;unsupported order schema&quot;)\n    if not SUPPORTED[schema_version].issubset(payload):\n        raise ValueError(&quot;missing required field&quot;)\n    if not isinstance(payload[&quot;amount_cents&quot;], int):\n        raise TypeError(&quot;amount must be integer cents&quot;)\n    return {&quot;order_id&quot;: payload[&quot;order_id&quot;],\n            &quot;amount_cents&quot;: payload[&quot;amount_cents&quot;],\n            &quot;currency&quot;: payload.get(&quot;currency&quot;, &quot;INR&quot;)}\n\nassert normalize_order({&quot;order_id&quot;: &quot;ord-47&quot;, &quot;amount_cents&quot;: 7350}, 2)[&quot;currency&quot;] == &quot;INR&quot;</code></pre><h2>Performance and operating cost</h2><p>A fixture suite is O(V × R) over V supported schema versions and R representative records. Real cost comes from keeping old readers and migration paths until retention ends. A registry compatibility result is necessary for encoded records, but semantic checks and staged rollout still need their own tests.</p><h3>Common Mistakes</h3><ul><li>Do not assume an optional wire field is optional in every consumer calculation.</li><li>Do not equate an accepted schema change with a safe unit or enum change.</li><li>Do not remove a reader for old data while retained files still use it.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-engineering/parquet-row-groups-and-column-pruning\">Parquet row groups, projection and scan cost</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li><li><a href=\"/data-engineering/dag-intervals-and-idempotent-tasks\">DAG intervals and idempotent task outputs</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/conformed-dimensions-and-surrogate-keys\">Conformed dimensions and surrogate keys</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7820,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/source-contract-and-raw-landing",
+          "title": "Data source contracts: preserve raw records before transformation"
+        },
+        {
+          "path": "data-engineering/quality-quarantine-and-reconciliation",
+          "title": "Data quality gates: quarantine bad rows and reconcile complete batches"
+        },
+        {
+          "path": "data-engineering/parquet-row-groups-and-column-pruning",
+          "title": "Parquet row groups, projection and scan cost"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/versioned-order-lake-release-project",
+          "title": "Project: release a versioned order lake"
+        },
+        {
+          "path": "data-engineering/dag-intervals-and-idempotent-tasks",
+          "title": "DAG intervals and idempotent task outputs"
+        },
+        {
+          "path": "data-engineering/conformed-dimensions-and-surrogate-keys",
+          "title": "Conformed dimensions and surrogate keys"
+        },
+        {
+          "path": "data-engineering/dataset-ownership-and-change-approval",
+          "title": "Dataset ownership and change approval"
+        }
+      ]
+    }
+  },
+  {
+    "id": "ee83eb2e-843f-55d2-8f2b-b940d1bbc12f",
+    "type": "article",
+    "path": "data-engineering/source-contract-and-raw-landing",
+    "title": "Data source contracts: preserve raw records before transformation",
+    "summary": "A source contract fixes record identity, event time, schema expectations and ownership before a pipeline edits or aggregates incoming data.",
+    "body": "<p>A source contract fixes record identity, event time, schema expectations and ownership before a pipeline edits or aggregates incoming data.</p><h2>Name the source boundary</h2><p>A receipt processor emits submissions and later corrections. The ingest job must know which field is the stable receipt ID, which timestamp describes the business event, which timestamp describes arrival, and who can change the schema. Capture raw bytes or a governed immutable copy before casting fields. Without the raw record, a transformation bug cannot be replayed after the source has moved on. <a href=\"/data-science/reproducible-analysis-snapshot\">Analysis snapshots</a>] depend on this earlier boundary.</p><h2>Validate but do not erase</h2><p>Reject a record with a missing ID or an impossible timestamp into a quarantine stream with its source offset and reason. Do not quietly drop it, and do not coerce a malformed amount to zero. A contract may permit additive optional fields while rejecting a changed key type. Version the rule and count each rejection reason. An alert should compare the rejection rate with the source volume; one bad row in 47 records is very different from one in millions.</p><h2>Retain provenance</h2><p>Store source system, partition or file identity, record position, ingest time and contract version. If an upstream team republishes a file, identify whether it is the same bytes or a new revision. Separate raw storage permissions from curated access; the raw layer may contain sensitive fields analysts should not see. <a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Quality reconciliation</a>] uses the provenance to trace a missing receipt.</p><h2>Prove a schema change</h2><p>Run the ingest contract against an old valid record, an additive-field record, a missing-key record and a changed timestamp format. The first two should be accepted under the written rule; the latter two should be quarantined with precise reasons. A parse success is not proof of semantic validity.</p><h2>Implementation</h2><pre><code class=\"language-python\">from dataclasses import dataclass\nfrom datetime import datetime\n\n@dataclass(frozen=True)\nclass ReceiptEvent:\n    receipt_id: str\n    event_time: datetime\n    amount_cents: int\n\ndef validate_receipt(record: ReceiptEvent) -&gt; None:\n    if not record.receipt_id or record.event_time.tzinfo is None:\n        raise ValueError(&quot;receipt identity and timezone are required&quot;)\n    if record.amount_cents &lt; 0:\n        raise ValueError(&quot;negative receipt amount&quot;)</code></pre><h2>Performance and operating cost</h2><p>Validation is O(N) for N records and usually small per row. Retaining raw input costs storage and access-control work; it is also what makes a correct replay possible.</p><h3>Common Mistakes</h3><ul><li>Do not discard raw records after a failed transform.</li><li>Do not use arrival time as event time without saying so.</li><li>Do not coerce malformed money to a valid-looking zero.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-engineering/incremental-watermark-and-ties\">Incremental extraction: advance a compound watermark without losing ties</a></li><li><a href=\"/data-science/reproducible-analysis-snapshot\">Reproducible analysis snapshots: pin data, code and cutoff together</a></li><li><a href=\"/data-science/missing-data-policy\">Missing data policy: distinguish absence from a measured zero</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">Schema compatibility and consumer rollout</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7800,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "data-engineering/quality-quarantine-and-reconciliation",
+          "title": "Data quality gates: quarantine bad rows and reconcile complete batches"
+        },
+        {
+          "path": "data-engineering/incremental-watermark-and-ties",
+          "title": "Incremental extraction: advance a compound watermark without losing ties"
+        },
+        {
+          "path": "data-science/reproducible-analysis-snapshot",
+          "title": "Reproducible analysis snapshots: pin data, code and cutoff together"
+        },
+        {
+          "path": "data-science/missing-data-policy",
+          "title": "Missing data policy: distinguish absence from a measured zero"
+        },
+        {
+          "path": "data-engineering/schema-compatibility-and-consumer-rollout",
+          "title": "Schema compatibility and consumer rollout"
+        },
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        }
+      ]
+    }
+  },
+  {
+    "id": "656b0100-a9b5-56f8-8f74-559eac88c4cf",
+    "type": "article",
+    "path": "data-engineering/stream-backpressure-and-catch-up-budget",
+    "title": "Stream backpressure and catch-up budget",
+    "summary": "Backpressure appears when a downstream stage consumes slower than upstream arrival; backlog grows until capacity, latency or retention runs out.",
+    "body": "<p>Backpressure appears when a downstream stage consumes slower than upstream arrival; backlog grows until capacity, latency or retention runs out.</p><h2>Measure the rate mismatch</h2><p>If a source emits 1,700 records per second and the sink sustains 1,300, backlog grows by about 400 per second. A 720,000-record backlog then needs more than mere parity to clear. At 2,100 per second of sustainable processing against 1,700 new records, net catch-up is 400 per second, or 30 minutes. Use measured sustained rates, not a brief peak benchmark.</p><h2>Find the slow boundary</h2><p>Inspect source lag, per-operator busy time, output buffer occupancy, checkpoint duration, sink acknowledgements and largest keyed partition. A slow sink can make every upstream operator look busy because flow control propagates backward. <a href=\"/data-engineering/skewed-keys-and-salted-aggregation\">Hot keys</a> can create the same symptom on one task. Scale the actual bottleneck or reduce its work.</p><h2>Budget for recovery</h2><p>A consumer that only matches normal arrival rate can never catch up after an outage. Specify maximum tolerated lag and outage duration, then reserve enough spare throughput to drain backlog within that window. Include restore time before useful processing resumes. Source retention must exceed outage plus catch-up plus a safety margin, or the missing records will expire.</p><h2>Avoid destructive emergency fixes</h2><p>Increasing parallelism can help only when partitions, keys and downstream service limits allow it. Disabling checkpoints may improve momentary throughput but removes a reliable recovery point. Dropping events to make a dashboard green violates the data contract. Shed optional enrichment or route overflow to a durable queue only if the consumer explicitly accepts that behavior.</p><h2>Verify under a realistic incident</h2><p>Throttle the sink, let lag accumulate for a measured interval, then restore capacity. Plot backlog slope before and after, checkpoint completion time and event-time freshness. Compare the actual catch-up time with the calculation. If one input partition saturates, adding workers alone may leave the slope unchanged.</p><h2>Implementation</h2><pre><code class=\"language-python\">def catch_up_seconds(backlog_records, incoming_per_second, processing_per_second):\n    spare = processing_per_second - incoming_per_second\n    if backlog_records &lt; 0 or incoming_per_second &lt; 0 or spare &lt;= 0:\n        raise ValueError(&quot;catch-up needs positive spare throughput&quot;)\n    return backlog_records / spare\n\nassert catch_up_seconds(720_000, 1_700, 2_100) == 1_800\nassert catch_up_seconds(24_000, 500, 700) == 120</code></pre><h2>Performance and operating cost</h2><p>The estimate is O(1) arithmetic but assumes stable rates. In a real pipeline, processing capacity changes with key distribution, checkpoint load and sink throttling. Backlog consumes broker storage; open windows and deduplication state consume stream storage. Track both, and recalculate from observed net drain rather than treating a one-time capacity test as a guarantee.</p><h3>Common Mistakes</h3><ul><li>Do not interpret upstream busy time as proof the upstream stage is slow.</li><li>Do not plan recovery with zero spare throughput.</li><li>Do not disable checkpoints or drop records without a written loss contract.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/keyed-state-checkpoints-and-recovery\">Keyed state, checkpoints and recovery</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li><li><a href=\"/data-engineering/failure-classification-and-retry-budget\">Failure classification and retry budgets</a></li><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li><li><a href=\"/data-engineering/skewed-keys-and-salted-aggregation\">Skewed keys and salted aggregation</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7863,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/keyed-state-checkpoints-and-recovery",
+          "title": "Keyed state, checkpoints and recovery"
+        },
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        },
+        {
+          "path": "data-engineering/failure-classification-and-retry-budget",
+          "title": "Failure classification and retry budgets"
+        },
+        {
+          "path": "data-engineering/streaming-risk-ledger-project",
+          "title": "Project: release a recoverable streaming risk ledger"
+        },
+        {
+          "path": "data-engineering/skewed-keys-and-salted-aggregation",
+          "title": "Skewed keys and salted aggregation"
+        }
+      ]
+    }
+  },
+  {
+    "id": "362c22dd-7a56-58a8-9190-b831c3b2bd6d",
+    "type": "article",
+    "path": "data-engineering/stream-table-join-and-reference-versions",
+    "title": "Stream-table joins and reference versions",
+    "summary": "A stream-table join enriches each event with reference data, but correctness depends on which version of that data the event is allowed to see.",
+    "body": "<p>A stream-table join enriches each event with reference data, but correctness depends on which version of that data the event is allowed to see.</p><h2>Choose a time rule before joining</h2><p>A current-value lookup answers what the merchant category is now. A temporal lookup answers what it was when a payment occurred. Both are valid for different products. For historical risk analysis, use event time and a version interval; otherwise a merchant recategorization can rewrite past cohorts during replay. <a href=\"/data-engineering/warehouse-history-asof-join\">An as-of join</a> has the same requirement in a warehouse.</p><h2>Make update order explicit</h2><p>The event stream and reference change stream can arrive in either order. A payment at hour 47 may be processed before the category update effective at hour 46 reaches this worker. Choose to wait for reference completeness, emit unknown and repair later, or use a bounded temporal store with delayed finalization. The choice changes latency, state and historical accuracy.</p><h2>Reject overlapping versions</h2><p>For one merchant, version intervals should be half-open and non-overlapping. If two rows match one event time, enrichment must fail or quarantine the key, never arbitrarily choose whichever arrived last. Preserve source namespace and stable merchant identity. <a href=\"/data-engineering/conformed-dimensions-and-surrogate-keys\">Conformed identity</a> prevents two systems with the same numeric ID from merging.</p><h2>Control fanout and missing matches</h2><p>A join intended to yield one output per payment can multiply records when a lookup key has duplicate active rows. Assert output count equals input count and record the unresolved-reference rate. A valid but late dimension can use an explicit unknown member and later repair. Invalid keys should be quarantined, not guessed from a display name.</p><h2>Rehearse a historical correction</h2><p>Deliver category A, a payment, then category B with an effective time before the payment. Under a temporal contract, a repair may revise the payment enrichment; under an immutable-at-first-seen contract, it should not. Publish the selected rule and its audit trail so readers can explain why a cohort moved.</p><h2>Implementation</h2><pre><code class=\"language-python\">versions = [\n    {&quot;merchant&quot;: &quot;m-47&quot;, &quot;start&quot;: 40, &quot;end&quot;: 48, &quot;category&quot;: &quot;retail&quot;},\n    {&quot;merchant&quot;: &quot;m-47&quot;, &quot;start&quot;: 48, &quot;end&quot;: None, &quot;category&quot;: &quot;marketplace&quot;},\n]\npayments = [{&quot;id&quot;: &quot;pay-47&quot;, &quot;merchant&quot;: &quot;m-47&quot;, &quot;event_hour&quot;: 47}]\n\ndef category_at_time(payment, reference_rows):\n    matches = [row[&quot;category&quot;] for row in reference_rows\n               if row[&quot;merchant&quot;] == payment[&quot;merchant&quot;]\n               and row[&quot;start&quot;] &lt;= payment[&quot;event_hour&quot;]\n               and (row[&quot;end&quot;] is None or payment[&quot;event_hour&quot;] &lt; row[&quot;end&quot;])]\n    if len(matches) != 1:\n        raise ValueError(&quot;reference version is missing or overlaps&quot;)\n    return matches[0]\n\nassert category_at_time(payments[0], versions) == &quot;retail&quot;</code></pre><h2>Performance and operating cost</h2><p>The reference scan is O(V) per event for V versions; an indexed temporal store reduces lookup work but stores each retained version until its supported replay horizon ends. Stream output still needs a one-to-one cardinality check. Waiting for reference completeness costs latency; optimistic output costs repair work and versioned publication.</p><h3>Common Mistakes</h3><ul><li>Do not use the current reference row when historical truth is required.</li><li>Do not let duplicate active versions multiply events.</li><li>Do not hide a missing reference behind a guessed category.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/warehouse-history-asof-join\">Warehouse history: join facts to the dimension version valid at event time</a></li><li><a href=\"/data-engineering/late-arriving-dimensions-and-fact-repair\">Late-arriving dimensions and fact repair</a></li><li><a href=\"/data-engineering/watermark-retention-and-late-corrections\">Watermark retention and late corrections</a></li><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li><li><a href=\"/data-engineering/conformed-dimensions-and-surrogate-keys\">Conformed dimensions and surrogate keys</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7862,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/warehouse-history-asof-join",
+          "title": "Warehouse history: join facts to the dimension version valid at event time"
+        },
+        {
+          "path": "data-engineering/late-arriving-dimensions-and-fact-repair",
+          "title": "Late-arriving dimensions and fact repair"
+        },
+        {
+          "path": "data-engineering/watermark-retention-and-late-corrections",
+          "title": "Watermark retention and late corrections"
+        },
+        {
+          "path": "data-engineering/streaming-risk-ledger-project",
+          "title": "Project: release a recoverable streaming risk ledger"
+        },
+        {
+          "path": "data-engineering/conformed-dimensions-and-surrogate-keys",
+          "title": "Conformed dimensions and surrogate keys"
+        }
+      ]
+    }
+  },
+  {
+    "id": "7bdc5786-3253-5e1f-94b9-79a658125042",
+    "type": "article",
+    "path": "data-engineering/streaming-risk-ledger-project",
+    "title": "Project: release a recoverable streaming risk ledger",
+    "summary": "Build a payment-risk ledger that joins historical merchant categories, revises late windows and recovers without duplicate published effects.",
+    "body": "<p>Build a payment-risk ledger that joins historical merchant categories, revises late windows and recovers without duplicate published effects.</p><h2>Write the consumer contract</h2><p>Each payment has a globally unique event ID, account ID, merchant ID, integer cents, event time and arrival time. Publish one account-hour total and risk count with a revision number. State the watermark delay, state retention and maximum backlog age. Merchant category must match the version effective at payment time, not the category visible when the replay runs.</p><h2>Build recoverable state</h2><p>Key totals by account and event hour. Persist source position, deduplication identities, open-window state and reference versions in a consistent checkpoint. Write output candidates under a stable account-hour-revision key, then commit through a sink that rejects repeated keys. <a href=\"/data-engineering/keyed-state-checkpoints-and-recovery\">Checkpoint design</a> protects the state; <a href=\"/streaming-analytics/idempotent-sink-and-replay\">sink identity</a> protects reader-visible effects.</p><h2>Handle disorder and corrections</h2><p>Emit a provisional window, then send a valid late payment before the allowed cutoff and publish revision two. Send another payment beyond ordinary retention; route it to a signed repair request rather than silently dropping it. Deliver an effective-dated merchant change after a payment and verify the historical join follows the declared temporal rule.</p><h2>Inject pressure and failure</h2><p>Throttle the sink until lag reaches a known backlog, restore capacity and measure net drain. Kill a worker after output candidate creation but before checkpoint completion; recover from the previous checkpoint and assert one committed revision per key. Test a duplicate payment ID, overlapping merchant versions and a state serializer mismatch. The last case must stop safely.</p><h2>Deliver release evidence</h2><p>Provide source and output schemas, watermark and retention policy, a checkpoint/restore transcript, temporal-join fixtures, revision history, backlog calculation, sink idempotency proof and reconciliation of accepted, quarantined and repaired events. Record the exact source positions and code revision so the release is reproducible.</p><h2>Implementation</h2><pre><code class=\"language-python\">events = [\n    {&quot;id&quot;: &quot;pay-47&quot;, &quot;account&quot;: &quot;acct-8&quot;, &quot;hour&quot;: 47, &quot;cents&quot;: 2600},\n    {&quot;id&quot;: &quot;pay-48&quot;, &quot;account&quot;: &quot;acct-8&quot;, &quot;hour&quot;: 47, &quot;cents&quot;: 900},\n]\n\ndef ledger_snapshot(records):\n    seen = set()\n    totals = {}\n    for row in records:\n        if row[&quot;id&quot;] in seen:\n            continue\n        seen.add(row[&quot;id&quot;])\n        key = (row[&quot;account&quot;], row[&quot;hour&quot;])\n        totals[key] = totals.get(key, 0) + row[&quot;cents&quot;]\n    return totals\n\nassert ledger_snapshot(events + events[:1]) == {(&quot;acct-8&quot;, 47): 3500}</code></pre><h2>Performance and operating cost</h2><p>The reference pass costs O(N) expected time and O(E + K) state for retained identities and active account-hour keys. Production cost also includes checkpoint I/O, temporal-reference versions, broker backlog, output revisions and repair work. Keep a retention limit that covers expected disorder without allowing unbounded state growth.</p><h3>Common Mistakes</h3><ul><li>Do not call a provisional result final.</li><li>Do not replay an external side effect without its idempotency identity.</li><li>Do not equate restored process health with caught-up event-time freshness.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/keyed-state-checkpoints-and-recovery\">Keyed state, checkpoints and recovery</a></li><li><a href=\"/data-engineering/watermark-retention-and-late-corrections\">Watermark retention and late corrections</a></li><li><a href=\"/data-engineering/stream-table-join-and-reference-versions\">Stream-table joins and reference versions</a></li><li><a href=\"/data-engineering/stream-backpressure-and-catch-up-budget\">Stream backpressure and catch-up budget</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7864,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/keyed-state-checkpoints-and-recovery",
+          "title": "Keyed state, checkpoints and recovery"
+        },
+        {
+          "path": "data-engineering/watermark-retention-and-late-corrections",
+          "title": "Watermark retention and late corrections"
+        },
+        {
+          "path": "data-engineering/stream-table-join-and-reference-versions",
+          "title": "Stream-table joins and reference versions"
+        },
+        {
+          "path": "data-engineering/stream-backpressure-and-catch-up-budget",
+          "title": "Stream backpressure and catch-up budget"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        }
+      ]
+    }
+  },
+  {
+    "id": "efdb98ae-ff59-5f5c-bb7a-b599cfc79cf9",
+    "type": "article",
+    "path": "data-engineering/warehouse-history-asof-join",
+    "title": "Warehouse history: join facts to the dimension version valid at event time",
+    "summary": "A historical dimension keeps effective-time versions so a fact can be interpreted with the attributes that were valid when the event occurred.",
+    "body": "<p>A historical dimension keeps effective-time versions so a fact can be interpreted with the attributes that were valid when the event occurred.</p><h2>Keep the old meaning</h2><p>A store moves to a new operating region in September. A report of August receipts should use the August region when the question asks what was known then. Replacing the store row in place rewrites every past fact. A type-2 dimension stores non-overlapping validity intervals for the business key; the fact joins to the interval containing its event time. Decide whether a report instead wants today’s region, and name that distinct question.</p><h2>Enforce one interval per fact</h2><p>For one store and timestamp, exactly one dimension row should match. Gaps create unmatched facts; overlapping intervals multiply them. Use half-open validity periods to avoid a boundary timestamp matching two versions. Check active interval uniqueness and row counts around the join. <a href=\"/data-science/dataset-grain-and-join-cardinality\">Cardinality checks</a>] are a correctness requirement, not an optimization.</p><h2>Handle corrections deliberately</h2><p>A late source correction may change a past interval and every derived aggregate it touched. Rebuild affected partitions or publish a restated version. Preserve the raw change trail and dimension history for audit. <a href=\"/data-engineering/cdc-replay-and-deletes\">CDC replay</a>] can feed the versions, but a CDC event alone does not define business effective time.</p><h2>Test the boundary</h2><p>Construct two store versions with an exact change timestamp and three receipts before, at and after that instant. Assert each fact matches one version. Then create a deliberate overlap and make the quality gate fail before report publication.</p><h2>Implementation</h2><pre><code class=\"language-sql\">SELECT r.receipt_id, r.submitted_at, d.operating_region\nFROM receipt_fact AS r\nJOIN store_region_history AS d\n  ON r.store_id = d.store_id\n AND r.submitted_at &gt;= d.valid_from\n AND (d.valid_to IS NULL OR r.submitted_at &lt; d.valid_to);</code></pre><h2>Performance and operating cost</h2><p>An indexed lookup on (store_id, valid_from) costs about O(log H) per fact among H history rows; an unbounded range join can be much more expensive. Retaining history increases storage but prevents silent rewriting of past context.</p><h3>Common Mistakes</h3><ul><li>Do not overwrite a historical dimension if past reports need past attributes.</li><li>Do not allow interval overlaps to multiply fact rows.</li><li>Do not equate CDC arrival time with business effective time.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/cdc-replay-and-deletes\">Change data capture: apply updates and deletes by source order</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li><li><a href=\"/data-science/dataset-grain-and-join-cardinality\">Dataset grain and join cardinality: protect the unit of analysis</a></li><li><a href=\"/data-science/metric-denominator-and-cohort\">Metric denominators and cohorts: make a rate reproducible</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/feature-stores/historical-point-in-time-join\">Historical feature retrieval: point-in-time joins without future leakage</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-science/calibration-drift-and-reference-checks\">Calibration drift: compare sensor readings with a reference</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/late-arriving-dimensions-and-fact-repair\">Late-arriving dimensions and fact repair</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/stream-table-join-and-reference-versions\">Stream-table joins and reference versions</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7806,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "data-engineering/cdc-replay-and-deletes",
+          "title": "Change data capture: apply updates and deletes by source order"
+        },
+        {
+          "path": "data-engineering/backfill-publication-boundary",
+          "title": "Backfills: rebuild history without exposing a half-written result"
+        },
+        {
+          "path": "data-science/dataset-grain-and-join-cardinality",
+          "title": "Dataset grain and join cardinality: protect the unit of analysis"
+        },
+        {
+          "path": "data-science/metric-denominator-and-cohort",
+          "title": "Metric denominators and cohorts: make a rate reproducible"
+        },
+        {
+          "path": "feature-stores/historical-point-in-time-join",
+          "title": "Historical feature retrieval: point-in-time joins without future leakage"
+        },
+        {
+          "path": "data-science/calibration-drift-and-reference-checks",
+          "title": "Calibration drift: compare sensor readings with a reference"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/late-arriving-dimensions-and-fact-repair",
+          "title": "Late-arriving dimensions and fact repair"
+        },
+        {
+          "path": "data-engineering/stream-table-join-and-reference-versions",
+          "title": "Stream-table joins and reference versions"
+        }
+      ]
+    }
+  },
+  {
+    "id": "3471eae7-f16c-524b-afdd-c3b5b53dc9f6",
+    "type": "article",
+    "path": "data-engineering/watermark-retention-and-late-corrections",
+    "title": "Watermark retention and late corrections",
+    "summary": "A watermark states how far event time has probably advanced; retention defines when an old window can no longer accept ordinary corrections.",
+    "body": "<p>A watermark states how far event time has probably advanced; retention defines when an old window can no longer accept ordinary corrections.</p><h2>Use event time as the grouping key</h2><p>A card authorization created on day 47 may reach the processor on day 49. Grouping by arrival day changes the question the metric answers. Keep event time, arrival time and source identity separately. <a href=\"/data-engineering/event-time-and-late-arrivals\">Event-time policy</a> defines when a window first emits, but that first result need not be final.</p><h2>Choose allowed lateness from evidence</h2><p>Measure the distribution of arrival delay by source and incident class. A watermark lag of 36 hours could cover routine network delays but not a three-day source outage. State the promise: routine updates before the cutoff, explicit correction after it. A larger delay reduces ordinary restatements but holds more open state and delays final reporting.</p><h2>Retain enough to make corrections coherent</h2><p>Window state, deduplication IDs and source positions need compatible horizons. If window state lasts 60 hours but event IDs expire after 24, a retransmitted record can be counted again while the window is still open. <a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Retention planning</a> must include recovery, replay and legal boundaries, not only the dashboard delay.</p><h2>Publish revisions with identity</h2><p>A correction after a provisional result should replace the same account-window key with a higher revision or publish a versioned snapshot. Appending a second total without a revision contract makes readers sum both. Keep prior and revised totals, reason, source event ID and publication time in the audit record. Send very late events to a repair path rather than discarding them silently.</p><h2>Test the edge of the cutoff</h2><p>Build fixtures for an on-time event, one just before the watermark, one just after it and a duplicate. Assert the expected revision number and exact cents. Then restore from a checkpoint before the late record and replay; the published revision must be the same. A test that only checks aggregate totals misses duplicate revision rows.</p><h2>Implementation</h2><pre><code class=\"language-python\">from collections import defaultdict\n\nrecords = [\n    {&quot;id&quot;: &quot;auth-47&quot;, &quot;account&quot;: &quot;acct-47&quot;, &quot;event_hour&quot;: 47, &quot;arrival_hour&quot;: 48, &quot;cents&quot;: 3100},\n    {&quot;id&quot;: &quot;auth-48&quot;, &quot;account&quot;: &quot;acct-47&quot;, &quot;event_hour&quot;: 47, &quot;arrival_hour&quot;: 50, &quot;cents&quot;: 700},\n]\n\ndef window_total(events, cutoff_hour):\n    accepted = [row for row in events if row[&quot;arrival_hour&quot;] &lt;= cutoff_hour]\n    if len({row[&quot;id&quot;] for row in accepted}) != len(accepted):\n        raise ValueError(&quot;duplicate authorization identity&quot;)\n    totals = defaultdict(int)\n    for row in accepted:\n        totals[(row[&quot;account&quot;], row[&quot;event_hour&quot;])] += row[&quot;cents&quot;]\n    return dict(totals)\n\nassert window_total(records, 49) == {(&quot;acct-47&quot;, 47): 3100}\nassert window_total(records, 50) == {(&quot;acct-47&quot;, 47): 3800}</code></pre><h2>Performance and operating cost</h2><p>A keyed pass costs O(N) expected time and O(K + N) memory here, including duplicate validation. In production, open windows and retained identities scale with throughput multiplied by the retention horizon. Extending the watermark by one day can materially increase state, checkpoint bytes and recovery time; measure each before changing the promise.</p><h3>Common Mistakes</h3><ul><li>Do not treat a first window emission as immutable unless the contract says so.</li><li>Do not expire deduplication state before a window can still be corrected.</li><li>Do not append a revised total as a second additive fact.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/event-time-and-late-arrivals\">Event time and late arrivals: close windows with an explicit correction policy</a></li><li><a href=\"/data-engineering/keyed-state-checkpoints-and-recovery\">Keyed state, checkpoints and recovery</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7861,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/event-time-and-late-arrivals",
+          "title": "Event time and late arrivals: close windows with an explicit correction policy"
+        },
+        {
+          "path": "data-engineering/keyed-state-checkpoints-and-recovery",
+          "title": "Keyed state, checkpoints and recovery"
+        },
+        {
+          "path": "data-engineering/compaction-retention-and-replay-horizon",
+          "title": "Compaction, retention and the replay horizon"
+        },
+        {
+          "path": "data-engineering/streaming-risk-ledger-project",
+          "title": "Project: release a recoverable streaming risk ledger"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        }
+      ]
+    }
+  },
+  {
+    "id": "a414a707-fb88-5ef0-bd15-2b06e941231b",
+    "type": "article",
+    "path": "data-science/dataset-grain-and-join-cardinality",
+    "title": "Dataset grain and join cardinality: protect the unit of analysis",
+    "summary": "The grain of a dataset states what one row represents. Every join and aggregation must preserve or intentionally change that unit.",
+    "body": "<p>The grain of a dataset states what one row represents. Every join and aggregation must preserve or intentionally change that unit.</p><h2>State the grain before counting</h2><p>An operations team asks for the share of receipt submissions reviewed within a day. One row in the submissions table represents one submission; one row in the review-events table represents one event. Joining those tables without a cardinality rule can duplicate submissions that received several reviews. The resulting average is weighted by event count rather than by submission. Write the unit beside the metric definition, then identify the unique key at that unit. <a href=\"/data-science/metric-denominator-and-cohort\">Metric denominators</a>] depend on this decision.</p><h2>Make cardinality executable</h2><p>If the business question needs only the latest review, reduce events to one row per submission under an explicit ordering rule, then join with validate=&quot;one_to_one&quot;. If a many-to-one lookup is expected, use validate=&quot;many_to_one&quot; and inspect unmatched keys through indicator=True. A failed validation is a useful data-quality signal. Dropping duplicates after the join merely hides which source violated the contract. Treat missing keys deliberately; matching null keys can be surprising in data-frame joins.</p><h2>Compare totals around every join</h2><p>Record input rows, unique submission IDs, unmatched rows and output rows. The output should equal the left table when the lookup is one-to-one and the join is left-sided. Test a submission with three review events and one without any event. The first must remain one submission; the second must remain in the denominator if the policy counts all submitted receipts. <a href=\"/data-science/missing-data-policy\">Missingness</a>] decides how its review time is represented, not whether it silently vanishes.</p><h2>Implementation</h2><pre><code class=\"language-python\">latest_reviews = (review_events.sort_values([\"submission_id\", \"reviewed_at\", \"event_id\"])\n    .drop_duplicates(\"submission_id\", keep=\"last\"))\nreceipt_status = submissions.merge(\n    latest_reviews[[\"submission_id\", \"reviewed_at\"]],\n    on=\"submission_id\", how=\"left\", validate=\"one_to_one\", indicator=True)\nassert len(receipt_status) == len(submissions)\nassert receipt_status[\"submission_id\"].is_unique\nunmatched = int(receipt_status[\"_merge\"].eq(\"left_only\").sum())</code></pre><h2>Performance and operating cost</h2><p>Sorting E review events costs O(E log E); the join is typically O(S + E) expected time with hash-based keys and O(S + E) memory. Pre-aggregate in storage if the event history is too large for memory.</p><h3>Common Mistakes</h3><ul><li>Do not treat a one-to-many join as a harmless enrichment.</li><li>Do not repair an inflated count with drop_duplicates after computing metrics.</li><li>Do not turn unmatched records into missing denominator rows without a written rule.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-science/metric-denominator-and-cohort\">Metric denominators and cohorts: make a rate reproducible</a></li><li><a href=\"/data-science/missing-data-policy\">Missing data policy: distinguish absence from a measured zero</a></li><li><a href=\"/data-science/reproducible-analysis-snapshot\">Reproducible analysis snapshots: pin data, code and cutoff together</a></li><li><a href=\"/machine-learning/prediction-time-feature-availability\">Prediction-time feature availability: reject future information before training</a></li></ul><h2>Connected implementation</h2><ul><li><a href=\"/python/pandas-join-cardinality\">Pandas merge(validate=): reject an unintended many-to-many join</a></li><li><a href=\"/python/pandas-null-joins\">Pandas merge with null keys: quarantine missing identifiers before matching</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/warehouse-history-asof-join\">Warehouse history: join facts to the dimension version valid at event time</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/computer-vision/image-unit-label-and-consent\">Vision dataset contract: image unit, label definition and consent</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/geospatial-analytics/location-unit-and-coordinate-contract\">Geospatial data contract: location units, coordinates and accuracy</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/synthetic-data/generation-purpose-and-fidelity-contract\">Synthetic-data contracts: purpose, units and fidelity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-science/sql-window-functions-and-event-selection\">SQL window functions: select one event with a deterministic rule</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-science/product-event-contract-and-identity\">Product event contracts: identity, deduplication and eligibility</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-science/identifier-normalization-and-exact-linkage\">Identifier normalization and exact linkage without false merges</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-science/branch-month-panel-and-rollout-clock\">Branch-month panels and the rollout clock</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain and measure additivity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-science",
+    "difficulty": "Beginner",
+    "tags": [
+      "data-science",
+      "dataset-grain-and-join-cardinality"
+    ],
+    "data": {
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "subject_root": "data-science/data-science-for-beginners",
+      "section_path": "data-science/data-science-for-beginners",
+      "content_format": "html",
+      "seo_ready": true,
+      "verification_suite": "Editorial and API contract review; application data required for snippet execution",
+      "related": [
+        {
+          "path": "data-science/metric-denominator-and-cohort",
+          "title": "Metric denominators and cohorts: make a rate reproducible"
+        },
+        {
+          "path": "data-science/missing-data-policy",
+          "title": "Missing data policy: distinguish absence from a measured zero"
+        },
+        {
+          "path": "data-science/reproducible-analysis-snapshot",
+          "title": "Reproducible analysis snapshots: pin data, code and cutoff together"
+        },
+        {
+          "path": "machine-learning/prediction-time-feature-availability",
+          "title": "Prediction-time feature availability: reject future information before training"
+        },
+        {
+          "path": "python/pandas-join-cardinality",
+          "title": "Pandas merge(validate=): reject an unintended many-to-many join"
+        },
+        {
+          "path": "python/pandas-null-joins",
+          "title": "Pandas merge with null keys: quarantine missing identifiers before matching"
+        },
+        {
+          "path": "data-engineering/warehouse-history-asof-join",
+          "title": "Warehouse history: join facts to the dimension version valid at event time"
+        },
+        {
+          "path": "computer-vision/image-unit-label-and-consent",
+          "title": "Vision dataset contract: image unit, label definition and consent"
+        },
+        {
+          "path": "geospatial-analytics/location-unit-and-coordinate-contract",
+          "title": "Geospatial data contract: location units, coordinates and accuracy"
+        },
+        {
+          "path": "synthetic-data/generation-purpose-and-fidelity-contract",
+          "title": "Synthetic-data contracts: purpose, units and fidelity"
+        },
+        {
+          "path": "data-science/sql-window-functions-and-event-selection",
+          "title": "SQL window functions: select one event with a deterministic rule"
+        },
+        {
+          "path": "data-science/product-event-contract-and-identity",
+          "title": "Product event contracts: identity, deduplication and eligibility"
+        },
+        {
+          "path": "data-science/identifier-normalization-and-exact-linkage",
+          "title": "Identifier normalization and exact linkage without false merges"
+        },
+        {
+          "path": "data-science/branch-month-panel-and-rollout-clock",
+          "title": "Branch-month panels and the rollout clock"
+        },
+        {
+          "path": "data-engineering/fact-grain-and-measure-additivity",
+          "title": "Fact grain and measure additivity"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        }
+      ]
+    },
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7300,
+    "status": "published",
+    "published_at": "2026-10-04T20:31:51.102741+00:00",
+    "created_at": "2026-10-04T20:31:51.102741+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00"
+  },
+  {
+    "id": "4e4327fc-efd4-57c8-bdf5-c2167dc6927e",
+    "type": "article",
+    "path": "streaming-analytics/idempotent-sink-and-replay",
+    "title": "Idempotent streaming sinks: make retries safe across failures",
+    "summary": "A consumer can see an event again after a crash or replay; its externally visible effect needs a stable identity and commit rule.",
+    "body": "<p>A consumer can see an event again after a crash or replay; its externally visible effect needs a stable identity and commit rule.</p><h2>Locate the failure gap</h2><p>If a consumer writes an hourly count and crashes before committing its input position, it will process the same event again. At-least-once delivery is often workable when the sink deduplicates by event ID or writes a versioned aggregate idempotently. A producer-side duplicate guarantee does not automatically cover a nontransactional downstream database. <a href=\"/streaming-analytics/event-contract-and-partition-key\">Event identity</a> is the key.</p><h2>Choose the sink operation</h2><p>A blind increment is unsafe on replay. An upsert keyed by window, metric and version can replace the same result, while an event ledger with a unique event ID can guard incremental updates in one transaction. Document how corrections supersede previous values and how a deleted receipt is reversed. Avoid claiming end-to-end exactly-once behavior without checking every boundary.</p><h2>Keep replay deterministic</h2><p>A replay needs the same schema decoder, event selection rule and aggregation version as the original run, or a deliberate migration. Store input offsets and code version with checkpoints. <a href=\"/data-engineering/backfill-publication-boundary\">Backfill publication</a> can rebuild into a separate snapshot and switch readers once counts reconcile.</p><h2>Test a crash</h2><p>Process a three-event fixture, crash after writing the second result but before recording progress, then replay from the previous checkpoint. The final count must match a clean run. Add a correction and verify it changes the intended window once, including after a second replay. Compare both event ledger and visible aggregate.</p><h2>Implementation</h2><pre><code class=\"language-python\">def apply_once(event, seen_event_ids, counts_by_window):\n    event_id = event[&quot;event_id&quot;]\n    if event_id in seen_event_ids:\n        return False\n    window_key = event[&quot;window_key&quot;]\n    seen_event_ids.add(event_id)\n    counts_by_window[window_key] = counts_by_window.get(window_key, 0) + 1\n    return True</code></pre><h2>Performance and operating cost</h2><p>A hash-set check is O(1) expected per event but an unbounded set uses O(N) memory. Production deduplication needs a durable bounded identity store or a sink transaction; the in-memory fixture demonstrates semantics, not crash durability.</p><h3>Common Mistakes</h3><ul><li>Do not use blind increments with replayable input.</li><li>Do not equate producer idempotence with an end-to-end sink guarantee.</li><li>Do not discard replay metadata before the retention window ends.</li></ul><h2>Read next</h2><ul><li><a href=\"/streaming-analytics/event-contract-and-partition-key\">Stream event contract: identity, version and partition key</a></li><li><a href=\"/streaming-analytics/state-retention-and-stream-joins\">Stateful stream joins: bound waiting time and unmatched records</a></li><li><a href=\"/streaming-analytics/receipt-event-pipeline-project\">Project: build a replay-safe receipt event dashboard</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/task-retries-and-atomic-partition-output\">Task retries and atomic partition output</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/keyed-state-checkpoints-and-recovery\">Keyed state, checkpoints and recovery</a>.</p>",
+    "category": "AI & Data",
+    "subject": "streaming-analytics",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "streaming-analytics"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 9410,
+    "status": "published",
+    "published_at": "2026-10-05T05:33:19.162319+00:00",
+    "created_at": "2026-10-05T05:33:19.162319+00:00",
+    "updated_at": "2026-10-06T05:43:04.999578+00:00",
+    "data": {
+      "subject_root": "streaming-analytics/streaming-analytics-tutorial",
+      "section_path": "streaming-analytics/streaming-analytics-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "streaming-analytics/event-contract-and-partition-key",
+          "title": "Stream event contract: identity, version and partition key"
+        },
+        {
+          "path": "streaming-analytics/state-retention-and-stream-joins",
+          "title": "Stateful stream joins: bound waiting time and unmatched records"
+        },
+        {
+          "path": "streaming-analytics/receipt-event-pipeline-project",
+          "title": "Project: build a replay-safe receipt event dashboard"
+        },
+        {
+          "path": "data-engineering/backfill-publication-boundary",
+          "title": "Backfills: rebuild history without exposing a half-written result"
+        },
+        {
+          "path": "data-engineering/task-retries-and-atomic-partition-output",
+          "title": "Task retries and atomic partition output"
+        },
+        {
+          "path": "data-engineering/keyed-state-checkpoints-and-recovery",
+          "title": "Keyed state, checkpoints and recovery"
+        }
+      ]
+    }
+  }
+]

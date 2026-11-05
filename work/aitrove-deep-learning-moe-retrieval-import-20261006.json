@@ -1,0 +1,1273 @@
+[
+  {
+    "id": "1a4587c8-0d08-52f6-8839-3705dcb70303",
+    "type": "article",
+    "path": "deep-learning/contrastive-temperature-and-negative-mask",
+    "title": "Contrastive temperature and negative-mask accounting",
+    "summary": "A two-view batch needs an exact positive index, a self-comparison mask and an explicit policy for duplicate identities before its loss means what the team thinks it means.",
+    "body": "<p>A two-view batch needs an exact positive index, a self-comparison mask and an explicit policy for duplicate identities before its loss means what the team thinks it means.</p><h2>Build the similarity matrix</h2><p>Encode B source images twice, producing 2B projected embeddings. Normalize each vector, then form pairwise dot products; with normalized vectors those are cosine similarities. Divide by a positive temperature before applying a stable softmax cross entropy. The matched view for the first B anchors appears B positions later, while the second B anchors match B positions earlier. The diagonal is not a negative: an image has perfect similarity to itself and must be excluded. <a href=\"/deep-learning/contrastive-view-identity-and-augmentation-contract\">View identity</a> determines those indices before tensor arithmetic.</p><h2>Account for negatives correctly</h2><p>For each anchor, the denominator contains all other views except itself. It includes the matched positive once and the remaining 2B minus two views as apparent negatives. If two batch entries are captures of the same physical receipt, those apparent negatives can contradict the positive objective. Choose a batch sampler that keeps one source identity per batch, or construct an explicit multi-positive/masked loss. Merely hiding the duplicate from the positive index leaves it in the denominator and still pushes it away.</p><h2>Understand temperature without folklore</h2><p>A smaller positive temperature makes a fixed similarity difference affect the softmax more strongly; gradients concentrate around difficult comparisons. Too small a value can make optimization brittle or encourage attention to mislabeled negatives. A larger value softens those comparisons but may produce weak separation. Select temperature on a development set using downstream transfer and representation diagnostics, not the lowest pretraining loss alone. Keep the projection head and encoder roles distinct: the head can absorb objective-specific geometry while the encoder supplies downstream features.</p><h2>Watch batch and distributed effects</h2><p>The similarity matrix is quadratic in the number of views. Larger batches expose more negatives but increase memory and the chance of false negatives. In distributed training, gathering embeddings across ranks changes both the denominator and gradient flow; an implementation that gathers detached peer embeddings is not equivalent to one with fully differentiable gathering. Count unique source identities globally, define whether repeated sampler tail items contribute, and test a tiny reference batch. <a href=\"/deep-learning/distributed-sampler-tail-and-global-loss-weighting\">Sampler tails</a> alter this objective in a less obvious way than a supervised mean loss.</p><h2>Check representation collapse and shortcuts</h2><p>Track embedding variance per dimension, nearest-neighbor identities and positive-versus-negative similarity distributions. If every vector becomes almost identical, the objective or masking may be broken; if similarity separates only device type, the encoder may exploit capture metadata instead of receipt quality. Evaluate a frozen linear probe on labeled training data and a held-out physical-receipt set. The code below checks the exact two-view index algebra and computes one stable cross entropy. It is not a complete training system.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch.nn import functional as functional\n\ntorch.manual_seed(47)\nsource_embeddings = torch.randn(5, 12)\nfirst_views = source_embeddings + 0.04 * torch.randn_like(source_embeddings)\nsecond_views = source_embeddings + 0.04 * torch.randn_like(source_embeddings)\nprojected_views = functional.normalize(\n    torch.cat((first_views, second_views), dim=0), dim=1)\ntemperature = 0.23\nsimilarities = projected_views @ projected_views.T / temperature\nself_mask = torch.eye(len(projected_views), dtype=torch.bool)\nsimilarities = similarities.masked_fill(self_mask, float(&quot;-inf&quot;))\npositive_indices = (torch.arange(len(projected_views)) + 5) % 10\ncontrastive_loss = functional.cross_entropy(similarities, positive_indices)\nassert torch.isfinite(contrastive_loss)\nassert positive_indices.tolist() == [5, 6, 7, 8, 9, 0, 1, 2, 3, 4]</code></pre><h2>Performance and operating cost</h2><p>For B identities and d-dimensional projections, the similarity multiply costs O(B²d) time and O(B²) matrix memory. Two encoder views also require roughly twice the encoding work of one-view training. This small dense implementation is useful for checking indexing, but a large multiworker job may need chunked similarities or another negative-sampling design. Temperature changes arithmetic, not asymptotic cost; a larger global batch can dominate memory even if the encoder itself fits.</p><h3>Common Mistakes</h3><ul><li>Do not include the diagonal self-similarity as a negative or positive.</li><li>Do not allow duplicate physical receipts to become unexamined false negatives.</li><li>Do not compare losses at different temperatures as if they were on one fixed scale.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/contrastive-view-identity-and-augmentation-contract\">Contrastive view identity and augmentation contracts</a></li><li><a href=\"/deep-learning/receipt-contrastive-pretraining-project\">Project: pretrain receipt features from unlabeled captures</a></li><li><a href=\"/deep-learning/distributed-sampler-tail-and-global-loss-weighting\">Distributed sampler tails and global loss weighting</a></li><li><a href=\"/deep-learning/batching-and-class-sampling\">Batching and class sampling: know the population the optimizer sees</a></li><li><a href=\"/deep-learning/frozen-features-versus-fine-tuning\">Frozen features versus fine-tuning a pretrained backbone</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/two-tower-embedding-and-inbatch-negative-contract\">Two-tower embeddings and in-batch negative contracts</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7871,
+    "status": "published",
+    "published_at": "2026-10-06T09:56:46.362214+00:00",
+    "created_at": "2026-10-06T09:56:46.362214+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/contrastive-view-identity-and-augmentation-contract",
+          "title": "Contrastive view identity and augmentation contracts"
+        },
+        {
+          "path": "deep-learning/receipt-contrastive-pretraining-project",
+          "title": "Project: pretrain receipt features from unlabeled captures"
+        },
+        {
+          "path": "deep-learning/distributed-sampler-tail-and-global-loss-weighting",
+          "title": "Distributed sampler tails and global loss weighting"
+        },
+        {
+          "path": "deep-learning/batching-and-class-sampling",
+          "title": "Batching and class sampling: know the population the optimizer sees"
+        },
+        {
+          "path": "deep-learning/frozen-features-versus-fine-tuning",
+          "title": "Frozen features versus fine-tuning a pretrained backbone"
+        },
+        {
+          "path": "deep-learning/two-tower-embedding-and-inbatch-negative-contract",
+          "title": "Two-tower embeddings and in-batch negative contracts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "874942e7-0ca3-5cec-b82d-88dd2d178604",
+    "type": "subject",
+    "path": "deep-learning/deep-learning-tutorial",
+    "title": "Deep Learning Tutorial",
+    "summary": "Train and serve an image classifier through checked data, loss, validation, recovery and inference boundaries.",
+    "body": "<p>Train and serve an image classifier through checked data, loss, validation, recovery and inference boundaries.</p><h2>Learning path</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/batching-and-class-sampling\">Batching and class sampling: know the population the optimizer sees</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul><h2>Connected foundation</h2><p>Bring the earlier analysis and evaluation contracts into this subject.</p><ul><li><a href=\"/machine-learning/machine-learning-tutorial\">Machine Learning Tutorial</a></li><li><a href=\"/machine-learning/group-and-time-validation\">Group and time validation: split by the failure you expect in production</a></li></ul><h2>Practice</h2><p>Complete the project with its failure-case evidence.</p><ul><li><a href=\"/deep-learning/deep-learning-tutorial/project\">Deep Learning: Projects</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/computer-vision/computer-vision-tutorial\">Computer Vision Tutorial</a>.</p><h2>Optimization under a memory budget</h2><ul><li><a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Gradient accumulation and effective batch accounting</a></li><li><a href=\"/deep-learning/mixed-precision-scaling-and-gradient-clipping\">Mixed precision, loss scaling and gradient clipping</a></li></ul><h2>Optimization under a memory budget project</h2><ul><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li></ul><h2>Attention masks and sequence targets</h2><ul><li><a href=\"/deep-learning/scaled-dot-product-attention-mask-contract\">Scaled dot-product attention and mask contracts</a></li><li><a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a></li></ul><h2>Attention masks and sequence targets project</h2><ul><li><a href=\"/deep-learning/sequence-attention-leakage-project\">Project: audit a next-event attention decoder</a></li></ul><h2>Convolution geometry and residual design</h2><ul><li><a href=\"/deep-learning/convolution-output-geometry-and-receptive-field\">Convolution output geometry and receptive fields</a></li><li><a href=\"/deep-learning/residual-blocks-and-normalization-state\">Residual blocks and normalization state</a></li></ul><h2>Convolution geometry and residual design project</h2><ul><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li></ul><h2>Transfer learning and domain shift</h2><ul><li><a href=\"/deep-learning/frozen-features-versus-fine-tuning\">Frozen features versus fine-tuning a pretrained backbone</a></li><li><a href=\"/deep-learning/staged-unfreezing-and-domain-shift-audit\">Staged unfreezing and domain-shift audits</a></li></ul><h2>Transfer learning and domain shift project</h2><ul><li><a href=\"/deep-learning/receipt-domain-adaptation-project\">Project: adapt a receipt model to a new capture device</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/frozen-features-versus-fine-tuning\">Frozen features versus fine-tuning a pretrained backbone</a>.</p><h2>Recurrent sequences and state ownership</h2><ul><li><a href=\"/deep-learning/packed-lstm-lengths-and-last-valid-state\">Packed LSTM sequences and the last valid state</a></li><li><a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent hidden-state resets and truncated gradients</a></li></ul><h2>Recurrent sequences and state ownership project</h2><ul><li><a href=\"/deep-learning/service-event-lstm-project\">Project: predict service escalation from event histories</a></li></ul><h2>Reconstruction models and anomaly scores</h2><ul><li><a href=\"/deep-learning/masked-reconstruction-loss-and-anomaly-threshold\">Masked reconstruction loss and anomaly thresholds</a></li><li><a href=\"/deep-learning/variational-latent-kl-and-collapse\">Variational latent sampling, KL accounting and collapse</a></li></ul><h2>Reconstruction models and anomaly scores project</h2><ul><li><a href=\"/deep-learning/telemetry-autoencoder-alert-project\">Project: calibrate an autoencoder alert for freezer telemetry</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/telemetry-autoencoder-alert-project\">Project: calibrate an autoencoder alert for freezer telemetry</a>.</p><h2>Distributed training and recovery</h2><ul><li><a href=\"/deep-learning/distributed-sampler-tail-and-global-loss-weighting\">Distributed sampler tails and global loss weighting</a></li><li><a href=\"/deep-learning/distributed-checkpoint-manifest-and-resume\">Distributed checkpoint manifests and coherent resume</a></li></ul><h2>Distributed training and recovery project</h2><ul><li><a href=\"/deep-learning/receipt-multiworker-parity-project\">Project: prove multiworker receipt-training parity</a></li></ul><h2>Confidence, abstention and evidence checks</h2><ul><li><a href=\"/deep-learning/temperature-scaling-and-selective-risk\">Temperature scaling and selective risk</a></li><li><a href=\"/deep-learning/occlusion-attribution-and-sanity-checks\">Occlusion attribution and explanation sanity checks</a></li></ul><h2>Confidence, abstention and evidence checks project</h2><ul><li><a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a>.</p><h2>Diffusion training and sampling contracts</h2><ul><li><a href=\"/deep-learning/diffusion-forward-noise-and-timestep-target\">Diffusion forward noise and timestep targets</a></li><li><a href=\"/deep-learning/diffusion-reverse-step-and-guidance\">Diffusion reverse steps and conditional guidance</a></li></ul><h2>Diffusion training and sampling contracts project</h2><ul><li><a href=\"/deep-learning/receipt-background-diffusion-project\">Project: train and audit a receipt-background denoiser</a></li></ul><h2>Compression and edge release</h2><ul><li><a href=\"/deep-learning/post-training-quantization-calibration-contract\">Post-training quantization and calibration contracts</a></li><li><a href=\"/deep-learning/structured-pruning-and-latency-parity\">Structured pruning and latency parity</a></li></ul><h2>Compression and edge release project</h2><ul><li><a href=\"/deep-learning/receipt-edge-model-release-project\">Project: release a compact receipt model to an edge device</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-edge-model-release-project\">Project: release a compact receipt model to an edge device</a>.</p><h2>Self-supervised views and contrastive objectives</h2><ul><li><a href=\"/deep-learning/contrastive-view-identity-and-augmentation-contract\">Contrastive view identity and augmentation contracts</a></li><li><a href=\"/deep-learning/contrastive-temperature-and-negative-mask\">Contrastive temperature and negative-mask accounting</a></li></ul><h2>Self-supervised views and contrastive objectives project</h2><ul><li><a href=\"/deep-learning/receipt-contrastive-pretraining-project\">Project: pretrain receipt features from unlabeled captures</a></li></ul><h2>Teacher-student distillation contracts</h2><ul><li><a href=\"/deep-learning/distillation-soft-target-temperature-and-label-balance\">Distillation soft targets, temperature and label balance</a></li><li><a href=\"/deep-learning/teacher-feature-adapter-and-layer-alignment\">Teacher feature adapters and layer alignment</a></li></ul><h2>Teacher-student distillation contracts project</h2><ul><li><a href=\"/deep-learning/receipt-student-distillation-project\">Project: distill and release a receipt-quality student</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-student-distillation-project\">Project: distill and release a receipt-quality student</a>.</p><h2>Adversarial generation and coverage audits</h2><ul><li><a href=\"/deep-learning/gan-discriminator-generator-update-boundary\">GAN discriminator and generator update boundaries</a></li><li><a href=\"/deep-learning/gan-mode-coverage-and-duplicate-audit\">GAN mode coverage and near-duplicate audits</a></li></ul><h2>Adversarial generation and coverage audits project</h2><ul><li><a href=\"/deep-learning/receipt-paper-texture-gan-project\">Project: audit a receipt-paper texture GAN</a></li></ul><h2>Autoregressive decoding and cache parity</h2><ul><li><a href=\"/deep-learning/autoregressive-kv-cache-position-and-mask-parity\">Autoregressive KV cache position and mask parity</a></li><li><a href=\"/deep-learning/decoding-stop-rules-and-beam-score\">Decoding stop rules, sampling and beam-score accounting</a></li></ul><h2>Autoregressive decoding and cache parity project</h2><ul><li><a href=\"/deep-learning/service-event-decoder-parity-project\">Project: release an incremental service-event decoder</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-event-decoder-parity-project\">Project: release an incremental service-event decoder</a>.</p><h2>Optimization schedules and checkpoint selection</h2><ul><li><a href=\"/deep-learning/adamw-decay-groups-and-update-indexed-schedules\">AdamW decay groups and update-indexed schedules</a></li><li><a href=\"/deep-learning/early-stopping-best-state-and-seed-variance\">Early stopping, best-state restoration and seed variance</a></li></ul><h2>Optimization schedules and checkpoint selection project</h2><ul><li><a href=\"/deep-learning/receipt-optimizer-selection-project\">Project: select a receipt training schedule without test leakage</a></li></ul><h2>Perturbation sensitivity and release gates</h2><ul><li><a href=\"/deep-learning/fgsm-input-scale-and-perturbation-threat-model\">FGSM input scale and perturbation threat models</a></li><li><a href=\"/deep-learning/adversarial-training-clean-robust-balance\">Adversarial training and the clean–stress tradeoff</a></li></ul><h2>Perturbation sensitivity and release gates project</h2><ul><li><a href=\"/deep-learning/receipt-perturbation-stress-project\">Project: stress-test receipt decisions under bounded image changes</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-perturbation-stress-project\">Project: stress-test receipt decisions under bounded image changes</a>.</p><h2>Pixel-level defect learning and mask audits</h2><ul><li><a href=\"/deep-learning/segmentation-mask-alignment-and-ignore-pixels\">Segmentation mask alignment and ignored pixels</a></li><li><a href=\"/deep-learning/dice-iou-empty-mask-and-threshold-policy\">Dice, IoU, empty masks and threshold policy</a></li></ul><h2>Pixel-level defect learning and mask audits project</h2><ul><li><a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a></li></ul><h2>Activation recomputation and memory measurement</h2><ul><li><a href=\"/deep-learning/activation-checkpointing-recompute-and-rng-parity\">Activation checkpointing, recomputation and RNG parity</a></li><li><a href=\"/deep-learning/training-memory-profiler-and-allocator-boundaries\">Training memory profiling and allocator boundaries</a></li></ul><h2>Activation recomputation and memory measurement project</h2><ul><li><a href=\"/deep-learning/receipt-activation-recompute-project\">Project: measure activation recomputation on receipt training</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a>.</p><h2>Graph message passing and incident attribution</h2><ul><li><a href=\"/deep-learning/graph-message-passing-edge-direction-and-self-state\">Graph message passing, edge direction and self state</a></li><li><a href=\"/deep-learning/graph-neighbor-sampling-and-time-split\">Graph neighbor sampling and time-safe evaluation</a></li></ul><h2>Graph message passing and incident attribution project</h2><ul><li><a href=\"/deep-learning/service-incident-graph-project\">Project: attribute service incidents with a time-safe graph</a></li></ul><h2>Unaligned sequence recognition and OCR checks</h2><ul><li><a href=\"/deep-learning/ctc-time-length-and-blank-alignment-contract\">CTC time lengths, blank labels and alignment feasibility</a></li><li><a href=\"/deep-learning/ctc-greedy-collapse-and-error-audit\">CTC greedy collapse and transcription error audit</a></li></ul><h2>Unaligned sequence recognition and OCR checks project</h2><ul><li><a href=\"/deep-learning/receipt-line-ocr-ctc-project\">Project: recognize receipt line items with CTC</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-incident-graph-project\">Project: attribute service incidents with a time-safe graph</a>.</p><h2>Vision tokens and resolution contracts</h2><ul><li><a href=\"/deep-learning/vision-transformer-patch-grid-and-token-contract\">Vision transformer patch grids and token contracts</a></li><li><a href=\"/deep-learning/vision-position-grid-resizing-and-transfer\">Vision position grids, resolution changes and transfer</a></li></ul><h2>Vision tokens and resolution contracts project</h2><ul><li><a href=\"/deep-learning/receipt-vision-transformer-project\">Project: compare receipt vision tokens with a convolutional baseline</a></li></ul><h2>Causal convolution and interval forecasts</h2><ul><li><a href=\"/deep-learning/causal-dilated-convolution-receptive-field\">Causal dilated convolution and receptive field</a></li><li><a href=\"/deep-learning/quantile-forecast-loss-and-crossing-policy\">Quantile forecast loss and crossing policy</a></li></ul><h2>Causal convolution and interval forecasts project</h2><ul><li><a href=\"/deep-learning/warehouse-queue-tcn-project\">Project: forecast warehouse queues with a causal temporal model</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-vision-transformer-project\">Project: compare receipt vision tokens with a convolutional baseline</a>.</p><h2>Object boxes, matching and duplicate control</h2><ul><li><a href=\"/deep-learning/box-coordinate-transform-and-one-to-one-matching\">Bounding-box transforms and one-to-one detection matching</a></li><li><a href=\"/deep-learning/class-aware-nms-and-score-thresholds\">Class-aware suppression and detection score thresholds</a></li></ul><h2>Object boxes, matching and duplicate control project</h2><ul><li><a href=\"/deep-learning/receipt-field-box-detector-project\">Project: detect total, date and merchant fields on receipts</a></li></ul><h2>Invertible density modeling and anomaly review</h2><ul><li><a href=\"/deep-learning/flow-change-of-variables-and-density-accounting\">Invertible flows and change-of-variables accounting</a></li><li><a href=\"/deep-learning/flow-affine-coupling-and-stability\">Affine coupling layers, inverse checks and scale stability</a></li></ul><h2>Invertible density modeling and anomaly review project</h2><ul><li><a href=\"/deep-learning/telemetry-flow-anomaly-project\">Project: review telemetry anomalies with an invertible flow</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-field-box-detector-project\">Project: detect total, date and merchant fields on receipts</a>.</p><h2>Audio windows, spectral features and alarm review</h2><ul><li><a href=\"/deep-learning/audio-sample-rate-stft-and-window-contract\">Audio sample rates, short-time spectra and window contracts</a></li><li><a href=\"/deep-learning/audio-time-frequency-mask-and-label-boundary\">Audio time-frequency masks and label preservation</a></li></ul><h2>Audio windows, spectral features and alarm review project</h2><ul><li><a href=\"/deep-learning/machine-audio-alarm-project\">Project: classify machine alarms from short audio windows</a></li></ul><h2>Video clips, temporal evidence and event review</h2><ul><li><a href=\"/deep-learning/video-clip-timestamps-and-grouped-evaluation\">Video clip timestamps and recording-group evaluation</a></li><li><a href=\"/deep-learning/video-temporal-convolution-and-aggregation\">Video temporal convolutions and clip aggregation</a></li></ul><h2>Video clips, temporal evidence and event review project</h2><ul><li><a href=\"/deep-learning/conveyor-jam-video-project\">Project: detect conveyor jams from timestamped video clips</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/conveyor-jam-video-project\">Project: detect conveyor jams from timestamped video clips</a>.</p><h2>Deep reinforcement learning and decision replay</h2><ul><li><a href=\"/deep-learning/dqn-transition-replay-and-reward-contract\">DQN transitions, replay sampling and reward contracts</a></li><li><a href=\"/deep-learning/dqn-target-network-and-action-mask\">DQN target networks, legal-action masks and value updates</a></li></ul><h2>Deep reinforcement learning and decision replay project</h2><ul><li><a href=\"/deep-learning/inventory-dispatch-dqn-project\">Project: audit a neural inventory dispatch policy before release</a></li></ul><h2>Point-cloud learning and 3D inspection</h2><ul><li><a href=\"/deep-learning/point-cloud-coordinate-frame-and-sampling-contract\">Point-cloud coordinate frames, sampling and scan identity</a></li><li><a href=\"/deep-learning/point-set-permutation-invariance-and-pooling\">Point-set permutation invariance and pooled features</a></li></ul><h2>Point-cloud learning and 3D inspection project</h2><ul><li><a href=\"/deep-learning/pallet-point-cloud-inspection-project\">Project: inspect pallet damage from 3D point scans</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/pallet-point-cloud-inspection-project\">Project: inspect pallet damage from 3D point scans</a>.</p><h2>Sparse experts, routing and capacity</h2><ul><li><a href=\"/deep-learning/sparse-expert-router-and-capacity-accounting\">Sparse expert routers and per-batch capacity accounting</a></li><li><a href=\"/deep-learning/expert-load-balance-and-dispatch-consistency\">Expert load balance, overflow slices and dispatch consistency</a></li></ul><h2>Sparse experts, routing and capacity project</h2><ul><li><a href=\"/deep-learning/service-event-sparse-experts-project\">Project: test sparse experts for service-event classification</a></li></ul><h2>Neural retrieval and candidate index parity</h2><ul><li><a href=\"/deep-learning/two-tower-embedding-and-inbatch-negative-contract\">Two-tower embeddings and in-batch negative contracts</a></li><li><a href=\"/deep-learning/retrieval-index-version-and-candidate-parity\">Retrieval index versions, eligibility filters and candidate parity</a></li></ul><h2>Neural retrieval and candidate index parity project</h2><ul><li><a href=\"/deep-learning/learning-feed-two-tower-project\">Project: retrieve learning articles with two neural towers</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/learning-feed-two-tower-project\">Project: retrieve learning articles with two neural towers</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7700,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Training contracts",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "deep-learning/tensor-shape-dtype-contract",
+            "deep-learning/logits-loss-gradient",
+            "deep-learning/batching-and-class-sampling",
+            "deep-learning/augmentation-leakage-boundary"
+          ]
+        },
+        {
+          "title": "Evaluation and deployment",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "deep-learning/train-eval-validation-loop",
+            "deep-learning/checkpoint-resume-state",
+            "deep-learning/inference-schema-and-latency"
+          ]
+        },
+        {
+          "title": "Optimization under a memory budget",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/gradient-accumulation-and-effective-batch",
+            "deep-learning/mixed-precision-scaling-and-gradient-clipping"
+          ]
+        },
+        {
+          "title": "Attention masks and sequence targets",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/scaled-dot-product-attention-mask-contract",
+            "deep-learning/causal-target-shift-and-padding-loss"
+          ]
+        },
+        {
+          "title": "Convolution geometry and residual design",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/convolution-output-geometry-and-receptive-field",
+            "deep-learning/residual-blocks-and-normalization-state"
+          ]
+        },
+        {
+          "title": "Transfer learning and domain shift",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/frozen-features-versus-fine-tuning",
+            "deep-learning/staged-unfreezing-and-domain-shift-audit"
+          ]
+        },
+        {
+          "title": "Recurrent sequences and state ownership",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/packed-lstm-lengths-and-last-valid-state",
+            "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients"
+          ]
+        },
+        {
+          "title": "Reconstruction models and anomaly scores",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/masked-reconstruction-loss-and-anomaly-threshold",
+            "deep-learning/variational-latent-kl-and-collapse"
+          ]
+        },
+        {
+          "title": "Distributed training and recovery",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/distributed-sampler-tail-and-global-loss-weighting",
+            "deep-learning/distributed-checkpoint-manifest-and-resume"
+          ]
+        },
+        {
+          "title": "Confidence, abstention and evidence checks",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/temperature-scaling-and-selective-risk",
+            "deep-learning/occlusion-attribution-and-sanity-checks"
+          ]
+        },
+        {
+          "title": "Diffusion training and sampling contracts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/diffusion-forward-noise-and-timestep-target",
+            "deep-learning/diffusion-reverse-step-and-guidance"
+          ]
+        },
+        {
+          "title": "Compression and edge release",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/post-training-quantization-calibration-contract",
+            "deep-learning/structured-pruning-and-latency-parity"
+          ]
+        },
+        {
+          "title": "Self-supervised views and contrastive objectives",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/contrastive-view-identity-and-augmentation-contract",
+            "deep-learning/contrastive-temperature-and-negative-mask"
+          ]
+        },
+        {
+          "title": "Teacher-student distillation contracts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/distillation-soft-target-temperature-and-label-balance",
+            "deep-learning/teacher-feature-adapter-and-layer-alignment"
+          ]
+        },
+        {
+          "title": "Adversarial generation and coverage audits",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/gan-discriminator-generator-update-boundary",
+            "deep-learning/gan-mode-coverage-and-duplicate-audit"
+          ]
+        },
+        {
+          "title": "Autoregressive decoding and cache parity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/autoregressive-kv-cache-position-and-mask-parity",
+            "deep-learning/decoding-stop-rules-and-beam-score"
+          ]
+        },
+        {
+          "title": "Optimization schedules and checkpoint selection",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/adamw-decay-groups-and-update-indexed-schedules",
+            "deep-learning/early-stopping-best-state-and-seed-variance"
+          ]
+        },
+        {
+          "title": "Perturbation sensitivity and release gates",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/fgsm-input-scale-and-perturbation-threat-model",
+            "deep-learning/adversarial-training-clean-robust-balance"
+          ]
+        },
+        {
+          "title": "Pixel-level defect learning and mask audits",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/segmentation-mask-alignment-and-ignore-pixels",
+            "deep-learning/dice-iou-empty-mask-and-threshold-policy"
+          ]
+        },
+        {
+          "title": "Activation recomputation and memory measurement",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/activation-checkpointing-recompute-and-rng-parity",
+            "deep-learning/training-memory-profiler-and-allocator-boundaries"
+          ]
+        },
+        {
+          "title": "Graph message passing and incident attribution",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/graph-message-passing-edge-direction-and-self-state",
+            "deep-learning/graph-neighbor-sampling-and-time-split"
+          ]
+        },
+        {
+          "title": "Unaligned sequence recognition and OCR checks",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/ctc-time-length-and-blank-alignment-contract",
+            "deep-learning/ctc-greedy-collapse-and-error-audit"
+          ]
+        },
+        {
+          "title": "Vision tokens and resolution contracts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/vision-transformer-patch-grid-and-token-contract",
+            "deep-learning/vision-position-grid-resizing-and-transfer"
+          ]
+        },
+        {
+          "title": "Causal convolution and interval forecasts",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/causal-dilated-convolution-receptive-field",
+            "deep-learning/quantile-forecast-loss-and-crossing-policy"
+          ]
+        },
+        {
+          "title": "Object boxes, matching and duplicate control",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/box-coordinate-transform-and-one-to-one-matching",
+            "deep-learning/class-aware-nms-and-score-thresholds"
+          ]
+        },
+        {
+          "title": "Invertible density modeling and anomaly review",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/flow-change-of-variables-and-density-accounting",
+            "deep-learning/flow-affine-coupling-and-stability"
+          ]
+        },
+        {
+          "title": "Audio windows, spectral features and alarm review",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/audio-sample-rate-stft-and-window-contract",
+            "deep-learning/audio-time-frequency-mask-and-label-boundary"
+          ]
+        },
+        {
+          "title": "Video clips, temporal evidence and event review",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/video-clip-timestamps-and-grouped-evaluation",
+            "deep-learning/video-temporal-convolution-and-aggregation"
+          ]
+        },
+        {
+          "title": "Deep reinforcement learning and decision replay",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/dqn-transition-replay-and-reward-contract",
+            "deep-learning/dqn-target-network-and-action-mask"
+          ]
+        },
+        {
+          "title": "Point-cloud learning and 3D inspection",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/point-cloud-coordinate-frame-and-sampling-contract",
+            "deep-learning/point-set-permutation-invariance-and-pooling"
+          ]
+        },
+        {
+          "title": "Sparse experts, routing and capacity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/sparse-expert-router-and-capacity-accounting",
+            "deep-learning/expert-load-balance-and-dispatch-consistency"
+          ]
+        },
+        {
+          "title": "Neural retrieval and candidate index parity",
+          "summary": "Inspect the failure boundary and complete the applied release.",
+          "lessons": [
+            "deep-learning/two-tower-embedding-and-inbatch-negative-contract",
+            "deep-learning/retrieval-index-version-and-candidate-parity"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "deep-learning/receipt-image-quality-project",
+            "deep-learning/receipt-training-memory-project",
+            "deep-learning/sequence-attention-leakage-project",
+            "deep-learning/receipt-defect-localization-project",
+            "deep-learning/receipt-domain-adaptation-project",
+            "deep-learning/service-event-lstm-project",
+            "deep-learning/telemetry-autoencoder-alert-project",
+            "deep-learning/receipt-multiworker-parity-project",
+            "deep-learning/receipt-confidence-audit-project",
+            "deep-learning/receipt-background-diffusion-project",
+            "deep-learning/receipt-edge-model-release-project",
+            "deep-learning/receipt-contrastive-pretraining-project",
+            "deep-learning/receipt-student-distillation-project",
+            "deep-learning/receipt-paper-texture-gan-project",
+            "deep-learning/service-event-decoder-parity-project",
+            "deep-learning/receipt-optimizer-selection-project",
+            "deep-learning/receipt-perturbation-stress-project",
+            "deep-learning/receipt-defect-segmentation-project",
+            "deep-learning/receipt-activation-recompute-project",
+            "deep-learning/service-incident-graph-project",
+            "deep-learning/receipt-line-ocr-ctc-project",
+            "deep-learning/receipt-vision-transformer-project",
+            "deep-learning/warehouse-queue-tcn-project",
+            "deep-learning/receipt-field-box-detector-project",
+            "deep-learning/telemetry-flow-anomaly-project",
+            "deep-learning/machine-audio-alarm-project",
+            "deep-learning/conveyor-jam-video-project",
+            "deep-learning/inventory-dispatch-dqn-project",
+            "deep-learning/pallet-point-cloud-inspection-project",
+            "deep-learning/service-event-sparse-experts-project",
+            "deep-learning/learning-feed-two-tower-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Deep Learning",
+          "path": "deep-learning/deep-learning-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "deep-learning/deep-learning-tutorial/project"
+        }
+      ],
+      "related": [
+        {
+          "path": "deep-learning/frozen-features-versus-fine-tuning",
+          "title": "Frozen features versus fine-tuning a pretrained backbone"
+        },
+        {
+          "path": "deep-learning/telemetry-autoencoder-alert-project",
+          "title": "Project: calibrate an autoencoder alert for freezer telemetry"
+        },
+        {
+          "path": "deep-learning/receipt-confidence-audit-project",
+          "title": "Project: audit receipt confidence and review handoff"
+        },
+        {
+          "path": "deep-learning/receipt-edge-model-release-project",
+          "title": "Project: release a compact receipt model to an edge device"
+        },
+        {
+          "path": "deep-learning/receipt-student-distillation-project",
+          "title": "Project: distill and release a receipt-quality student"
+        },
+        {
+          "path": "deep-learning/service-event-decoder-parity-project",
+          "title": "Project: release an incremental service-event decoder"
+        },
+        {
+          "path": "deep-learning/receipt-perturbation-stress-project",
+          "title": "Project: stress-test receipt decisions under bounded image changes"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        },
+        {
+          "path": "deep-learning/service-incident-graph-project",
+          "title": "Project: attribute service incidents with a time-safe graph"
+        },
+        {
+          "path": "deep-learning/receipt-vision-transformer-project",
+          "title": "Project: compare receipt vision tokens with a convolutional baseline"
+        },
+        {
+          "path": "deep-learning/receipt-field-box-detector-project",
+          "title": "Project: detect total, date and merchant fields on receipts"
+        },
+        {
+          "path": "deep-learning/conveyor-jam-video-project",
+          "title": "Project: detect conveyor jams from timestamped video clips"
+        },
+        {
+          "path": "deep-learning/pallet-point-cloud-inspection-project",
+          "title": "Project: inspect pallet damage from 3D point scans"
+        },
+        {
+          "path": "deep-learning/learning-feed-two-tower-project",
+          "title": "Project: retrieve learning articles with two neural towers"
+        }
+      ]
+    }
+  },
+  {
+    "id": "57e47ab4-8a42-572b-b82d-a617bd2ba594",
+    "type": "subject",
+    "path": "deep-learning/deep-learning-tutorial/project",
+    "title": "Deep Learning: Projects",
+    "summary": "A checked project for the Deep Learning curriculum.",
+    "body": "<p>Build and review a complete Deep Learning project.</p><h2>Project brief</h2><ul><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li></ul><h2>Required concepts</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/logits-loss-gradient\">Logits, cross-entropy and gradients: align the training calculation</a></li><li><a href=\"/deep-learning/batching-and-class-sampling\">Batching and class sampling: know the population the optimizer sees</a></li><li><a href=\"/deep-learning/augmentation-leakage-boundary\">Image augmentation: split originals first and preserve the label</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul><h2>Completion standard</h2><p>Submit inputs, runnable work, measured output, failure-case results and a short decision note.</p><h2>Optimization under a memory budget</h2><ul><li><a href=\"/deep-learning/receipt-training-memory-project\">Project: train a receipt model under a memory budget</a></li></ul><h2>Attention masks and sequence targets</h2><ul><li><a href=\"/deep-learning/sequence-attention-leakage-project\">Project: audit a next-event attention decoder</a></li></ul><h2>Convolution geometry and residual design</h2><ul><li><a href=\"/deep-learning/receipt-defect-localization-project\">Project: localize receipt defects with a residual CNN</a></li></ul><h2>Transfer learning and domain shift</h2><ul><li><a href=\"/deep-learning/receipt-domain-adaptation-project\">Project: adapt a receipt model to a new capture device</a></li></ul><h2>Recurrent sequences and state ownership</h2><ul><li><a href=\"/deep-learning/service-event-lstm-project\">Project: predict service escalation from event histories</a></li></ul><h2>Reconstruction models and anomaly scores</h2><ul><li><a href=\"/deep-learning/telemetry-autoencoder-alert-project\">Project: calibrate an autoencoder alert for freezer telemetry</a></li></ul><h2>Distributed training and recovery</h2><ul><li><a href=\"/deep-learning/receipt-multiworker-parity-project\">Project: prove multiworker receipt-training parity</a></li></ul><h2>Confidence, abstention and evidence checks</h2><ul><li><a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a></li></ul><h2>Diffusion training and sampling contracts</h2><ul><li><a href=\"/deep-learning/receipt-background-diffusion-project\">Project: train and audit a receipt-background denoiser</a></li></ul><h2>Compression and edge release</h2><ul><li><a href=\"/deep-learning/receipt-edge-model-release-project\">Project: release a compact receipt model to an edge device</a></li></ul><h2>Self-supervised views and contrastive objectives</h2><ul><li><a href=\"/deep-learning/receipt-contrastive-pretraining-project\">Project: pretrain receipt features from unlabeled captures</a></li></ul><h2>Teacher-student distillation contracts</h2><ul><li><a href=\"/deep-learning/receipt-student-distillation-project\">Project: distill and release a receipt-quality student</a></li></ul><h2>Adversarial generation and coverage audits</h2><ul><li><a href=\"/deep-learning/receipt-paper-texture-gan-project\">Project: audit a receipt-paper texture GAN</a></li></ul><h2>Autoregressive decoding and cache parity</h2><ul><li><a href=\"/deep-learning/service-event-decoder-parity-project\">Project: release an incremental service-event decoder</a></li></ul><h2>Optimization schedules and checkpoint selection</h2><ul><li><a href=\"/deep-learning/receipt-optimizer-selection-project\">Project: select a receipt training schedule without test leakage</a></li></ul><h2>Perturbation sensitivity and release gates</h2><ul><li><a href=\"/deep-learning/receipt-perturbation-stress-project\">Project: stress-test receipt decisions under bounded image changes</a></li></ul><h2>Pixel-level defect learning and mask audits</h2><ul><li><a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a></li></ul><h2>Activation recomputation and memory measurement</h2><ul><li><a href=\"/deep-learning/receipt-activation-recompute-project\">Project: measure activation recomputation on receipt training</a></li></ul><h2>Graph message passing and incident attribution</h2><ul><li><a href=\"/deep-learning/service-incident-graph-project\">Project: attribute service incidents with a time-safe graph</a></li></ul><h2>Unaligned sequence recognition and OCR checks</h2><ul><li><a href=\"/deep-learning/receipt-line-ocr-ctc-project\">Project: recognize receipt line items with CTC</a></li></ul><h2>Vision tokens and resolution contracts</h2><ul><li><a href=\"/deep-learning/receipt-vision-transformer-project\">Project: compare receipt vision tokens with a convolutional baseline</a></li></ul><h2>Causal convolution and interval forecasts</h2><ul><li><a href=\"/deep-learning/warehouse-queue-tcn-project\">Project: forecast warehouse queues with a causal temporal model</a></li></ul><h2>Object boxes, matching and duplicate control</h2><ul><li><a href=\"/deep-learning/receipt-field-box-detector-project\">Project: detect total, date and merchant fields on receipts</a></li></ul><h2>Invertible density modeling and anomaly review</h2><ul><li><a href=\"/deep-learning/telemetry-flow-anomaly-project\">Project: review telemetry anomalies with an invertible flow</a></li></ul><h2>Audio windows, spectral features and alarm review</h2><ul><li><a href=\"/deep-learning/machine-audio-alarm-project\">Project: classify machine alarms from short audio windows</a></li></ul><h2>Video clips, temporal evidence and event review</h2><ul><li><a href=\"/deep-learning/conveyor-jam-video-project\">Project: detect conveyor jams from timestamped video clips</a></li></ul><h2>Deep reinforcement learning and decision replay</h2><ul><li><a href=\"/deep-learning/inventory-dispatch-dqn-project\">Project: audit a neural inventory dispatch policy before release</a></li></ul><h2>Point-cloud learning and 3D inspection</h2><ul><li><a href=\"/deep-learning/pallet-point-cloud-inspection-project\">Project: inspect pallet damage from 3D point scans</a></li></ul><h2>Sparse experts, routing and capacity</h2><ul><li><a href=\"/deep-learning/service-event-sparse-experts-project\">Project: test sparse experts for service-event classification</a></li></ul><h2>Neural retrieval and candidate index parity</h2><ul><li><a href=\"/deep-learning/learning-feed-two-tower-project\">Project: retrieve learning articles with two neural towers</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7701,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Projects",
+          "lessons": [
+            "deep-learning/receipt-image-quality-project",
+            "deep-learning/receipt-training-memory-project",
+            "deep-learning/sequence-attention-leakage-project",
+            "deep-learning/receipt-defect-localization-project",
+            "deep-learning/receipt-domain-adaptation-project",
+            "deep-learning/service-event-lstm-project",
+            "deep-learning/telemetry-autoencoder-alert-project",
+            "deep-learning/receipt-multiworker-parity-project",
+            "deep-learning/receipt-confidence-audit-project",
+            "deep-learning/receipt-background-diffusion-project",
+            "deep-learning/receipt-edge-model-release-project",
+            "deep-learning/receipt-contrastive-pretraining-project",
+            "deep-learning/receipt-student-distillation-project",
+            "deep-learning/receipt-paper-texture-gan-project",
+            "deep-learning/service-event-decoder-parity-project",
+            "deep-learning/receipt-optimizer-selection-project",
+            "deep-learning/receipt-perturbation-stress-project",
+            "deep-learning/receipt-defect-segmentation-project",
+            "deep-learning/receipt-activation-recompute-project",
+            "deep-learning/service-incident-graph-project",
+            "deep-learning/receipt-line-ocr-ctc-project",
+            "deep-learning/receipt-vision-transformer-project",
+            "deep-learning/warehouse-queue-tcn-project",
+            "deep-learning/receipt-field-box-detector-project",
+            "deep-learning/telemetry-flow-anomaly-project",
+            "deep-learning/machine-audio-alarm-project",
+            "deep-learning/conveyor-jam-video-project",
+            "deep-learning/inventory-dispatch-dqn-project",
+            "deep-learning/pallet-point-cloud-inspection-project",
+            "deep-learning/service-event-sparse-experts-project",
+            "deep-learning/learning-feed-two-tower-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Deep Learning",
+          "path": "deep-learning/deep-learning-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "deep-learning/deep-learning-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9bc58e73-6679-5483-8a30-a74035830b0e",
+    "type": "article",
+    "path": "deep-learning/distributed-sampler-tail-and-global-loss-weighting",
+    "title": "Distributed sampler tails and global loss weighting",
+    "summary": "Data-parallel workers must agree on which examples count and on the denominator used for one optimizer update; an even number of steps alone does not guarantee that.",
+    "body": "<p>Data-parallel workers must agree on which examples count and on the denominator used for one optimizer update; an even number of steps alone does not guarantee that.</p><h2>Count sampled identities before scaling</h2><p>A distributed sampler partitions dataset indices across ranks. When the dataset length is not divisible by worker count, one policy repeats indices to equalize shard lengths; another drops a tail. With 47 unique receipts and three workers, padding to 48 slots repeats one receipt. That extra slot changes the training population unless it is explicitly masked or accepted as the sampling policy. Audit unique identities, duplicate identities and omitted identities per epoch. <a href=\"/deep-learning/batching-and-class-sampling\">Sampling choices</a> can outweigh a small optimizer change.</p><h2>Refresh order every epoch</h2><p>A distributed sampler seeded once can generate the same shuffled order each epoch unless its epoch value is advanced before the loader iterator is created. The epoch value must be the same on all ranks. If one worker skips an epoch or has a different dataset manifest, ranks may see different step counts and collective communication can hang. Log world size, rank, manifest hash, sampler seed, epoch and accepted-example count. A successful first epoch does not prove that later epochs reshuffle.</p><h2>Match the global denominator</h2><p>A conventional data-parallel reducer averages gradients across workers. If all ranks have the same local batch size and each computes a local mean, that average is the global example mean. If rank zero has three examples while rank one has one, averaging their local means gives each rank equal weight, not each example. For a sample-averaged loss, each rank should contribute its local loss sum multiplied by world size and divided by the global accepted-example count before the gradient average. Agree on any sampler duplicates and ignored labels first. <a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Effective-batch accounting</a> extends across ranks.</p><h2>Handle uneven work deliberately</h2><p>A worker that runs out of data earlier can leave peers waiting at an all-reduce. Either construct equal work with a documented duplicate or drop policy, or use a supported uneven-input join mechanism with a stated gradient-weight convention. Do not let a broad exception handler swallow an exhausted-loader event while other ranks continue. For validation, avoid padding duplicates in the metric denominator; gather predictions with stable example identities and deduplicate before calculating reported rates.</p><h2>Prove parity on a tiny batch</h2><p>Copy one model to two simulated workers. Backpropagate four examples as one batch, then split them three and one, apply the distributed scaling rule and average worker gradients. Compare every parameter gradient before stepping. Repeat with a zero-valid-target rank, a short final step and a sampler epoch change. The code example below audits sampler slots; the paired project performs the gradient comparison. A low training loss alone cannot reveal a wrong denominator.</p><h2>Implementation</h2><pre><code class=\"language-python\">from collections import Counter\nfrom torch.utils.data import DistributedSampler, TensorDataset\nimport torch\n\nreceipt_features = torch.arange(47, dtype=torch.float32).unsqueeze(1)\nreceipt_dataset = TensorDataset(receipt_features)\nworker_count = 3\nsamplers = [DistributedSampler(receipt_dataset, num_replicas=worker_count,\n                               rank=worker_rank, shuffle=True, seed=71,\n                               drop_last=False)\n            for worker_rank in range(worker_count)]\n\nfor sampler in samplers:\n    sampler.set_epoch(2)\nsecond_epoch_slots = [receipt_id for sampler in samplers\n                      for receipt_id in sampler]\nslot_counts = Counter(second_epoch_slots)\nassert len(second_epoch_slots) == 48\nassert len(slot_counts) == 47\nassert sum(count - 1 for count in slot_counts.values()) == 1\n\nfor sampler in samplers:\n    sampler.set_epoch(3)\nthird_epoch_slots = [receipt_id for sampler in samplers\n                     for receipt_id in sampler]\nassert second_epoch_slots != third_epoch_slots</code></pre><h2>Performance and operating cost</h2><p>Data parallelism replicates model parameters and optimizer state on each worker. For P parameters, gradient synchronization communicates on the order of P values per update, although bucket overlap and network topology affect wall time. Sampler bookkeeping is cheap relative to training, but repeated tail examples alter the effective data weights. Scaling by the wrong denominator can be fast and still train a different objective.</p><h3>Common Mistakes</h3><ul><li>Do not assume a non-divisible dataset is partitioned without duplicates.</li><li>Do not advance the sampler seed independently on each worker.</li><li>Do not average unequal local means when the intended unit is one accepted example.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/batching-and-class-sampling\">Batching and class sampling: know the population the optimizer sees</a></li><li><a href=\"/deep-learning/gradient-accumulation-and-effective-batch\">Gradient accumulation and effective batch accounting</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/distributed-checkpoint-manifest-and-resume\">Distributed checkpoint manifests and coherent resume</a></li><li><a href=\"/deep-learning/receipt-multiworker-parity-project\">Project: prove multiworker receipt-training parity</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/contrastive-temperature-and-negative-mask\">Contrastive temperature and negative-mask accounting</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/expert-load-balance-and-dispatch-consistency\">Expert load balance, overflow slices and dispatch consistency</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7850,
+    "status": "published",
+    "published_at": "2026-10-06T09:35:24.993193+00:00",
+    "created_at": "2026-10-06T09:35:24.993193+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/batching-and-class-sampling",
+          "title": "Batching and class sampling: know the population the optimizer sees"
+        },
+        {
+          "path": "deep-learning/gradient-accumulation-and-effective-batch",
+          "title": "Gradient accumulation and effective batch accounting"
+        },
+        {
+          "path": "deep-learning/train-eval-validation-loop",
+          "title": "Training and validation modes: measure the model you will serve"
+        },
+        {
+          "path": "deep-learning/distributed-checkpoint-manifest-and-resume",
+          "title": "Distributed checkpoint manifests and coherent resume"
+        },
+        {
+          "path": "deep-learning/receipt-multiworker-parity-project",
+          "title": "Project: prove multiworker receipt-training parity"
+        },
+        {
+          "path": "deep-learning/contrastive-temperature-and-negative-mask",
+          "title": "Contrastive temperature and negative-mask accounting"
+        },
+        {
+          "path": "deep-learning/expert-load-balance-and-dispatch-consistency",
+          "title": "Expert load balance, overflow slices and dispatch consistency"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f9b70e12-effc-5eed-8035-a98447a8505c",
+    "type": "article",
+    "path": "deep-learning/expert-load-balance-and-dispatch-consistency",
+    "title": "Expert load balance, overflow slices and dispatch consistency",
+    "summary": "A routed model needs both predictive checks and systems checks: expert collapse, token overflow, device skew and inference-time batching can each undo the expected gain.",
+    "body": "<p>A routed model needs both predictive checks and systems checks: expert collapse, token overflow, device skew and inference-time batching can each undo the expected gain.</p><h2>Measure offered and accepted load</h2><p>Offered load counts the router’s first-choice tokens. Accepted load counts tokens an expert actually processes after capacity is enforced. Reporting only the latter can hide an expert receiving many requests and silently dropping the excess. Keep per-expert histograms by batch, input category and sequence position, then inspect whether rare service-event types are overrepresented in overflow. <a href=\"/deep-learning/sparse-expert-router-and-capacity-accounting\">The router lesson</a> provides the capacity arithmetic.</p><h2>Balance without forcing sameness</h2><p>A balance term can encourage traffic across experts, but uniform use is a proxy for healthy training, not the objective itself. Compare task loss and expert utilization as the coefficient changes. Expert collapse can leave some weights nearly untrained; too much balancing can send a token to an unhelpful expert. Freeze a few reviewed examples and trace router choices through training. An auxiliary loss needs its own unit, weighting and checkpoint metadata.</p><h2>Make dispatch deterministic where required</h2><p>For a fixed checkpoint and token batch, router scores, tie handling and overflow priority should yield a repeatable output within numeric tolerance. Random token shuffling during training can reduce order bias but must not be an unexplained inference dependency. Test a single input alone, in a crowded batch and after changing batch order. When output changes because capacity was exceeded, document it as a model limitation rather than calling it harmless batching variation.</p><h2>Account for communication</h2><p>With experts spread over devices, tokens must travel to the device holding each expert and their outputs must return. A model may reduce multiply-adds while increasing transfer volume and synchronization. Profile dispatch bytes, all-to-all time, expert idle time, peak memory and p95 request latency at the actual serving mix. Compare with a dense model at the same accuracy target. <a href=\"/deep-learning/distributed-checkpoint-manifest-and-resume\">Distributed checkpoints</a> must also preserve the expert-to-device mapping or a portable remap.</p><h2>Gate using both quality and operation</h2><p>Report accuracy by event class, overflow by event class, accepted load skew and full-path latency. A rollout gate can require no class with rising overflow, bounded expert skew, and a meaningful gain over a dense baseline at the same cost envelope. <a href=\"/deep-learning/service-event-sparse-experts-project\">The applied project</a> uses these conditions before a shadow release. If a gate fails, use the dense model; adding experts blindly can amplify the failure.</p><h2>Implementation</h2><pre><code class=\"language-python\">from collections import Counter\n\ndef audit_dispatch(offered, accepted, expert_count):\n    if len(offered) != len(accepted):\n        raise ValueError(&quot;offered and accepted streams must align&quot;)\n    if any(expert not in range(expert_count) for expert in offered):\n        raise ValueError(&quot;unknown offered expert&quot;)\n    if any(expert is not None and expert not in range(expert_count)\n           for expert in accepted):\n        raise ValueError(&quot;unknown accepted expert&quot;)\n    offered_counts = Counter(offered)\n    accepted_counts = Counter(expert for expert in accepted if expert is not None)\n    return [(offered_counts[index], accepted_counts[index])\n            for index in range(expert_count)]\n\noffered = [0, 0, 0, 0, 1, 1, 2, 3]\naccepted = [0, 0, 0, None, 1, 1, 2, 3]\ncounts = audit_dispatch(offered, accepted, expert_count=4)\nassert counts == [(4, 3), (2, 2), (1, 1), (1, 1)]\nassert sum(requested - processed for requested, processed in counts) == 1</code></pre><h2>Performance and operating cost</h2><p>The audit traverses T routing records in O(T + E) time and O(E) counter space for E experts. A production trace may add token IDs, sequence positions and device IDs, increasing storage linearly with T. Dense baselines avoid expert all-to-all exchange but execute more active weights per token; sparse performance therefore depends on expert placement, batch composition and overflow rules rather than parameter count alone.</p><h3>Common Mistakes</h3><ul><li>Do not report accepted load without offered load and overflow.</li><li>Do not interpret uniform routing as proof of useful expert specialization.</li><li>Do not omit batch composition from latency and output-parity tests.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/sparse-expert-router-and-capacity-accounting\">Sparse expert routers and per-batch capacity accounting</a></li><li><a href=\"/deep-learning/service-event-sparse-experts-project\">Project: test sparse experts for service-event classification</a></li><li><a href=\"/deep-learning/distributed-checkpoint-manifest-and-resume\">Distributed checkpoint manifests and coherent resume</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/temperature-scaling-and-selective-risk\">Temperature scaling and selective risk</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7961,
+    "status": "published",
+    "published_at": "2026-10-06T11:34:39.017458+00:00",
+    "created_at": "2026-10-06T11:34:39.017458+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/sparse-expert-router-and-capacity-accounting",
+          "title": "Sparse expert routers and per-batch capacity accounting"
+        },
+        {
+          "path": "deep-learning/service-event-sparse-experts-project",
+          "title": "Project: test sparse experts for service-event classification"
+        },
+        {
+          "path": "deep-learning/distributed-checkpoint-manifest-and-resume",
+          "title": "Distributed checkpoint manifests and coherent resume"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/temperature-scaling-and-selective-risk",
+          "title": "Temperature scaling and selective risk"
+        }
+      ]
+    }
+  },
+  {
+    "id": "50b928ca-6624-58a1-8f51-25c27e0ce210",
+    "type": "article",
+    "path": "deep-learning/inference-schema-and-latency",
+    "title": "Inference contracts: preserve preprocessing and measure tail latency",
+    "summary": "Deployment binds weights to input transforms and class mapping, then measures latency under realistic request load.",
+    "body": "<p>Deployment binds weights to input transforms and class mapping, then measures latency under realistic request load.</p><h2>Package the decision</h2><p>Publish model weights, preprocessing version, dimensions, channel order, class names and threshold together. A server that resizes differently or reverses channels may return plausible scores with the wrong meaning. Validate file type, decoded dimensions and maximum bytes before allocating large tensors. <a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts</a>] are API constraints, not training-only checks.</p><h2>Separate score and action</h2><p>Return a score only with a declared class order. Convert logits to probabilities when the endpoint promises them, then apply a threshold chosen under a review-capacity policy. Include an abstain path for unsupported or poor-quality inputs. <a href=\"/machine-learning/decision-threshold-and-cost\">Threshold analysis</a>] connects model output to the operational action.</p><h2>Measure loaded behavior</h2><p>Warm the model, then measure decode, preprocessing, queue, forward pass and serialization separately. Report median and high-percentile latency under concurrent traffic, rather than one idle request. Batch inference may raise throughput while making one request wait longer. State maximum batch and timeout, and reject overload predictably.</p><h2>Monitor failure safely</h2><p>Count decode failures, invalid shapes, abstentions and score shifts by relevant slice. Avoid raw personal images in routine logs. Keep a rollback artifact and known-good requests; compare outputs and class names with the manifest before shifting traffic.</p><h2>Implementation</h2><pre><code class=\"language-python\">def predict_receipt(image_bytes, receipt_model, preprocess, class_names):\n    if len(image_bytes) &gt; 4_000_000:\n        raise ValueError(&quot;image exceeds request limit&quot;)\n    image_tensor = preprocess(image_bytes)\n    if image_tensor.shape != (3, 224, 224):\n        raise ValueError(&quot;unexpected dimensions&quot;)\n    receipt_model.eval()\n    with torch.inference_mode():\n        logits = receipt_model(image_tensor.unsqueeze(0))\n        probabilities = logits.softmax(dim=1)[0]\n    return dict(zip(class_names, probabilities.tolist()))</code></pre><h2>Performance and operating cost</h2><p>Prediction costs preprocessing and one model forward pass. Concurrent requests add queue and memory pressure; batching exchanges lower compute per image for additional wait time. Measure p95 under intended concurrency.</p><h3>Common Mistakes</h3><ul><li>Do not deploy weights without class mapping and preprocessing.</li><li>Do not treat an idle request as a latency guarantee.</li><li>Do not log sensitive images during routine errors.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/checkpoint-resume-state\">Checkpoint recovery: save optimizer state and the run boundary</a></li><li><a href=\"/deep-learning/receipt-image-quality-project\">Project: classify receipt image quality with a checked training contract</a></li><li><a href=\"/machine-learning/decision-threshold-and-cost\">Decision thresholds: choose an action from probabilities and error costs</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/machine-learning/model-inference-budget-and-device-profile\">Model inference budget and device profile</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-domain-adaptation-project\">Project: adapt a receipt model to a new capture device</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/recurrent-hidden-state-reset-and-truncated-gradients\">Recurrent hidden-state resets and truncated gradients</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-confidence-audit-project\">Project: audit receipt confidence and review handoff</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/post-training-quantization-calibration-contract\">Post-training quantization and calibration contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/autoregressive-kv-cache-position-and-mask-parity\">Autoregressive KV cache position and mask parity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-defect-segmentation-project\">Project: segment clipped edges and folds on receipts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-incident-graph-project\">Project: attribute service incidents with a time-safe graph</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/warehouse-queue-tcn-project\">Project: forecast warehouse queues with a causal temporal model</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/receipt-field-box-detector-project\">Project: detect total, date and merchant fields on receipts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/machine-audio-alarm-project\">Project: classify machine alarms from short audio windows</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/conveyor-jam-video-project\">Project: detect conveyor jams from timestamped video clips</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/inventory-dispatch-dqn-project\">Project: audit a neural inventory dispatch policy before release</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/pallet-point-cloud-inspection-project\">Project: inspect pallet damage from 3D point scans</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/service-event-sparse-experts-project\">Project: test sparse experts for service-event classification</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/learning-feed-two-tower-project\">Project: retrieve learning articles with two neural towers</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7816,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "deep-learning/tensor-shape-dtype-contract",
+          "title": "Tensor contracts: shape, dtype, device and mask"
+        },
+        {
+          "path": "deep-learning/checkpoint-resume-state",
+          "title": "Checkpoint recovery: save optimizer state and the run boundary"
+        },
+        {
+          "path": "deep-learning/receipt-image-quality-project",
+          "title": "Project: classify receipt image quality with a checked training contract"
+        },
+        {
+          "path": "machine-learning/decision-threshold-and-cost",
+          "title": "Decision thresholds: choose an action from probabilities and error costs"
+        },
+        {
+          "path": "mlops/shadow-canary-and-rollback",
+          "title": "Shadow and canary rollout: compare a candidate without losing a rollback"
+        },
+        {
+          "path": "machine-learning/model-inference-budget-and-device-profile",
+          "title": "Model inference budget and device profile"
+        },
+        {
+          "path": "deep-learning/causal-target-shift-and-padding-loss",
+          "title": "Causal target shifts and padding-aware loss"
+        },
+        {
+          "path": "deep-learning/receipt-domain-adaptation-project",
+          "title": "Project: adapt a receipt model to a new capture device"
+        },
+        {
+          "path": "deep-learning/recurrent-hidden-state-reset-and-truncated-gradients",
+          "title": "Recurrent hidden-state resets and truncated gradients"
+        },
+        {
+          "path": "deep-learning/receipt-confidence-audit-project",
+          "title": "Project: audit receipt confidence and review handoff"
+        },
+        {
+          "path": "deep-learning/post-training-quantization-calibration-contract",
+          "title": "Post-training quantization and calibration contracts"
+        },
+        {
+          "path": "deep-learning/autoregressive-kv-cache-position-and-mask-parity",
+          "title": "Autoregressive KV cache position and mask parity"
+        },
+        {
+          "path": "deep-learning/receipt-defect-segmentation-project",
+          "title": "Project: segment clipped edges and folds on receipts"
+        },
+        {
+          "path": "deep-learning/service-incident-graph-project",
+          "title": "Project: attribute service incidents with a time-safe graph"
+        },
+        {
+          "path": "deep-learning/warehouse-queue-tcn-project",
+          "title": "Project: forecast warehouse queues with a causal temporal model"
+        },
+        {
+          "path": "deep-learning/receipt-field-box-detector-project",
+          "title": "Project: detect total, date and merchant fields on receipts"
+        },
+        {
+          "path": "deep-learning/machine-audio-alarm-project",
+          "title": "Project: classify machine alarms from short audio windows"
+        },
+        {
+          "path": "deep-learning/conveyor-jam-video-project",
+          "title": "Project: detect conveyor jams from timestamped video clips"
+        },
+        {
+          "path": "deep-learning/inventory-dispatch-dqn-project",
+          "title": "Project: audit a neural inventory dispatch policy before release"
+        },
+        {
+          "path": "deep-learning/pallet-point-cloud-inspection-project",
+          "title": "Project: inspect pallet damage from 3D point scans"
+        },
+        {
+          "path": "deep-learning/service-event-sparse-experts-project",
+          "title": "Project: test sparse experts for service-event classification"
+        },
+        {
+          "path": "deep-learning/learning-feed-two-tower-project",
+          "title": "Project: retrieve learning articles with two neural towers"
+        }
+      ]
+    }
+  },
+  {
+    "id": "120deba7-c9c6-590a-8cff-49e257fdb466",
+    "type": "article",
+    "path": "deep-learning/learning-feed-two-tower-project",
+    "title": "Project: retrieve learning articles with two neural towers",
+    "summary": "Build a versioned candidate index for a learning feed, then test full-corpus recall, eligibility, new-content freshness and request latency.",
+    "body": "<p>Build a versioned candidate index for a learning feed, then test full-corpus recall, eligibility, new-content freshness and request latency.</p><h2>Define the reader event ledger</h2><p>Store article impressions, clicks and completed lessons with reader ID, event time, surface and policy version. Build a reader state from events strictly before the candidate decision, then pair it with a completed article that was eligible and exposed. Split by reader and time for a final evaluation. Keep new readers and new articles as named slices. <a href=\"/recommendation-systems/objective-and-interaction-contract\">The interaction contract</a> explains why a click and a completed lesson should not have identical weight.</p><h2>Train with deliberate negatives</h2><p>The snippet runs one synthetic matched-pair update and asserts that each positive article appears once in the batch. Real training must deduplicate item IDs or support multiple positives, and may add reviewed hard negatives only from eligible exposed items. Compare against a topic-match baseline and a popularity baseline with identical catalog and time boundaries. <a href=\"/deep-learning/two-tower-embedding-and-inbatch-negative-contract\">The embedding lesson</a> gives the loss and false-negative caveat.</p><h2>Build a coupled index</h2><p>Export item vectors alongside encoder and feature-schema fingerprints. Build a candidate index from published articles, maintain tombstones and check incremental additions. At serving, encode the reader with the matching query tower, retrieve more than the final count, filter eligibility and return a bounded list. Compare exact top-K and indexed top-K on fixed queries to isolate index error. <a href=\"/deep-learning/retrieval-index-version-and-candidate-parity\">The index lesson</a> defines the replay oracle.</p><h2>Evaluate the feed, not the training batch</h2><p>Report full-corpus recall at candidate count, eligible yield, catalog coverage and recall by new reader, new article and topic. Separately audit withdrawn-item leaks and the delay before a new article appears. Measure p95 query encoding, index search, filtering and total request time on the target catalog size. A candidate system that retrieves only popular old pages can look strong on interaction-weighted recall while failing discovery.</p><h2>Release with a clear fallback</h2><p>Package both towers, article vectors, index version, eligibility snapshot rule and rollback pointer. Run a shadow replay first, compare candidate sets and investigate blocked items. Gate on full-corpus recall, freshness, zero restricted-item exposure and request latency. Keep a simple eligible-topic baseline ready if the index is stale or unavailable; never relax eligibility to fill the feed.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\ntorch.manual_seed(47)\nreader_context = torch.rand(4, 5)\narticle_metadata = torch.rand(4, 7)\npositive_article_ids = [47, 58, 69, 81]\nassert len(positive_article_ids) == len(set(positive_article_ids))\nquery_tower = nn.Linear(5, 8)\nitem_tower = nn.Linear(7, 8)\noptimizer = torch.optim.AdamW(list(query_tower.parameters()) +\n                              list(item_tower.parameters()), lr=0.0007)\nquery_vectors = functional.normalize(query_tower(reader_context), dim=1)\nitem_vectors = functional.normalize(item_tower(article_metadata), dim=1)\ncandidate_logits = query_vectors @ item_vectors.T / 0.17\nloss = functional.cross_entropy(candidate_logits, torch.arange(4))\noptimizer.zero_grad(set_to_none=True)\nloss.backward()\noptimizer.step()\nassert candidate_logits.shape == (4, 4) and torch.isfinite(loss)</code></pre><h2>Performance and operating cost</h2><p>The in-batch B-by-B score matrix costs O(B squared D) operations for embedding width D and O(B squared) memory, on top of tower computation. An index for M published items stores O(MD) vector values plus search metadata. Exact full-catalog evaluation is more expensive than a small training-batch check; sample queries but keep the corpus complete and frozen. The code proves one synthetic update, not recommendation quality or index readiness.</p><h3>Common Mistakes</h3><ul><li>Do not treat a single batch loss as a feed-quality metric.</li><li>Do not publish an item-vector index without encoder and schema fingerprints.</li><li>Do not bypass eligibility when the index returns too few candidates.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/two-tower-embedding-and-inbatch-negative-contract\">Two-tower embeddings and in-batch negative contracts</a></li><li><a href=\"/deep-learning/retrieval-index-version-and-candidate-parity\">Retrieval index versions, eligibility filters and candidate parity</a></li><li><a href=\"/recommendation-systems/offline-evaluation-and-temporal-split\">Offline recommendation evaluation: replay catalog and learner state in time</a></li><li><a href=\"/recommendation-systems/lesson-feed-project\">Project: build a guarded next-lesson recommender</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7965,
+    "status": "published",
+    "published_at": "2026-10-06T11:34:39.017458+00:00",
+    "created_at": "2026-10-06T11:34:39.017458+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/two-tower-embedding-and-inbatch-negative-contract",
+          "title": "Two-tower embeddings and in-batch negative contracts"
+        },
+        {
+          "path": "deep-learning/retrieval-index-version-and-candidate-parity",
+          "title": "Retrieval index versions, eligibility filters and candidate parity"
+        },
+        {
+          "path": "recommendation-systems/offline-evaluation-and-temporal-split",
+          "title": "Offline recommendation evaluation: replay catalog and learner state in time"
+        },
+        {
+          "path": "recommendation-systems/lesson-feed-project",
+          "title": "Project: build a guarded next-lesson recommender"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        }
+      ]
+    }
+  },
+  {
+    "id": "e7c839ef-8ea2-5736-809f-b8c2099f279e",
+    "type": "article",
+    "path": "deep-learning/retrieval-index-version-and-candidate-parity",
+    "title": "Retrieval index versions, eligibility filters and candidate parity",
+    "summary": "A good embedding model can serve the wrong recommendations when the item index is stale, the vector schema changes or eligibility is applied too late.",
+    "body": "<p>A good embedding model can serve the wrong recommendations when the item index is stale, the vector schema changes or eligibility is applied too late.</p><h2>Treat the index as a model artifact</h2><p>An item vector is valid only for the item encoder, tokenizer, feature schema and normalization rule that produced it. Save those fingerprints with the index. Deploying a new query tower against an old article index can change scores without any code error. Publish the index build time, source article revision, item count and tombstone count. <a href=\"/deep-learning/two-tower-embedding-and-inbatch-negative-contract\">The two-tower lesson</a> defines the matching vector space.</p><h2>Filter before promising a candidate</h2><p>Remove unpublished, restricted, duplicate and already-completed articles using the eligibility state available at request time. Some approximate search systems retrieve a wide set and filter afterward; if most results fail eligibility, the final list may be short or skewed. Measure eligible yield and over-fetch needs by reader group. A score is not permission to display an item. <a href=\"/recommendation-systems/candidate-retrieval-and-eligibility\">The recommendation contract</a> handles business eligibility beyond embedding similarity.</p><h2>Compare exact and indexed neighbors</h2><p>For sampled queries, compute exact dot products against the same frozen eligible corpus and compare their top candidates with the approximate index. Report index recall at K, latency and memory under several parameter settings. If the exact model misses the relevant lesson, rebuilding the index will not fix it; if the exact result is good but the index drops it, retraining the towers is premature. The code performs a tiny exact ranking and an eligibility filter as a deterministic oracle.</p><h2>Handle publication and deletion explicitly</h2><p>New articles should not wait indefinitely for a full nightly rebuild. Define incremental addition, replacement and deletion behavior, then verify that unpublished or withdrawn items disappear from every shard. A tombstoned item can survive in a cached candidate list after the index is updated. Record freshness delay from publish or withdraw event to served result, and add a last-mile eligibility check at response construction.</p><h2>Gate on real request shapes</h2><p>Measure p95 query encoding, index search, eligibility filtering and ranking separately, then measure the end-to-end request. Test sparse reader histories, new content, long-tail topics and a sudden catalog update. <a href=\"/deep-learning/learning-feed-two-tower-project\">The project</a> compares indexed retrieval with a topic baseline and checks the same versioned result in a live-like replay.</p><h2>Implementation</h2><pre><code class=\"language-python\">def eligible_top_k(query_vector, indexed_articles, allowed_ids, limit):\n    if len(query_vector) == 0 or limit &lt; 1:\n        raise ValueError(&quot;query width and limit must be positive&quot;)\n    ranked = []\n    for article_id, article_vector in indexed_articles.items():\n        if len(article_vector) != len(query_vector):\n            raise ValueError(&quot;embedding width changed&quot;)\n        if article_id in allowed_ids:\n            score = sum(query * item for query, item in zip(query_vector, article_vector))\n            ranked.append((score, article_id))\n    ranked.sort(key=lambda result: (-result[0], result[1]))\n    return [article_id for _, article_id in ranked[:limit]]\n\narticle_index = {47: (0.8, 0.2), 58: (0.1, 0.9), 69: (0.6, 0.4)}\nvisible_articles = {47, 69}\nassert eligible_top_k((0.7, 0.3), article_index, visible_articles, 2) == [47, 69]</code></pre><h2>Performance and operating cost</h2><p>Exact scoring of M indexed items at width D uses O(MD) arithmetic, and sorting all eligible candidates uses O(M log M) time and O(M) temporary storage. A heap can reduce top-K selection cost when K is small, while an approximate index trades some neighbor recall for faster search. Eligibility filtering and index freshness still require explicit work. The tiny oracle is for parity tests, not a large-catalog serving implementation.</p><h3>Common Mistakes</h3><ul><li>Do not pair a new query encoder with stale item vectors without a version check.</li><li>Do not let restricted or withdrawn items survive in a cached result.</li><li>Do not report index recall against a corpus with different eligibility rules.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/two-tower-embedding-and-inbatch-negative-contract\">Two-tower embeddings and in-batch negative contracts</a></li><li><a href=\"/deep-learning/learning-feed-two-tower-project\">Project: retrieve learning articles with two neural towers</a></li><li><a href=\"/recommendation-systems/candidate-retrieval-and-eligibility\">Candidate retrieval: separate broad discovery from hard eligibility</a></li><li><a href=\"/recommendation-systems/offline-evaluation-and-temporal-split\">Offline recommendation evaluation: replay catalog and learner state in time</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7964,
+    "status": "published",
+    "published_at": "2026-10-06T11:34:39.017458+00:00",
+    "created_at": "2026-10-06T11:34:39.017458+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/two-tower-embedding-and-inbatch-negative-contract",
+          "title": "Two-tower embeddings and in-batch negative contracts"
+        },
+        {
+          "path": "deep-learning/learning-feed-two-tower-project",
+          "title": "Project: retrieve learning articles with two neural towers"
+        },
+        {
+          "path": "recommendation-systems/candidate-retrieval-and-eligibility",
+          "title": "Candidate retrieval: separate broad discovery from hard eligibility"
+        },
+        {
+          "path": "recommendation-systems/offline-evaluation-and-temporal-split",
+          "title": "Offline recommendation evaluation: replay catalog and learner state in time"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        }
+      ]
+    }
+  },
+  {
+    "id": "7a0119c9-a78c-5d08-b675-6b8e59063f6c",
+    "type": "article",
+    "path": "deep-learning/scaled-dot-product-attention-mask-contract",
+    "title": "Scaled dot-product attention and mask contracts",
+    "summary": "An attention score combines a query with every permitted key; a mask must encode exactly which key positions may influence each query position.",
+    "body": "<p>An attention score combines a query with every permitted key; a mask must encode exactly which key positions may influence each query position.</p><h2>Track four axes</h2><p>For a batched multi-head implementation, queries have batch, head, query-position and feature axes; keys and values have batch, head, key-position and feature axes. Scores occupy batch by head by query-position by key-position. Scale dot products by the square root of the query/key feature width before softmax so score magnitude does not grow unchecked with width. The resulting weights mix value vectors, not key vectors. <a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts</a> should assert every axis before training.</p><h2>Specify mask meaning per API</h2><p>In one common scaled-dot-product API, a Boolean True means the key may participate; another multi-head API uses True to mean padding should be ignored. Carry a named allow-mask at the boundary and convert it deliberately when switching APIs. A padding mask blocks invalid key positions; a causal mask blocks keys to the right of the query. Combine them by logical AND. A key mask alone does not guarantee padded query outputs are zero, so zero or exclude those outputs before downstream pooling.</p><h2>Avoid rows with no valid keys</h2><p>Softmax over all negative-infinity scores is undefined in a simple reference implementation and may produce NaN. A request with zero valid tokens should fail validation or use an explicit safe fallback. With causal attention and right padding, valid query positions normally retain at least their own key. Left padding, cached decoding and cross-attention need separate tests, because their query and key lengths or alignments can differ.</p><h2>Control dropout at evaluation</h2><p>Some low-level attention functions apply the passed dropout probability even when the containing model is in evaluation mode. Pass zero explicitly during evaluation or serving. Compare deterministic outputs for the same input twice, and confirm no output at position p changes when only a future token changes. <a href=\"/deep-learning/train-eval-validation-loop\">Train/eval mode checks</a> apply to custom attention calls as well as ordinary dropout modules.</p><h2>Budget sequence length</h2><p>Dense score computation scales quadratically with sequence length and linearly with heads and batch size; specialized kernels may avoid storing the entire score matrix, but arithmetic still grows with attended pairs. Profile the longest accepted sequence rather than the median. A mask does not automatically make a dense kernel sparse. Restrict length, choose a supported efficient kernel or change the attention pattern when the cost exceeds the product budget.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nimport torch.nn.functional as functional\n\ntorch.manual_seed(61)\nreceipt_tokens = torch.randn(1, 1, 4, 8)\nvalid_tokens = torch.tensor([[True, True, True, False]])\nsequence_length = receipt_tokens.size(-2)\ncausal_allow = torch.ones(sequence_length, sequence_length,\n                          dtype=torch.bool).tril()\nkey_allow = valid_tokens[:, None, None, :]\nallow_mask = causal_allow[None, None, :, :] &amp; key_allow\n\nattended = functional.scaled_dot_product_attention(\n    receipt_tokens, receipt_tokens, receipt_tokens,\n    attn_mask=allow_mask, dropout_p=0.0)\nattended = attended * valid_tokens[:, None, :, None]\nassert attended.shape == receipt_tokens.shape\nassert torch.count_nonzero(attended[:, :, -1, :]) == 0\nassert not allow_mask[0, 0, 0, 1]\nassert not allow_mask[0, 0, 2, 3]</code></pre><h2>Performance and operating cost</h2><p>A dense attention layer computes roughly O(B × H × L × S × D) work for batch B, heads H, query length L, key length S and head width D. A naive implementation also stores O(B × H × L × S) scores. Kernel choice can reduce stored intermediates, but padding still wastes work unless batching or the kernel exploits lengths. Validate masks before expensive model execution.</p><h3>Common Mistakes</h3><ul><li>Do not carry a Boolean mask between APIs without checking which truth value means allowed.</li><li>Do not assume padding keys also zero padded query outputs.</li><li>Do not rely on model.eval() alone to disable a dropout probability passed to a low-level attention function.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/tensor-shape-dtype-contract\">Tensor contracts: shape, dtype, device and mask</a></li><li><a href=\"/deep-learning/train-eval-validation-loop\">Training and validation modes: measure the model you will serve</a></li><li><a href=\"/deep-learning/causal-target-shift-and-padding-loss\">Causal target shifts and padding-aware loss</a></li><li><a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode and tokenization: preserve meaning at the text boundary</a></li><li><a href=\"/deep-learning/sequence-attention-leakage-project\">Project: audit a next-event attention decoder</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/autoregressive-kv-cache-position-and-mask-parity\">Autoregressive KV cache position and mask parity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/vision-transformer-patch-grid-and-token-contract\">Vision transformer patch grids and token contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/sparse-expert-router-and-capacity-accounting\">Sparse expert routers and per-batch capacity accounting</a>.</p>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7823,
+    "status": "published",
+    "published_at": "2026-10-06T08:43:23.133752+00:00",
+    "created_at": "2026-10-06T08:43:23.133752+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/tensor-shape-dtype-contract",
+          "title": "Tensor contracts: shape, dtype, device and mask"
+        },
+        {
+          "path": "deep-learning/train-eval-validation-loop",
+          "title": "Training and validation modes: measure the model you will serve"
+        },
+        {
+          "path": "deep-learning/causal-target-shift-and-padding-loss",
+          "title": "Causal target shifts and padding-aware loss"
+        },
+        {
+          "path": "natural-language-processing/unicode-tokenization-boundary",
+          "title": "Unicode and tokenization: preserve meaning at the text boundary"
+        },
+        {
+          "path": "deep-learning/sequence-attention-leakage-project",
+          "title": "Project: audit a next-event attention decoder"
+        },
+        {
+          "path": "deep-learning/autoregressive-kv-cache-position-and-mask-parity",
+          "title": "Autoregressive KV cache position and mask parity"
+        },
+        {
+          "path": "deep-learning/vision-transformer-patch-grid-and-token-contract",
+          "title": "Vision transformer patch grids and token contracts"
+        },
+        {
+          "path": "deep-learning/sparse-expert-router-and-capacity-accounting",
+          "title": "Sparse expert routers and per-batch capacity accounting"
+        }
+      ]
+    }
+  },
+  {
+    "id": "9a769933-69f7-5d5f-867f-4f99086a3bb9",
+    "type": "article",
+    "path": "deep-learning/service-event-sparse-experts-project",
+    "title": "Project: test sparse experts for service-event classification",
+    "summary": "Compare a small expert layer with a dense classifier on the same time-split event data, then gate on class quality, overflow, device cost and batch parity.",
+    "body": "<p>Compare a small expert layer with a dense classifier on the same time-split event data, then gate on class quality, overflow, device cost and batch parity.</p><h2>Prepare the event ledger</h2><p>Collect service-event text and structured attributes with event time, source system, class label and incident group. Split by incident and time before constructing token batches. Remove identifiers that encode the answer or appear after the classification decision. Include rare incident classes and quiet periods; a sparse model might appear strong on frequent routine events while discarding the very class that matters to operators. <a href=\"/deep-learning/causal-target-shift-and-padding-loss\">The target boundary</a> applies to event sequences as well as language generation.</p><h2>Set a dense reference</h2><p>Train a compact shared encoder and dense classifier with the same input tokens, optimizer budget and held-out incidents. Its class recall, calibration, memory and p95 latency form the baseline. The snippet routes four synthetic token features through two experts without a capacity limit; it verifies the tensor path and finite loss only. The full project must add capacity accounting and overflow handling before making a performance claim. <a href=\"/deep-learning/sparse-expert-router-and-capacity-accounting\">The router lesson</a> gives the operational contract.</p><h2>Inspect expert behavior</h2><p>Track first-choice and accepted tokens per expert, overflow by event class and how often experts receive gradients. Compare alone-versus-batched predictions for reviewed incidents at serving batch sizes. A load-balancing term can move traffic while worsening rare-class recall, so publish both curves. <a href=\"/deep-learning/expert-load-balance-and-dispatch-consistency\">The balance lesson</a> ties the histograms to the release gate.</p><h2>Profile the real path</h2><p>Include tokenization, routing, expert dispatch, output gathering and final thresholding. If experts occupy separate accelerators, measure communication bytes and idle time; if they share one device, measure total resident weights. Repeat with the intended concurrency and sequence-length distribution. Compare accuracy at a fixed compute and latency envelope, not only parameter totals. A model that misses the deadline for long events is not an operational improvement.</p><h2>Release only a bounded shadow</h2><p>Score incoming events without changing routing decisions, then review disagreements and overflow. Require no deterioration in severe-incident recall, a published overflow ceiling for every class, stable batching parity and an agreed p95 latency. Package the router, experts, tokenization, capacity and fallback as one versioned artifact. Retain the dense model for immediate rollback; record why any event took a fallback path.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\ntorch.manual_seed(47)\nevent_features = torch.rand(4, 6)\nreviewed_classes = torch.tensor([0, 1, 2, 1])\nrouter = nn.Linear(6, 2)\nexperts = nn.ModuleList([nn.Linear(6, 8), nn.Linear(6, 8)])\nclassifier = nn.Linear(8, 3)\nroute_logits = router(event_features)\nexpert_choice = route_logits.argmax(dim=1)\nexpert_outputs = torch.stack([expert(event_features) for expert in experts], dim=1)\nselected = expert_outputs[torch.arange(len(event_features)), expert_choice]\nclass_logits = classifier(torch.relu(selected))\nloss = functional.cross_entropy(class_logits, reviewed_classes)\nloss.backward()\nassert class_logits.shape == (4, 3) and torch.isfinite(loss)</code></pre><h2>Performance and operating cost</h2><p>This tiny demonstration evaluates every expert and then selects one, so its compute is O(TEF) rather than truly sparse; it is a safe tensor-path check, not a throughput demonstration. A production dispatcher computes only selected expert outputs but adds grouping, exchange and overflow costs. Resident weights still grow with expert count, while active expert arithmetic grows with selected experts per token. Measure the full path against the dense reference before claiming any gain.</p><h3>Common Mistakes</h3><ul><li>Do not cite this all-experts toy forward as proof of sparse serving speed.</li><li>Do not hide severe-event overflow inside an aggregate average.</li><li>Do not release the expert layer without the exact router and capacity version.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/sparse-expert-router-and-capacity-accounting\">Sparse expert routers and per-batch capacity accounting</a></li><li><a href=\"/deep-learning/expert-load-balance-and-dispatch-consistency\">Expert load balance, overflow slices and dispatch consistency</a></li><li><a href=\"/deep-learning/distributed-checkpoint-manifest-and-resume\">Distributed checkpoint manifests and coherent resume</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li><li><a href=\"/deep-learning/temperature-scaling-and-selective-risk\">Temperature scaling and selective risk</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7962,
+    "status": "published",
+    "published_at": "2026-10-06T11:34:39.017458+00:00",
+    "created_at": "2026-10-06T11:34:39.017458+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/sparse-expert-router-and-capacity-accounting",
+          "title": "Sparse expert routers and per-batch capacity accounting"
+        },
+        {
+          "path": "deep-learning/expert-load-balance-and-dispatch-consistency",
+          "title": "Expert load balance, overflow slices and dispatch consistency"
+        },
+        {
+          "path": "deep-learning/distributed-checkpoint-manifest-and-resume",
+          "title": "Distributed checkpoint manifests and coherent resume"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        },
+        {
+          "path": "deep-learning/temperature-scaling-and-selective-risk",
+          "title": "Temperature scaling and selective risk"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f1233fbf-29da-53ce-b659-a325717bf7f4",
+    "type": "article",
+    "path": "deep-learning/sparse-expert-router-and-capacity-accounting",
+    "title": "Sparse expert routers and per-batch capacity accounting",
+    "summary": "An expert router saves per-token computation only if routing, overflow handling and expert utilization are measured as part of the model contract.",
+    "body": "<p>An expert router saves per-token computation only if routing, overflow handling and expert utilization are measured as part of the model contract.</p><h2>Route tokens, not whole deployments</h2><p>A mixture-of-experts layer contains several parameter sets called experts. The router scores each token and sends it to a selected subset, often one or two experts, while the surrounding attention and other layers may remain shared. Sparse activation lowers arithmetic per token relative to executing every expert, but all expert weights still have to live somewhere and token exchange across devices can dominate latency. Record the expert count, selected experts per token and router score normalization with the checkpoint. <a href=\"/deep-learning/scaled-dot-product-attention-mask-contract\">Attention masks</a> remain a separate sequence contract.</p><h2>Calculate capacity from the actual batch</h2><p>Suppose 47 tokens route to four experts, one expert per token and capacity factor 1.25. A typical per-expert limit is the ceiling of 47 times 1.25 divided by four, or 15 tokens. If the router chooses the first expert for 21 tokens, six exceed its limit despite empty slots elsewhere. The code computes these counts with a deterministic router. Define whether overflow is dropped, sent to a backup expert or processed by a shared path; each choice changes output quality and cost.</p><h2>Avoid an invisible order effect</h2><p>A naive capacity loop admits tokens in their input order. Reordering the same batch can then alter which tokens get expert computation. Some systems prioritize stronger router scores or use a specified token-dispatch rule. Record the rule and test both original and reordered batches. A full sentence might be split across batches at inference, so a batch-dependent overflow policy can create inconsistent answers. Capacity is a serving behavior, not merely a training-memory switch.</p><h2>Watch concentration before tuning loss</h2><p>Count routed and accepted tokens per expert, overflow rate, entropy of router choices and accuracy by input slice. A router that sends nearly everything to one expert defeats the intended parallelism and can starve the others of gradients. Auxiliary balancing objectives may reduce concentration, yet an excessive coefficient can force artificial uniformity when tasks are genuinely uneven. <a href=\"/deep-learning/expert-load-balance-and-dispatch-consistency\">The balance lesson</a> compares utilization with task loss and device cost.</p><h2>Choose a dense baseline</h2><p>A dense feed-forward block with comparable active computation gives a meaningful reference. Compare quality, total parameter memory, accelerator communication, p95 latency and training stability under the same token budget. If a sparse layer wins only at a batch size unavailable in production, it has not met the serving requirement. <a href=\"/deep-learning/service-event-sparse-experts-project\">The project</a> tests service-event classification with bounded overflow and a rollback to its dense baseline.</p><h2>Implementation</h2><pre><code class=\"language-python\">from math import ceil\n\ndef dispatch_experts(router_choices, expert_count, capacity_factor):\n    if expert_count &lt; 1 or capacity_factor &lt;= 0:\n        raise ValueError(&quot;expert count and capacity factor must be positive&quot;)\n    if not router_choices:\n        return [], [0] * expert_count, 0\n    capacity = ceil(len(router_choices) * capacity_factor / expert_count)\n    accepted = [0] * expert_count\n    assignments = []\n    for expert_id in router_choices:\n        if not 0 &lt;= expert_id &lt; expert_count:\n            raise ValueError(&quot;router selected an unknown expert&quot;)\n        if accepted[expert_id] &lt; capacity:\n            assignments.append(expert_id)\n            accepted[expert_id] += 1\n        else:\n            assignments.append(None)\n    return assignments, accepted, capacity\n\nchoices = [0] * 21 + [1] * 9 + [2] * 9 + [3] * 8\nassignments, utilization, per_expert_limit = dispatch_experts(choices, 4, 1.25)\nassert per_expert_limit == 15\nassert utilization == [15, 9, 9, 8]\nassert assignments.count(None) == 6</code></pre><h2>Performance and operating cost</h2><p>Computing a selected expert for each of T tokens is O(T) routing decisions after router scores exist; scoring E experts per token adds O(TE) work and score storage unless selection is fused. Expert forward work depends on accepted tokens and active width, while parameters scale with all E experts. On multiple devices, all-to-all token exchange and imbalance can dominate. The example counts top-one capacity only and intentionally leaves overflow unprocessed so the loss is visible.</p><h3>Common Mistakes</h3><ul><li>Do not assume sparse activation means low total parameter memory.</li><li>Do not drop overflow tokens without measuring which tasks they contain.</li><li>Do not compare expert throughput to a dense model at a different token budget.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/expert-load-balance-and-dispatch-consistency\">Expert load balance, overflow slices and dispatch consistency</a></li><li><a href=\"/deep-learning/service-event-sparse-experts-project\">Project: test sparse experts for service-event classification</a></li><li><a href=\"/deep-learning/scaled-dot-product-attention-mask-contract\">Scaled dot-product attention and mask contracts</a></li><li><a href=\"/deep-learning/distributed-sampler-tail-and-global-loss-weighting\">Distributed sampler tails and global loss weighting</a></li><li><a href=\"/deep-learning/inference-schema-and-latency\">Inference contracts: preserve preprocessing and measure tail latency</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7960,
+    "status": "published",
+    "published_at": "2026-10-06T11:34:39.017458+00:00",
+    "created_at": "2026-10-06T11:34:39.017458+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/expert-load-balance-and-dispatch-consistency",
+          "title": "Expert load balance, overflow slices and dispatch consistency"
+        },
+        {
+          "path": "deep-learning/service-event-sparse-experts-project",
+          "title": "Project: test sparse experts for service-event classification"
+        },
+        {
+          "path": "deep-learning/scaled-dot-product-attention-mask-contract",
+          "title": "Scaled dot-product attention and mask contracts"
+        },
+        {
+          "path": "deep-learning/distributed-sampler-tail-and-global-loss-weighting",
+          "title": "Distributed sampler tails and global loss weighting"
+        },
+        {
+          "path": "deep-learning/inference-schema-and-latency",
+          "title": "Inference contracts: preserve preprocessing and measure tail latency"
+        }
+      ]
+    }
+  },
+  {
+    "id": "dea04009-b7f2-552b-b4eb-e956dc80502b",
+    "type": "article",
+    "path": "deep-learning/two-tower-embedding-and-inbatch-negative-contract",
+    "title": "Two-tower embeddings and in-batch negative contracts",
+    "summary": "Separate a query encoder from an item encoder so candidate vectors can be indexed, while keeping positives, accidental duplicates and exposure bias visible during training.",
+    "body": "<p>Separate a query encoder from an item encoder so candidate vectors can be indexed, while keeping positives, accidental duplicates and exposure bias visible during training.</p><h2>Give each tower one job</h2><p>A learning feed can encode a reader’s recent topics in a query tower and encode an article’s topic, level and text in an item tower. Both emit vectors with the same dimension; their dot product supplies a retrieval score. Item vectors can be prepared ahead of time, leaving only the query tower and nearest-neighbor search on the request path. Keep the feature schema, normalization and index version together. <a href=\"/recommendation-systems/candidate-retrieval-and-eligibility\">Candidate eligibility</a> still filters items a user cannot or should not see.</p><h2>Construct positives from eligible exposure</h2><p>A completed lesson is a useful positive signal, but an unseen lesson is not automatically a disliked negative. Record what was actually shown, when, where and under which ranking policy. For held-out evaluation, split by time and reader before building training pairs. A query representation that includes clicks after the target event leaks the answer. <a href=\"/recommendation-systems/implicit-feedback-and-exposure-bias\">Exposure bias</a> explains why observed interactions are not a complete preference map.</p><h2>Handle false negatives within the batch</h2><p>A common training matrix pairs each query with its own positive item and treats other items in that mini-batch as negatives. If two readers completed the same article, that article appears twice and the off-diagonal copy is a false negative. Build a mask by item ID or use a multi-positive objective. The code validates unique item IDs for a deliberately simple diagonal loss; a real batch builder must enforce that invariant or change the objective. Hard negatives need the same eligibility and time checks.</p><h2>Choose score scale and embedding norm</h2><p>Dot-product logits depend on vector magnitude; normalized vectors yield cosine-like scores, while a temperature controls softmax sharpness during training. Neither choice alone fixes biased negatives. Monitor embedding norms, score distribution and query groups. A model can learn popularity alone if item frequency overwhelms the query signal. Compare against a topical or popularity baseline, especially for new readers and new articles.</p><h2>Evaluate full-corpus retrieval</h2><p>A batch classification loss tests only the current mini-batch. Report recall at a chosen candidate count against the entire eligible article corpus or a stable evaluation snapshot, then inspect recall by topic, reader history and publication age. The nearest-neighbor index can lose some exact neighbors; measure that gap separately from model quality. <a href=\"/deep-learning/retrieval-index-version-and-candidate-parity\">The index lesson</a> makes that parity check explicit.</p><h2>Implementation</h2><pre><code class=\"language-python\">import torch\nfrom torch import nn\nfrom torch.nn import functional as functional\n\ntorch.manual_seed(47)\nreader_features = torch.rand(4, 5)\narticle_features = torch.rand(4, 7)\npositive_article_ids = [47, 58, 69, 81]\nassert len(set(positive_article_ids)) == len(positive_article_ids)\nreader_tower = nn.Linear(5, 8)\narticle_tower = nn.Linear(7, 8)\nreader_vectors = functional.normalize(reader_tower(reader_features), dim=1)\narticle_vectors = functional.normalize(article_tower(article_features), dim=1)\npair_scores = reader_vectors @ article_vectors.T / 0.17\nmatched_positions = torch.arange(len(reader_features))\nloss = functional.cross_entropy(pair_scores, matched_positions)\nloss.backward()\nassert pair_scores.shape == (4, 4) and torch.isfinite(loss)</code></pre><h2>Performance and operating cost</h2><p>For a batch of B queries and B candidate items with embedding width D, the score matrix costs O(B squared D) arithmetic and O(B squared) memory, which can dominate large-batch training. Precomputing M item vectors costs O(MD) index storage. Query encoding plus approximate search is cheaper than scanning all M items at serve time, but index build, filtering and freshness add separate costs. This synthetic update checks tensor geometry only and assumes unique positives.</p><h3>Common Mistakes</h3><ul><li>Do not treat unexposed articles as confirmed dislikes.</li><li>Do not allow duplicate positive item IDs to become false in-batch negatives.</li><li>Do not use mini-batch accuracy as full-corpus retrieval recall.</li></ul><h2>Read next</h2><ul><li><a href=\"/deep-learning/retrieval-index-version-and-candidate-parity\">Retrieval index versions, eligibility filters and candidate parity</a></li><li><a href=\"/deep-learning/learning-feed-two-tower-project\">Project: retrieve learning articles with two neural towers</a></li><li><a href=\"/recommendation-systems/implicit-feedback-and-exposure-bias\">Implicit feedback: distinguish preference from what the system exposed</a></li><li><a href=\"/recommendation-systems/candidate-retrieval-and-eligibility\">Candidate retrieval: separate broad discovery from hard eligibility</a></li><li><a href=\"/deep-learning/contrastive-temperature-and-negative-mask\">Contrastive temperature and negative-mask accounting</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "deep-learning",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "deep-learning"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7963,
+    "status": "published",
+    "published_at": "2026-10-06T11:34:39.017458+00:00",
+    "created_at": "2026-10-06T11:34:39.017458+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "deep-learning/deep-learning-tutorial",
+      "section_path": "deep-learning/deep-learning-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "deep-learning/retrieval-index-version-and-candidate-parity",
+          "title": "Retrieval index versions, eligibility filters and candidate parity"
+        },
+        {
+          "path": "deep-learning/learning-feed-two-tower-project",
+          "title": "Project: retrieve learning articles with two neural towers"
+        },
+        {
+          "path": "recommendation-systems/implicit-feedback-and-exposure-bias",
+          "title": "Implicit feedback: distinguish preference from what the system exposed"
+        },
+        {
+          "path": "recommendation-systems/candidate-retrieval-and-eligibility",
+          "title": "Candidate retrieval: separate broad discovery from hard eligibility"
+        },
+        {
+          "path": "deep-learning/contrastive-temperature-and-negative-mask",
+          "title": "Contrastive temperature and negative-mask accounting"
+        }
+      ]
+    }
+  },
+  {
+    "id": "dffc6f82-7f31-5329-8933-7b1eb5d495fb",
+    "type": "article",
+    "path": "recommendation-systems/candidate-retrieval-and-eligibility",
+    "title": "Candidate retrieval: separate broad discovery from hard eligibility",
+    "summary": "Candidate generation reduces a large catalog to a tractable set, but eligibility must still be enforced before anything is served.",
+    "body": "<p>Candidate generation reduces a large catalog to a tractable set, but eligibility must still be enforced before anything is served.</p><h2>Combine candidate sources</h2><p>A lesson feed can draw from prerequisites, related subjects, recently updated material and broad popularity. Each source can nominate item IDs with a source label. Deduplicate by canonical path before ranking; otherwise the same lesson can occupy several positions. <a href=\"/recommendation-systems/content-collaborative-and-cold-start\">Cold-start routes</a> need a nonbehavioral source so new lessons enter the pool.</p><h2>Apply hard gates early</h2><p>Exclude unpublished pages, completed lessons when the product requires novelty, and content outside the learner’s accessible curriculum. A model score is not a permission grant. Recheck at serving time because publication or access state can change after a batch index is built. <a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Document lifecycle</a> has the same stale-index problem.</p><h2>Measure candidate recall</h2><p>If a relevant future lesson never appears in the candidate pool, the ranker cannot recover it. Evaluate retrieval recall on held-out, eligible outcomes while separating missing judgment from irrelevant item. Report coverage by new items, sparse learners and subject areas. A pool of only popular Java lessons may score well overall while starving AI &amp; Data discoveries.</p><h2>Bound latency and fallback</h2><p>Cap each source and the final union, and document what happens when a personalized source times out. A fallback can use prerequisite and editorial paths, but must obey the same eligibility rules. Test duplicate nominations, a deleted page and an empty pool. An empty eligible set should return an explicit state rather than reintroducing barred items.</p><h2>Implementation</h2><pre><code class=\"language-python\">def eligible_candidates(nominations, published_paths, completed_paths, limit=60):\n    if limit &lt; 1:\n        raise ValueError(&quot;limit must be positive&quot;)\n    selected = []\n    seen = set()\n    for lesson_path in nominations:\n        if lesson_path in seen or lesson_path not in published_paths or lesson_path in completed_paths:\n            continue\n        seen.add(lesson_path)\n        selected.append(lesson_path)\n        if len(selected) == limit:\n            break\n    return selected</code></pre><h2>Performance and operating cost</h2><p>M nominations require O(M) expected time and O(K) memory for K retained paths. Hard-gate checks are O(1) expected with sets; a remote permission check changes the latency budget and may need a versioned local cache plus final validation.</p><h3>Common Mistakes</h3><ul><li>Do not treat the ranker as an eligibility filter.</li><li>Do not count duplicate nominations as extra catalog coverage.</li><li>Do not hide recall losses behind ranking metrics.</li></ul><h2>Read next</h2><ul><li><a href=\"/recommendation-systems/ranking-diversity-and-serving-constraints\">Ranking and re-ranking: balance relevance with coverage and curriculum rules</a></li><li><a href=\"/recommendation-systems/offline-evaluation-and-temporal-split\">Offline recommendation evaluation: replay catalog and learner state in time</a></li><li><a href=\"/recommendation-systems/content-collaborative-and-cold-start\">Content and collaborative signals: give sparse learners a real fallback</a></li><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/graph-machine-learning/graph-metrics-and-subgroup-coverage\">Graph model evaluation: report sparse-node and relation-specific failures</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/retrieval-index-version-and-candidate-parity\">Retrieval index versions, eligibility filters and candidate parity</a>.</p>",
+    "category": "AI & Data",
+    "subject": "recommendation-systems",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "recommendation-systems"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 9001,
+    "status": "published",
+    "published_at": "2026-10-05T05:26:04.620437+00:00",
+    "created_at": "2026-10-05T05:26:04.620437+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "recommendation-systems/recommendation-systems-tutorial",
+      "section_path": "recommendation-systems/recommendation-systems-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "recommendation-systems/ranking-diversity-and-serving-constraints",
+          "title": "Ranking and re-ranking: balance relevance with coverage and curriculum rules"
+        },
+        {
+          "path": "recommendation-systems/offline-evaluation-and-temporal-split",
+          "title": "Offline recommendation evaluation: replay catalog and learner state in time"
+        },
+        {
+          "path": "recommendation-systems/content-collaborative-and-cold-start",
+          "title": "Content and collaborative signals: give sparse learners a real fallback"
+        },
+        {
+          "path": "retrieval-ai/corpus-permissions-and-document-lifecycle",
+          "title": "Retrieval corpus contracts: identity, permissions and document lifecycle"
+        },
+        {
+          "path": "graph-machine-learning/graph-metrics-and-subgroup-coverage",
+          "title": "Graph model evaluation: report sparse-node and relation-specific failures"
+        },
+        {
+          "path": "deep-learning/retrieval-index-version-and-candidate-parity",
+          "title": "Retrieval index versions, eligibility filters and candidate parity"
+        }
+      ]
+    }
+  },
+  {
+    "id": "2e2e5dbd-4bce-5b88-8238-1768081778b5",
+    "type": "article",
+    "path": "recommendation-systems/implicit-feedback-and-exposure-bias",
+    "title": "Implicit feedback: distinguish preference from what the system exposed",
+    "summary": "Clicks and completions are observations under a serving policy, not direct measurements of every item a learner might like.",
+    "body": "<p>Clicks and completions are observations under a serving policy, not direct measurements of every item a learner might like.</p><h2>Read the signal carefully</h2><p>A click can reflect position, title wording or current task rather than lasting preference. A completion can be missing because the learner had no time. Define positive events and their windows, then keep displayed-but-unclicked items separate from never-displayed items. <a href=\"/recommendation-systems/objective-and-interaction-contract\">The interaction contract</a> determines which comparisons are even observable.</p><h2>Account for position</h2><p>An item at rank one is more likely to be noticed than an equally useful item at rank eight. Training a ranker on raw clicks can reinforce the old policy’s favorites. Log rank and policy version, evaluate by placement, and reserve controlled exploration only where the product can tolerate it. Do not call every low-ranked omission a negative preference.</p><h2>Avoid duplicate events</h2><p>One learner may click the same lesson repeatedly after a slow load. Deduplicate according to a defined session or impression ID, while retaining the original event audit trail. If completion arrives late, label the original impression using a fixed outcome window and version the result. <a href=\"/time-series/observation-calendar-and-missing-periods\">Late-outcome policy</a> keeps offline labels stable.</p><h2>Inspect a counterexample</h2><p>Suppose a policy displayed one lesson 47 times at rank one and another once at rank eight. Their raw click totals cannot establish which is intrinsically better. Report per-impression rates, positions and uncertainty; even those are observational unless exposure was assigned under a design that supports causal comparison.</p><h2>Implementation</h2><pre><code class=\"language-python\">def unique_clicks(events):\n    clicked_impressions = set()\n    for event in events:\n        if event[&quot;type&quot;] == &quot;click&quot;:\n            clicked_impressions.add(event[&quot;impression_id&quot;])\n    return clicked_impressions</code></pre><h2>Performance and operating cost</h2><p>Deduplicating N events with a set costs O(N) expected time and O(U) memory for U clicked impressions. A production event pipeline needs durable event IDs and retention rules; reducing data volume without preserving exposure metadata can make later evaluation invalid.</p><h3>Common Mistakes</h3><ul><li>Do not label an unseen lesson as a negative example.</li><li>Do not interpret a raw click count without rank and impression count.</li><li>Do not collapse repeated events before defining the impression identity.</li></ul><h2>Read next</h2><ul><li><a href=\"/recommendation-systems/objective-and-interaction-contract\">Recommendation objective and interaction log: define what success means</a></li><li><a href=\"/recommendation-systems/offline-evaluation-and-temporal-split\">Offline recommendation evaluation: replay catalog and learner state in time</a></li><li><a href=\"/causal-inference/assignment-balance-and-noncompliance\">Randomized assignment: check balance and retain every assigned unit</a></li><li><a href=\"/time-series/observation-calendar-and-missing-periods\">Time-series calendar: distinguish missing periods from measured zeros</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/two-tower-embedding-and-inbatch-negative-contract\">Two-tower embeddings and in-batch negative contracts</a>.</p>",
+    "category": "AI & Data",
+    "subject": "recommendation-systems",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "recommendation-systems"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 9002,
+    "status": "published",
+    "published_at": "2026-10-05T05:26:04.620437+00:00",
+    "created_at": "2026-10-05T05:26:04.620437+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "recommendation-systems/recommendation-systems-tutorial",
+      "section_path": "recommendation-systems/recommendation-systems-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "recommendation-systems/objective-and-interaction-contract",
+          "title": "Recommendation objective and interaction log: define what success means"
+        },
+        {
+          "path": "recommendation-systems/offline-evaluation-and-temporal-split",
+          "title": "Offline recommendation evaluation: replay catalog and learner state in time"
+        },
+        {
+          "path": "causal-inference/assignment-balance-and-noncompliance",
+          "title": "Randomized assignment: check balance and retain every assigned unit"
+        },
+        {
+          "path": "time-series/observation-calendar-and-missing-periods",
+          "title": "Time-series calendar: distinguish missing periods from measured zeros"
+        },
+        {
+          "path": "deep-learning/two-tower-embedding-and-inbatch-negative-contract",
+          "title": "Two-tower embeddings and in-batch negative contracts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "89040ed0-2646-5688-a24a-5a13876a2da1",
+    "type": "article",
+    "path": "recommendation-systems/lesson-feed-project",
+    "title": "Project: build a guarded next-lesson recommender",
+    "summary": "Build a small next-lesson feed that logs impressions, enforces publication rules and compares a candidate policy with a baseline.",
+    "body": "<p>Build a small next-lesson feed that logs impressions, enforces publication rules and compares a candidate policy with a baseline.</p><h2>Prepare the manifest</h2><p>Create a catalog with paths, subject, prerequisites, publication state and effective time. Add learner progress and an impression log with rank, click, completion and policy version. Include a new lesson with no interactions, a learner with no history and a withdrawn page. <a href=\"/recommendation-systems/objective-and-interaction-contract\">The outcome contract</a> must name the metric window and denominator.</p><h2>Assemble the feed</h2><p>Nominate candidates from current-page concepts, prerequisites and an interaction-based route when history supports it. Deduplicate, apply hard eligibility and rank a short slate. Cap repeated subjects, then validate publication state again before serving. Keep an explicit empty state if no candidate survives. <a href=\"/recommendation-systems/ranking-diversity-and-serving-constraints\">Slate constraints</a> must be visible in the submitted trace.</p><h2>Evaluate without hindsight</h2><p>Use a chronological split and reconstruct learner history and catalog state at each decision. Report candidate recall, recall at five, catalog coverage and outcome rates for sparse learners separately. Do not turn undelivered candidates into negatives. Compare with a simple editorial-prerequisite baseline, and describe what offline logs cannot establish about a new policy’s causal effect.</p><h2>Submit checks</h2><p>Deliver code, synthetic fixture, state manifest, example slate traces and a short release decision. Assert that the withdrawn page never appears, the cold-start learner receives a valid fallback and duplicate nominations occupy one slot. Include a privacy/deletion case and a recorded rollback path. <a href=\"/mlops/shadow-canary-and-rollback\">Canary and rollback</a> should gate any real serving change.</p><h2>Implementation</h2><pre><code class=\"language-python\">def safe_lesson_slate(nominations, published_paths, completed_paths, limit=5):\n    if limit &lt; 1:\n        raise ValueError(&quot;limit must be positive&quot;)\n    selected = []\n    seen = set()\n    for lesson_path in nominations:\n        if lesson_path in seen or lesson_path not in published_paths or lesson_path in completed_paths:\n            continue\n        seen.add(lesson_path)\n        selected.append(lesson_path)\n        if len(selected) &gt;= limit:\n            break\n    return selected\n\nassert safe_lesson_slate([&quot;ai/first&quot;, &quot;ai/first&quot;, &quot;ai/retired&quot;], {&quot;ai/first&quot;}, set()) == [&quot;ai/first&quot;]</code></pre><h2>Performance and operating cost</h2><p>A simple nomination filter is O(M) expected time with O(K) retained state; ranking K items is usually O(K log K). The project’s real cost lies in time-correct logging and catalog snapshots, which must be budgeted before a learned model is added.</p><h3>Common Mistakes</h3><ul><li>Do not let an offline score override publication state.</li><li>Do not infer dislike from lack of exposure.</li><li>Do not ship without a cold-start and rollback path.</li></ul><h2>Read next</h2><ul><li><a href=\"/recommendation-systems/candidate-retrieval-and-eligibility\">Candidate retrieval: separate broad discovery from hard eligibility</a></li><li><a href=\"/recommendation-systems/offline-evaluation-and-temporal-split\">Offline recommendation evaluation: replay catalog and learner state in time</a></li><li><a href=\"/recommendation-systems/content-collaborative-and-cold-start\">Content and collaborative signals: give sparse learners a real fallback</a></li><li><a href=\"/mlops/shadow-canary-and-rollback\">Shadow and canary rollout: compare a candidate without losing a rollback</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/online-experimentation/lesson-feed-experiment-project\">Project: run a guarded lesson-feed experiment</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/deep-learning/learning-feed-two-tower-project\">Project: retrieve learning articles with two neural towers</a>.</p>",
+    "category": "AI & Data",
+    "subject": "recommendation-systems-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "recommendation-systems-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 9006,
+    "status": "published",
+    "published_at": "2026-10-05T05:26:04.620437+00:00",
+    "created_at": "2026-10-05T05:26:04.620437+00:00",
+    "updated_at": "2026-10-06T11:34:39.017458+00:00",
+    "data": {
+      "subject_root": "recommendation-systems/recommendation-systems-tutorial",
+      "section_path": "recommendation-systems/recommendation-systems-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "recommendation-systems/candidate-retrieval-and-eligibility",
+          "title": "Candidate retrieval: separate broad discovery from hard eligibility"
+        },
+        {
+          "path": "recommendation-systems/offline-evaluation-and-temporal-split",
+          "title": "Offline recommendation evaluation: replay catalog and learner state in time"
+        },
+        {
+          "path": "recommendation-systems/content-collaborative-and-cold-start",
+          "title": "Content and collaborative signals: give sparse learners a real fallback"
+        },
+        {
+          "path": "mlops/shadow-canary-and-rollback",
+          "title": "Shadow and canary rollout: compare a candidate without losing a rollback"
+        },
+        {
+          "path": "online-experimentation/lesson-feed-experiment-project",
+          "title": "Project: run a guarded lesson-feed experiment"
+        },
+        {
+          "path": "deep-learning/learning-feed-two-tower-project",
+          "title": "Project: retrieve learning articles with two neural towers"
+        }
+      ]
+    }
+  }
+]

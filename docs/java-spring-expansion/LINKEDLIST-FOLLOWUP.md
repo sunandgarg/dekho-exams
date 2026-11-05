@@ -1,0 +1,11 @@
+# LinkedList and Spring boundary follow-up
+
+The current curriculum has 241 Java articles in 10 hubs and 50 Spring & Spring Boot articles in 10 separate hubs. This pass added six original Java 8 programs on backed sublists, reverse traversal, typed arrays, stable sorting, binary search on a linked list, and fail-fast iterator misuse. Each has a checked output, cost boundary, failure case, and links to the related existing lessons. The established LinkedList and collection pages link back to the new material.
+
+Three Spring pages cover a session-scoped proxy, a conditional ETag GET, and a tenant-scoped method read. Their JUnit tests are in the downloadable Spring source kit. They are grouped only in Spring's core, web and security modules, with cross-subject links where Java ownership or collection behavior matters. The tests use mock contexts and local identities; they do not establish production session, cache, identity or tenant security.
+
+Research followed the requested sequence: Oracle's Java 8 `LinkedList` reference, the GeeksforGeeks Java overview, W3Schools LinkedList, BeginnersBook LinkedList and CodingNomads linked-list pages. API details were checked against Oracle's `List` and `Collections` contracts. Spring scope and HTTP behavior were checked against the Spring Framework reference. Public tutorial text and examples were authored for AI Trove; source sites are not reproduced in the pages.
+
+Validation passed: the Java content checker checked 251 Java routes, compiled 230 programs/fragments, executed 219 and matched 204 displayed outputs. All six new complete Java programs compiled with `--release 8` and matched their output in a separate pass. The Spring suite passed 64 Maven tests; the content check found 50 articles, zero curriculum orphans and no Spring lessons in Java modules. The frontend build passed, all nine new routes returned HTTP 200 locally, and the rebuilt source ZIP contains the three new JUnit test files.
+
+The [coverage map](../learning-coverage/COVERAGE-AND-REMAINING.md) gives the updated routes and unfinished work. The major remaining gaps are broader Java API/DSA/project coverage; Spring identity, persistence, durable delivery, real request concurrency and deployment checks; a hosted code judge; WordPress import; and production domain/DNS and SEO verification. The local preview stays `noindex`.

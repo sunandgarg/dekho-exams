@@ -1,0 +1,6 @@
+receipt_ids = (41, 42)
+stream = iter(receipt_ids)
+print("first:", list(stream))
+print("second:", list(stream))
+print("new reader:", list(iter(receipt_ids)))
+print("snapshot:", tuple(receipt_ids))

@@ -1,0 +1,806 @@
+[
+  {
+    "id": "8feeeefa-df8b-50c2-bd64-8cf947f986eb",
+    "type": "article",
+    "path": "retrieval-ai/faceted-retrieval-counts-and-permission-safe-filters",
+    "title": "Faceted retrieval: trustworthy counts under permission filters",
+    "summary": "Compute evidence-type and revision facets from the authorized result set without leaking restricted document counts.",
+    "body": "<p>Compute evidence-type and revision facets from the authorized result set without leaking restricted document counts.</p><h2>A facet describes the candidate set</h2><p>A facet groups search matches by a field such as document type, plant, revision or language. It is a navigation control, not a relevance score. If a query returns maintenance notes and incident reports, a type facet tells the reader how many eligible documents of each kind remain. Define whether counts apply before or after a selected facet: both are useful, but silently mixing them makes the interface inconsistent. For a retrieval answer, the same metadata can steer <a href=\"/retrieval-ai/query-intent-and-retrieval-routing\">query routing</a> toward a source type without replacing the relevance judgment.</p><h2>Authorize before counting</h2><p>Count only documents the requester may see at this moment. A hidden document must not appear in a facet count even if its text never appears in results; a count of one can reveal that a confidential investigation exists. Apply tenant, document-status and access filters before aggregation, then compute buckets from the filtered candidate set. If permissions change, invalidate cached counts with the search result. <a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Document lifecycle</a> includes deletion and revocation, both of which change counts.</p><h2>Keep a stable counting unit</h2><p>One source manual may produce 70 chunks, while a short incident note produces one. Counting passages would suggest 70 manuals unless the interface clearly labels the unit as passages. For a document-type facet, deduplicate by source document ID and revision policy first; for an answer-span facet, passage counts may be appropriate. Decide whether two revisions are separate documents or one current logical document. The decision should match the result list and citations. <a href=\"/retrieval-ai/chunk-identity-and-context-boundaries\">Chunk identity</a> provides the parent IDs required for correct grouping.</p><h2>Choose fields and cardinality deliberately</h2><p>Use exact metadata values for facets; analyzed body text is a poor source of category keys. A plant name may contain punctuation that a full-text analyzer splits, and a free-form document title can create nearly one bucket per record. Cap visible buckets and expose a separate search within a high-cardinality facet when needed. Distributed top buckets can have approximate counts if shards truncate their local candidates. When exact counts drive a legal or operational decision, use a compatible exact aggregation path and report its extra cost. <a href=\"/retrieval-ai/retrieval-shard-fanout-replicas-and-partial-results\">Shard failures</a> must make counts incomplete rather than silently authoritative.</p><h2>Test facets alongside ranking</h2><p>Create judged searches with multiple document types, one restricted record, duplicate chunks and an old revision. Verify that results, counts and selected filters all share the same authorized snapshot. A user selecting a facet should see a result set that equals the stated count under the same query, subject to pagination and any explicit approximate-count label. Do not compute counts from only the top-K ranked hits unless the UI says top-K: that measures the preview window, not all eligible matches. <a href=\"/retrieval-ai/stable-search-pagination-point-in-time-and-cursors\">Stable pagination</a> keeps the same filter and snapshot across pages.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from collections import Counter\nfrom dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass EvidenceRecord:\n    document_id: str\n    passage_id: str\n    tenant: str\n    kind: str\n    current: bool\n\ndef document_facets(records: list[EvidenceRecord], tenant: str,\n                    matching_passages: set[str]) -&gt; dict[str, int]:\n    visible_documents = {}\n    for record in records:\n        if record.tenant != tenant or not record.current:\n            continue\n        if record.passage_id not in matching_passages:\n            continue\n        visible_documents[record.document_id] = record.kind\n    return dict(Counter(visible_documents.values()))\n\nrecords = [\n    EvidenceRecord(&quot;manual-p47&quot;, &quot;m47-a&quot;, &quot;north&quot;, &quot;manual&quot;, True),\n    EvidenceRecord(&quot;manual-p47&quot;, &quot;m47-b&quot;, &quot;north&quot;, &quot;manual&quot;, True),\n    EvidenceRecord(&quot;incident-83&quot;, &quot;i83-a&quot;, &quot;north&quot;, &quot;incident&quot;, True),\n    EvidenceRecord(&quot;private-12&quot;, &quot;p12-a&quot;, &quot;south&quot;, &quot;incident&quot;, True),\n    EvidenceRecord(&quot;retired-4&quot;, &quot;r4-a&quot;, &quot;north&quot;, &quot;manual&quot;, False),\n]\ncounts = document_facets(records, &quot;north&quot;, {r.passage_id for r in records})\nassert counts == {&quot;manual&quot;: 1, &quot;incident&quot;: 1}</code></pre><h2>Performance and operating cost</h2><p>For P matched passage records, this demonstration takes O(P) time and O(D) space for D distinct visible documents. A production index can aggregate metadata without loading every passage, but exact distinct-document counts and high-cardinality fields can consume memory and network work across shards. Count only after authorization. The example&#x27;s tenant check is a teaching stand-in; a real service must also enforce per-document access and current revocation state before the bucket stage.</p><h3>Common Mistakes</h3><ul><li>Counting chunks while labeling the number as documents.</li><li>Computing facet buckets before access filtering.</li><li>Treating counts from the top-K preview as all query matches.</li><li>Showing exact-looking counts after a shard timed out or returned truncated buckets.</li></ul><h2>Validation drill</h2><p>Index 89 passages from 23 documents with two revisions and four restricted records. Compare facet counts with an independently authorized document list, then remove a shard and confirm the UI marks counts incomplete.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li><li><a href=\"/retrieval-ai/chunk-identity-and-context-boundaries\">Chunking documents: preserve section identity and answer boundaries</a></li><li><a href=\"/retrieval-ai/retrieval-shard-fanout-replicas-and-partial-results\">Retrieval shards: fanout, replica lag and incomplete top-K results</a></li><li><a href=\"/retrieval-ai/stable-search-pagination-point-in-time-and-cursors\">Stable search pagination: point-in-time views and safe cursors</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8469,
+    "status": "published",
+    "published_at": "2026-10-07T17:21:48.568808+00:00",
+    "created_at": "2026-10-07T17:21:48.568808+00:00",
+    "updated_at": "2026-10-07T17:21:48.568808+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/corpus-permissions-and-document-lifecycle",
+          "title": "Retrieval corpus contracts: identity, permissions and document lifecycle"
+        },
+        {
+          "path": "retrieval-ai/chunk-identity-and-context-boundaries",
+          "title": "Chunking documents: preserve section identity and answer boundaries"
+        },
+        {
+          "path": "retrieval-ai/retrieval-shard-fanout-replicas-and-partial-results",
+          "title": "Retrieval shards: fanout, replica lag and incomplete top-K results"
+        },
+        {
+          "path": "retrieval-ai/stable-search-pagination-point-in-time-and-cursors",
+          "title": "Stable search pagination: point-in-time views and safe cursors"
+        }
+      ]
+    }
+  },
+  {
+    "id": "6e67cd7c-5052-5af0-a133-9bdc6ce61a6a",
+    "type": "article",
+    "path": "retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing",
+    "title": "Multi-tenant retrieval: isolate indexes, routes and noisy neighbors",
+    "summary": "Choose shared or separate indexes using permission boundaries, shard fanout, tenant size and deletion requirements.",
+    "body": "<p>Choose shared or separate indexes using permission boundaries, shard fanout, tenant size and deletion requirements.</p><h2>Tenant filtering is a security boundary</h2><p>A multi-tenant retriever serves several organizations from one application. Every query, suggestion, cache entry and evidence citation must carry the authenticated tenant, regardless of any tenant value typed into the search box. A filter added after candidate generation may already be too late if the vector backend explores or logs unauthorized candidates. Where supported, constrain the index or shard search before ranking and recheck document permissions before returning evidence. <a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Corpus permissions</a> still apply within a tenant; tenancy alone is not document authorization.</p><h2>Choose an index layout from workload facts</h2><p>A separate index per tenant gives a clear deletion and capacity boundary, but thousands of tiny indexes can waste metadata, shards and warm memory. A shared index with an indexed tenant key reduces per-tenant overhead; it demands strict filtering and makes one large tenant a possible noisy neighbor. A hybrid layout puts large or regulated tenants in their own indexes and small tenants in a shared pool. Document the migration path for a tenant that grows. Do not choose the layout from row count alone: query volume, vector memory, update rate and retention policy matter.</p><h2>Use routing to limit work, not to grant access</h2><p>Routing records for one tenant to a subset of shards can reduce query fanout, but a routing key is not an authorization check. A malicious or mistaken client can provide another key unless the server derives it from the authenticated identity. Very large tenants may overload one shard, so size routing buckets and rebalance with measured limits. Queries across allowed shared collections may need several shard keys and an explicit merge policy. <a href=\"/retrieval-ai/retrieval-shard-fanout-replicas-and-partial-results\">Shard fanout</a> explains the latency and partial-result behavior once a request crosses partitions.</p><h2>Keep generations and caches tenant-scoped</h2><p>A lexical index migration, vector model upgrade or deletion replay may finish for one tenant before another. Record generation and watermark per tenant, not as a misleading global number. Cache keys need tenant, permission revision, query, filters and index generation; otherwise a cached answer can cross an access boundary after a cutover. <a href=\"/retrieval-ai/permission-aware-cache-and-conversation-turns\">Permission-aware caching</a> provides the full revocation contract. Trace storage deserves the same isolation as the content index because raw queries may contain private identifiers.</p><h2>Test failures that look like success</h2><p>Seed two tenants with the same document title but different contents. Search by title, use autocomplete, paginate and revoke a document while holding a cursor. None of the surfaces should disclose the other tenant&#x27;s title, count or snippet. Then send a burst from the large tenant and measure the smaller tenant&#x27;s p95 latency to expose noisy-neighbor effects. Test deletion and rollback too; a tenant moved to a new index must not leave an older copy searchable. <a href=\"/retrieval-ai/retrieval-index-alias-cutover-and-rollback\">Index cutovers</a> need this per-tenant deletion proof.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass TenantPassage:\n    tenant: str\n    passage_id: str\n    words: frozenset[str]\n\ndef authorized_candidates(passages: list[TenantPassage],\n                          authenticated_tenant: str,\n                          query_words: set[str]) -&gt; list[str]:\n    return sorted(passage.passage_id for passage in passages\n                  if passage.tenant == authenticated_tenant\n                  and passage.words &amp; query_words)\n\nindex = [\n    TenantPassage(&quot;north&quot;, &quot;north-p47&quot;, frozenset({&quot;seal&quot;, &quot;limit&quot;})),\n    TenantPassage(&quot;south&quot;, &quot;south-p47&quot;, frozenset({&quot;seal&quot;, &quot;contract&quot;})),\n]\nassert authorized_candidates(index, &quot;north&quot;, {&quot;seal&quot;}) == [&quot;north-p47&quot;]\nassert authorized_candidates(index, &quot;south&quot;, {&quot;seal&quot;}) == [&quot;south-p47&quot;]</code></pre><h2>Performance and operating cost</h2><p>The list scan takes O(N) time for N passages and O(K) output space for K authorized matches. An indexed tenant partition or routed shard narrows the scanned candidates, but per-tenant indexes add fixed metadata and operational cost. The example shows the invariant that the tenant comes from authentication; it does not provide a secure search index. Enforce the same tenant scope at suggestion, aggregation, cache and citation boundaries, then measure tail latency under competing tenants.</p><h3>Common Mistakes</h3><ul><li>Trusting a tenant ID supplied in a search parameter.</li><li>Using routing as the only permission check.</li><li>Moving a tenant between indexes without replaying deletions and clearing old caches.</li><li>Testing average latency only while one tenant saturates a shared shard.</li></ul><h2>Validation drill</h2><p>Populate two tenants with 41 similarly named documents. Exercise search, facets, suggestions, pagination, rollback and deletion; assert zero cross-tenant IDs while one tenant generates five times the query load.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li><li><a href=\"/retrieval-ai/retrieval-shard-fanout-replicas-and-partial-results\">Retrieval shards: fanout, replica lag and incomplete top-K results</a></li><li><a href=\"/retrieval-ai/permission-aware-cache-and-conversation-turns\">Retrieval caches and conversation turns: recheck access every time</a></li><li><a href=\"/retrieval-ai/retrieval-index-alias-cutover-and-rollback\">Index alias cutovers: switch retrieval generations without mixed results</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8470,
+    "status": "published",
+    "published_at": "2026-10-07T17:21:48.568808+00:00",
+    "created_at": "2026-10-07T17:21:48.568808+00:00",
+    "updated_at": "2026-10-07T17:21:48.568808+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/corpus-permissions-and-document-lifecycle",
+          "title": "Retrieval corpus contracts: identity, permissions and document lifecycle"
+        },
+        {
+          "path": "retrieval-ai/retrieval-shard-fanout-replicas-and-partial-results",
+          "title": "Retrieval shards: fanout, replica lag and incomplete top-K results"
+        },
+        {
+          "path": "retrieval-ai/permission-aware-cache-and-conversation-turns",
+          "title": "Retrieval caches and conversation turns: recheck access every time"
+        },
+        {
+          "path": "retrieval-ai/retrieval-index-alias-cutover-and-rollback",
+          "title": "Index alias cutovers: switch retrieval generations without mixed results"
+        }
+      ]
+    }
+  },
+  {
+    "id": "df073977-cacf-56fb-a079-fa4839d38798",
+    "type": "article",
+    "path": "retrieval-ai/retrieval-autocomplete-suggestions-and-privacy",
+    "title": "Retrieval autocomplete: useful suggestions without query leaks",
+    "summary": "Build prefix suggestions from approved vocabulary, bind them to access scope and prevent private search histories from surfacing.",
+    "body": "<p>Build prefix suggestions from approved vocabulary, bind them to access scope and prevent private search histories from surfacing.</p><h2>Suggestion sources have different risks</h2><p>An autocomplete menu may suggest known document titles, curated subject labels or popular past queries. Titles and labels can be approved at publication; raw query logs can contain names, account IDs and confidential incidents. Never turn query logs into public suggestions merely because the terms are frequent. Start with an approved catalog and a clear deletion path. If popularity is used, apply privacy review and minimum aggregation thresholds before a phrase enters the suggestion index. <a href=\"/retrieval-ai/safe-search-query-parsing-and-literal-identifiers\">Safe query parsing</a> still handles the submitted search after the user accepts or edits a suggestion.</p><h2>Filter at candidate generation</h2><p>A suggestion can leak a restricted document before the user submits a search. Build tenant-scoped suggestion collections or apply an authorization filter inside the suggestion query and recheck access before display. A site-specific prefix should never enumerate another site&#x27;s vocabulary. Permission revisions and document deletion must invalidate suggestion caches. If a backend&#x27;s completion feature cannot enforce the needed access boundary, do not index private titles in it. <a href=\"/retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing\">Tenant isolation</a> covers the surrounding index and routing choices.</p><h2>Match intent without damaging identifiers</h2><p>For ordinary words, prefix and infix matching help when the user types the middle of a title. For serials and codes, preserve punctuation and case-normalization rules that fit the identifier scheme; a generic tokenizer may split P-47/AC into unrelated fragments. Rank suggestions by exact prefix, approved category and currentness before popularity. A suggestion is a proposed query, not an answer. Display its source type so a document title is not confused with a verified fact. <a href=\"/retrieval-ai/lexical-analyzers-field-scoring-and-identifier-safety\">Lexical identifier safety</a> provides the corresponding search behavior.</p><h2>Bound work at typing speed</h2><p>Autocomplete runs for partial inputs, so it can issue many requests per user. Require a meaningful minimum prefix, debounce client requests, cancel stale responses and cap returned items. The server must still rate-limit and enforce length limits because clients can bypass the browser. A trie, edge n-gram index or specialized completion structure can avoid scanning the full vocabulary. Compare its memory and rebuild cost with observed traffic; a small approved catalog may work with a simple sorted prefix scan.</p><h2>Evaluate visibility and usefulness separately</h2><p>Test suggestions for common prefixes, typos, IDs, multilingual scripts and document removals. Verify that a restricted title never appears in another tenant&#x27;s menu, network response or analytics log. Measure acceptance and downstream search success by query slice, but do not treat acceptance as relevance proof: prominent suggestions can influence what users choose. <a href=\"/retrieval-ai/click-feedback-position-bias-and-offline-evaluation\">Position bias</a> applies to menus too. A suggestion that raises clicks while suppressing rare but valid queries can make retrieval worse.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass ApprovedSuggestion:\n    text: str\n    tenant: str\n    current: bool\n\ndef suggest(prefix: str, authenticated_tenant: str,\n            catalog: list[ApprovedSuggestion], limit: int = 5) -&gt; list[str]:\n    normalized = prefix.strip().casefold()\n    if len(normalized) &lt; 3 or not 1 &lt;= limit &lt;= 8:\n        return []\n    matches = (item.text for item in catalog\n               if item.tenant == authenticated_tenant and item.current\n               and item.text.casefold().startswith(normalized))\n    return sorted(set(matches), key=lambda value: (len(value), value))[:limit]\n\ncatalog = [\n    ApprovedSuggestion(&quot;Pump P-47 seal guide&quot;, &quot;north&quot;, True),\n    ApprovedSuggestion(&quot;Pump P-48 pressure limits&quot;, &quot;north&quot;, True),\n    ApprovedSuggestion(&quot;Pump P-47 incident&quot;, &quot;south&quot;, True),\n    ApprovedSuggestion(&quot;Pump P-42 retired&quot;, &quot;north&quot;, False),\n]\nassert suggest(&quot;Pump P-4&quot;, &quot;north&quot;, catalog) == [\n    &quot;Pump P-47 seal guide&quot;, &quot;Pump P-48 pressure limits&quot;]</code></pre><h2>Performance and operating cost</h2><p>This demonstration scans A approved suggestions in O(A) time and uses O(M) memory for M matched strings before sorting them in O(M log M) time. A prefix index can reduce lookup work, but consumes storage and must track updates and revocations. The same current authorization check remains necessary after lookup. Client-side debouncing reduces normal request volume, not server-side abuse; rate limits and minimum prefix length must be enforced by the service.</p><h3>Common Mistakes</h3><ul><li>Building public suggestions directly from raw search logs.</li><li>Filtering restricted suggestions only after returning them to the browser.</li><li>Assuming browser autocomplete settings protect server-side query history.</li><li>Letting a generic tokenizer strip significant punctuation from product IDs.</li></ul><h2>Validation drill</h2><p>Create 74 approved titles, 12 removed titles and two tenant scopes. Test 20 prefixes, including punctuation-heavy IDs and a restricted unique prefix; inspect both response payloads and logs for leaks.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/safe-search-query-parsing-and-literal-identifiers\">Safe search query parsing: operators, filters and literal identifiers</a></li><li><a href=\"/retrieval-ai/lexical-analyzers-field-scoring-and-identifier-safety\">Lexical retrieval: analyzers, fields and exact identifiers</a></li><li><a href=\"/retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing\">Multi-tenant retrieval: isolate indexes, routes and noisy neighbors</a></li><li><a href=\"/retrieval-ai/click-feedback-position-bias-and-offline-evaluation\">Click feedback: correct exposure bias before tuning retrieval</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8471,
+    "status": "published",
+    "published_at": "2026-10-07T17:21:48.568808+00:00",
+    "created_at": "2026-10-07T17:21:48.568808+00:00",
+    "updated_at": "2026-10-07T17:21:48.568808+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/safe-search-query-parsing-and-literal-identifiers",
+          "title": "Safe search query parsing: operators, filters and literal identifiers"
+        },
+        {
+          "path": "retrieval-ai/lexical-analyzers-field-scoring-and-identifier-safety",
+          "title": "Lexical retrieval: analyzers, fields and exact identifiers"
+        },
+        {
+          "path": "retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing",
+          "title": "Multi-tenant retrieval: isolate indexes, routes and noisy neighbors"
+        },
+        {
+          "path": "retrieval-ai/click-feedback-position-bias-and-offline-evaluation",
+          "title": "Click feedback: correct exposure bias before tuning retrieval"
+        }
+      ]
+    }
+  },
+  {
+    "id": "72b804bb-6d5e-5d43-b9a4-a26eb354dd0b",
+    "type": "article",
+    "path": "retrieval-ai/hnsw-candidate-budgets-and-ann-recall-curves",
+    "title": "HNSW retrieval: candidate budgets, graph cost and recall curves",
+    "summary": "Tune approximate vector search against an exact baseline while separating construction, traversal and filter effects.",
+    "body": "<p>Tune approximate vector search against an exact baseline while separating construction, traversal and filter effects.</p><h2>Approximate search trades work for missed neighbors</h2><p>An HNSW index connects vectors in a layered graph so a search can follow promising neighbors instead of scoring every vector. The returned top-K is approximate: a closer vector may remain unexplored. Increasing the search candidate budget often improves recall but adds distance computations, memory traffic and tail latency. The exact baseline is a full similarity scan over the eligible corpus. A graph result should be measured against that baseline using the same embedding version and permission filters. <a href=\"/retrieval-ai/filtered-ann-recall-and-latency\">Filtered ANN</a> covers the additional difficulty of finding neighbors after an access or metadata filter.</p><h2>Separate build knobs from query knobs</h2><p>The graph connection limit controls how many edges a node retains, while a construction search width controls how broadly neighbors are considered as the index is built. Larger values can improve connectivity but raise memory and ingestion work. The query-time candidate budget controls exploration for one search; changing it does not rebuild a poor graph. Implementations use different parameter names and defaults, so record the actual backend version and settings with each benchmark. <a href=\"/retrieval-ai/embedding-space-version-and-migration\">Embedding version</a> must be held fixed while tuning the graph.</p><h2>Measure recall by query slice</h2><p>For each judged query, compare approximate top-K IDs with exact top-K IDs and compute overlap or labeled relevant-document recall. Include dense clusters, rare outliers, near duplicates and recently inserted vectors. Report p50 and p95 latency, distance computations, graph bytes and index build time for each budget. An average score can hide a recall collapse on filtered or rare-identifier queries. If vectors are quantized, isolate compression loss by comparing exact search on compressed vectors with exact search on original vectors. <a href=\"/retrieval-ai/vector-quantization-recall-and-exact-reranking\">Quantization</a> is a separate source of error.</p><h2>Do not confuse global recall with authorized recall</h2><p>An unrestricted graph can find nearby documents that a user cannot view. Removing them after top-K may leave too few eligible hits. Raise the exploration budget, use an engine with filter-aware traversal, or search a suitable tenant partition; benchmark each choice at a fixed latency cap. The final result must pass a fresh authorization check even when traversal used an authorized partition. <a href=\"/retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing\">Tenant layout</a> changes both recall and security boundaries.</p><h2>Use a controlled sweep, then freeze a gate</h2><p>Sweep several search budgets while keeping corpus, queries, model, K and hardware fixed. Reject settings that fail a minimum recall slice or p95 latency budget. Re-run after large ingestion batches, graph rebuilds and backend upgrades, because segment layout and deleted-node patterns can change traversal. Use a smaller candidate budget only when measured savings matter and the lost evidence is acceptable. <a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Release gates</a> should capture that decision rather than one attractive benchmark chart.</p><h2>Worked contract</h2><pre><code class=\"language-python\">from math import sqrt\n\ndef cosine(left: tuple[float, ...], right: tuple[float, ...]) -&gt; float:\n    numerator = sum(a * b for a, b in zip(left, right))\n    left_norm = sqrt(sum(value * value for value in left))\n    right_norm = sqrt(sum(value * value for value in right))\n    if left_norm == 0 or right_norm == 0:\n        raise ValueError(\"zero vector has no cosine similarity\")\n    return numerator / (left_norm * right_norm)\n\ndef exact_top_k(query: tuple[float, ...],\n                vectors: dict[str, tuple[float, ...]],\n                allowed_ids: set[str], k: int) -&gt; list[str]:\n    if k &lt; 1 or not query or not all(len(v) == len(query) for v in vectors.values()):\n        raise ValueError(&quot;invalid vector dimensions or K&quot;)\n    scored = [(item_id, cosine(query, vector))\n              for item_id, vector in vectors.items() if item_id in allowed_ids]\n    return [item_id for item_id, _ in sorted(\n        scored, key=lambda item: (-item[1], item[0]))[:k]]\n\nvectors = {&quot;pump-p47&quot;: (.9, .1), &quot;pump-p48&quot;: (.5, .5),\n           &quot;pump-p49&quot;: (.1, .9), &quot;private-plan&quot;: (1.0, 0.0)}\ngold = exact_top_k((1.0, .1), vectors,\n                   {&quot;pump-p47&quot;, &quot;pump-p48&quot;, &quot;pump-p49&quot;}, 2)\napproximate = [&quot;pump-p48&quot;, &quot;pump-p47&quot;]\nrecall_at_two = len(set(gold) &amp; set(approximate)) / len(gold)\nassert gold == [&quot;pump-p47&quot;, &quot;pump-p48&quot;]\nassert recall_at_two == 1.0</code></pre><h2>Performance and operating cost</h2><p>For N eligible vectors of dimension D, the exact baseline takes O(ND + N log N) time with full sorting and O(N) space for scores; top-K selection can reduce the ranking term. HNSW typically visits far fewer vectors, but its practical work depends on graph connectivity, candidate budget, filtering and segment layout rather than a universal constant bound. The code computes an exact benchmark, not an HNSW implementation. The candidate list represents output from an ANN engine and must be obtained from that engine in a real sweep.</p><h3>Common Mistakes</h3><ul><li>Calling a larger query budget a fix for an incompatible embedding version.</li><li>Measuring overlap against an unrestricted exact baseline when users have access filters.</li><li>Reporting only average latency while p95 degrades.</li><li>Attributing quantization errors to graph traversal without a separate exact comparison.</li></ul><h2>Validation drill</h2><p>For 97 labeled queries, sweep four candidate budgets with K fixed at 12. Report exact-overlap recall and judged recall by tenant and rare-query slice, plus p95 latency, build time and graph memory.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/filtered-ann-recall-and-latency\">Filtered vector search: measure ANN recall inside the permitted set</a></li><li><a href=\"/retrieval-ai/vector-quantization-recall-and-exact-reranking\">Vector compression: spend memory without losing the answer</a></li><li><a href=\"/retrieval-ai/embedding-space-version-and-migration\">Embedding migrations: keep query and document vectors in one space</a></li><li><a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Retrieval release gates: evaluate slices before changing an index</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8472,
+    "status": "published",
+    "published_at": "2026-10-07T17:21:48.568808+00:00",
+    "created_at": "2026-10-07T17:21:48.568808+00:00",
+    "updated_at": "2026-10-07T17:21:48.568808+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/filtered-ann-recall-and-latency",
+          "title": "Filtered vector search: measure ANN recall inside the permitted set"
+        },
+        {
+          "path": "retrieval-ai/vector-quantization-recall-and-exact-reranking",
+          "title": "Vector compression: spend memory without losing the answer"
+        },
+        {
+          "path": "retrieval-ai/embedding-space-version-and-migration",
+          "title": "Embedding migrations: keep query and document vectors in one space"
+        },
+        {
+          "path": "retrieval-ai/retrieval-release-evaluation-and-slice-gates",
+          "title": "Retrieval release gates: evaluate slices before changing an index"
+        }
+      ]
+    }
+  },
+  {
+    "id": "8127f828-07dd-5250-a45c-b38ca52fda0a",
+    "type": "subject",
+    "path": "retrieval-ai/retrieval-ai-tutorial",
+    "title": "Retrieval-Based AI Tutorial",
+    "summary": "Build permission-aware document answers with versioned chunks, measured retrieval, grounded responses and safe index updates.",
+    "body": "<p>Build permission-aware document answers with versioned chunks, measured retrieval, grounded responses and safe index updates.</p><h2>Learning path</h2><ul><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li><li><a href=\"/retrieval-ai/chunk-identity-and-context-boundaries\">Chunking documents: preserve section identity and answer boundaries</a></li><li><a href=\"/retrieval-ai/retrieval-recall-and-reranking\">Retrieval design: compare lexical, semantic and reranked candidates</a></li><li><a href=\"/retrieval-ai/evidence-bound-answer-and-abstention\">Grounded answers: require passage support and a no-answer path</a></li><li><a href=\"/retrieval-ai/retrieval-vs-answer-evaluation\">RAG evaluation: separate retrieval recall from answer support</a></li><li><a href=\"/retrieval-ai/prompt-injection-and-tool-boundary\">Retrieved text as untrusted data: keep instructions and tools separate</a></li><li><a href=\"/retrieval-ai/freshness-deletion-and-index-swap\">Index freshness: publish complete revisions and remove stale chunks</a></li><li><a href=\"/retrieval-ai/support-policy-answer-project\">Project: answer support-policy questions with permission-aware evidence</a></li></ul><h2>Connected foundations</h2><p>Use the earlier data and model boundaries as prerequisites.</p><ul><li><a href=\"/natural-language-processing/nlp-tutorial\">Natural Language Processing Tutorial</a></li><li><a href=\"/prompt-engineering/prompt-engineering\">Prompt Engineering</a></li></ul><h2>Practice</h2><ul><li><a href=\"/retrieval-ai/retrieval-ai-tutorial/project\">Retrieval-Based AI: Projects</a></li></ul><p><strong>Continue into another subject:</strong> <a href=\"/recommendation-systems/recommendation-systems-tutorial\">Recommendation Systems Tutorial</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/multimodal-ai/cross-modal-retrieval-and-ranking\">Cross-modal retrieval: candidate pools, ranking and versioned indexes</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/knowledge-graphs/graph-grounded-retrieval-and-evaluation\">Graph-grounded retrieval: candidate recall and unsupported claims</a>.</p><p>For the full track and its related lessons, open <a href=\"/retrieval-ai\">Retrieval-based AI</a>.</p><h2>Extraction, routing and index contracts</h2><ul><li><a href=\"/retrieval-ai/query-intent-and-retrieval-routing\">Retrieval query routing: preserve exact constraints before search</a></li><li><a href=\"/retrieval-ai/source-extraction-and-passage-provenance\">Document extraction: preserve passage provenance through OCR and parsing</a></li><li><a href=\"/retrieval-ai/embedding-space-version-and-migration\">Embedding migrations: keep query and document vectors in one space</a></li><li><a href=\"/retrieval-ai/filtered-ann-recall-and-latency\">Filtered vector search: measure ANN recall inside the permitted set</a></li></ul><h2>Ranking, context and answer support</h2><ul><li><a href=\"/retrieval-ai/hybrid-search-and-reciprocal-rank-fusion\">Hybrid retrieval: fuse exact terms and semantic candidates by rank</a></li><li><a href=\"/retrieval-ai/reranker-candidate-window-and-budget\">Reranking: spend model budget on a bounded candidate window</a></li><li><a href=\"/retrieval-ai/context-packing-and-evidence-diversity\">Context packing: retain independent evidence under a token cap</a></li><li><a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim-level citations: verify each answer against its passage</a></li></ul><h2>Operations and release gates</h2><ul><li><a href=\"/retrieval-ai/permission-aware-cache-and-conversation-turns\">Retrieval caches and conversation turns: recheck access every time</a></li><li><a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Retrieval release gates: evaluate slices before changing an index</a></li></ul><h2>Evidence beyond plain passages</h2><ul><li><a href=\"/retrieval-ai/multi-hop-evidence-chain-and-stop-rules\">Multi-hop retrieval: build evidence chains with bounded searches</a></li><li><a href=\"/retrieval-ai/table-retrieval-and-numeric-cell-context\">Table retrieval: keep numeric cells attached to their labels</a></li><li><a href=\"/retrieval-ai/multimodal-retrieval-and-asset-identity\">Multimodal retrieval: connect images, OCR and text to one asset identity</a></li><li><a href=\"/retrieval-ai/incremental-ingestion-idempotency-and-delete-races\">Incremental retrieval ingestion: replay events without reviving deleted passages</a></li><li><a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">Retrieval traces: locate the stage that lost the answer</a></li><li><a href=\"/retrieval-ai/query-expansion-guardrails-and-drift-tests\">Query expansion: add recall terms without changing the user&#x27;s question</a></li></ul><h2>Graph, correction and evaluation</h2><ul><li><a href=\"/retrieval-ai/knowledge-graph-retrieval-and-edge-provenance\">Knowledge graph retrieval: prove every edge in the path</a></li><li><a href=\"/retrieval-ai/corrective-retrieval-and-bounded-retry\">Corrective retrieval: retry only when evidence is insufficient</a></li><li><a href=\"/retrieval-ai/retrieval-evaluation-labels-and-adjudication\">Retrieval evaluation labels: build a trustworthy judged set</a></li><li><a href=\"/retrieval-ai/federated-retrieval-source-budgets-and-merging\">Federated retrieval: search multiple stores without losing policy or time budgets</a></li></ul><h2>Structure, ranking and time</h2><ul><li><a href=\"/retrieval-ai/hierarchical-retrieval-and-parent-child-evidence\">Hierarchical retrieval: find a section before selecting its evidence</a></li><li><a href=\"/retrieval-ai/late-interaction-ranking-and-token-budget\">Late-interaction retrieval: score token matches without one-vector blur</a></li><li><a href=\"/retrieval-ai/temporal-retrieval-as-of-validity-and-conflicts\">Temporal retrieval: answer as-of questions from valid evidence</a></li><li><a href=\"/retrieval-ai/near-duplicate-evidence-and-independent-support\">Near-duplicate retrieval: collapse copies without hiding independent evidence</a></li></ul><h2>Language, code, media and training data</h2><ul><li><a href=\"/retrieval-ai/multilingual-retrieval-and-entity-preservation\">Multilingual retrieval without losing names, units or permissions</a></li><li><a href=\"/retrieval-ai/code-repository-retrieval-by-symbol-and-revision\">Code repository retrieval by symbol, call site and commit</a></li><li><a href=\"/retrieval-ai/audio-video-retrieval-with-timecoded-evidence\">Audio and video retrieval with timecoded evidence</a></li><li><a href=\"/retrieval-ai/hard-negative-mining-and-false-negative-audits\">Hard-negative mining without training against true answers</a></li></ul><h2>Scans, geography, records and dialogue</h2><ul><li><a href=\"/retrieval-ai/ocr-layout-reading-order-and-confidence\">OCR retrieval: preserve reading order, page regions and uncertainty</a></li><li><a href=\"/retrieval-ai/geospatial-retrieval-radius-boundaries-and-evidence\">Geospatial retrieval: combine meaning, distance and jurisdiction</a></li><li><a href=\"/retrieval-ai/schema-aware-database-retrieval-and-row-provenance\">Database retrieval: link a question to schema and trace the rows</a></li><li><a href=\"/retrieval-ai/conversational-query-rewrite-and-constraint-carryover\">Conversational retrieval: rewrite the follow-up without changing its scope</a></li></ul><h2>Visual evidence, event windows and test probes</h2><ul><li><a href=\"/retrieval-ai/image-region-retrieval-and-visual-grounding\">Image-region retrieval: cite the object, not merely the image</a></li><li><a href=\"/retrieval-ai/event-window-retrieval-and-gap-semantics\">Event-window retrieval: answer from complete time slices</a></li><li><a href=\"/retrieval-ai/entity-linking-aliases-and-ambiguous-mentions\">Entity linking for retrieval: resolve aliases before searching facts</a></li><li><a href=\"/retrieval-ai/counterfactual-retrieval-tests-and-distractor-resilience\">Counterfactual retrieval tests: change one fact and trace the failure</a></li></ul><h2>Lexical scoring, compression, snapshots and trust</h2><ul><li><a href=\"/retrieval-ai/lexical-analyzers-field-scoring-and-identifier-safety\">Lexical retrieval: analyzers, fields and exact identifiers</a></li><li><a href=\"/retrieval-ai/vector-quantization-recall-and-exact-reranking\">Vector compression: spend memory without losing the answer</a></li><li><a href=\"/retrieval-ai/snapshot-consistent-multi-index-retrieval\">Snapshot-consistent retrieval across changing indexes</a></li><li><a href=\"/retrieval-ai/corpus-poisoning-trust-tiers-and-evidence-admission\">Corpus poisoning: admit evidence before ranking it</a></li></ul><h2>Score calibration, feedback, consent and freshness</h2><ul><li><a href=\"/retrieval-ai/score-normalization-and-fusion-calibration\">Score normalization: combine retrievers without inventing certainty</a></li><li><a href=\"/retrieval-ai/click-feedback-position-bias-and-offline-evaluation\">Click feedback: correct exposure bias before tuning retrieval</a></li><li><a href=\"/retrieval-ai/personalized-retrieval-consent-and-memory-boundaries\">Personalized retrieval: preferences never grant access</a></li><li><a href=\"/retrieval-ai/index-watermarks-freshness-slos-and-stale-answer-policy\">Index watermarks: measure what the retriever has actually seen</a></li></ul><h2>Sparse search, sharding, stable paging and chunk boundaries</h2><ul><li><a href=\"/retrieval-ai/learned-sparse-retrieval-term-weights-and-index-cost\">Learned sparse retrieval: weighted terms without dense-vector search</a></li><li><a href=\"/retrieval-ai/retrieval-shard-fanout-replicas-and-partial-results\">Retrieval shards: fanout, replica lag and incomplete top-K results</a></li><li><a href=\"/retrieval-ai/stable-search-pagination-point-in-time-and-cursors\">Stable search pagination: point-in-time views and safe cursors</a></li><li><a href=\"/retrieval-ai/chunk-boundary-overlap-and-answer-span-evaluation\">Chunk boundaries: test whether the answer survives the split</a></li></ul><h2>Query safety, snippets, index cutovers and drift</h2><ul><li><a href=\"/retrieval-ai/safe-search-query-parsing-and-literal-identifiers\">Safe search query parsing: operators, filters and literal identifiers</a></li><li><a href=\"/retrieval-ai/search-snippets-highlighting-offsets-and-redaction\">Search snippets: highlighting, offsets and safe evidence previews</a></li><li><a href=\"/retrieval-ai/retrieval-index-alias-cutover-and-rollback\">Index alias cutovers: switch retrieval generations without mixed results</a></li><li><a href=\"/retrieval-ai/retrieval-drift-monitoring-and-shadow-evaluation\">Retrieval drift: monitor query slices and shadow a candidate safely</a></li></ul><h2>Facets, tenant isolation, suggestions and graph search</h2><ul><li><a href=\"/retrieval-ai/faceted-retrieval-counts-and-permission-safe-filters\">Faceted retrieval: trustworthy counts under permission filters</a></li><li><a href=\"/retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing\">Multi-tenant retrieval: isolate indexes, routes and noisy neighbors</a></li><li><a href=\"/retrieval-ai/retrieval-autocomplete-suggestions-and-privacy\">Retrieval autocomplete: useful suggestions without query leaks</a></li><li><a href=\"/retrieval-ai/hnsw-candidate-budgets-and-ann-recall-curves\">HNSW retrieval: candidate budgets, graph cost and recall curves</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "retrieval-ai"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8300,
+    "status": "published",
+    "published_at": "2026-10-05T05:07:46.434939+00:00",
+    "created_at": "2026-10-05T05:07:46.434939+00:00",
+    "updated_at": "2026-10-07T17:21:48.568808+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Corpus and retrieval",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "retrieval-ai/corpus-permissions-and-document-lifecycle",
+            "retrieval-ai/chunk-identity-and-context-boundaries",
+            "retrieval-ai/retrieval-recall-and-reranking"
+          ]
+        },
+        {
+          "title": "Answers and operations",
+          "summary": "Read in order and run the failure checks.",
+          "lessons": [
+            "retrieval-ai/evidence-bound-answer-and-abstention",
+            "retrieval-ai/retrieval-vs-answer-evaluation",
+            "retrieval-ai/prompt-injection-and-tool-boundary",
+            "retrieval-ai/freshness-deletion-and-index-swap"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "retrieval-ai/support-policy-answer-project"
+          ]
+        },
+        {
+          "title": "Extraction, routing and index contracts",
+          "lessons": [
+            "retrieval-ai/query-intent-and-retrieval-routing",
+            "retrieval-ai/source-extraction-and-passage-provenance",
+            "retrieval-ai/embedding-space-version-and-migration",
+            "retrieval-ai/filtered-ann-recall-and-latency"
+          ]
+        },
+        {
+          "title": "Ranking, context and answer support",
+          "lessons": [
+            "retrieval-ai/hybrid-search-and-reciprocal-rank-fusion",
+            "retrieval-ai/reranker-candidate-window-and-budget",
+            "retrieval-ai/context-packing-and-evidence-diversity",
+            "retrieval-ai/claim-level-citation-and-support-checks"
+          ]
+        },
+        {
+          "title": "Operations and release gates",
+          "lessons": [
+            "retrieval-ai/permission-aware-cache-and-conversation-turns",
+            "retrieval-ai/retrieval-release-evaluation-and-slice-gates"
+          ]
+        },
+        {
+          "title": "Evidence beyond plain passages",
+          "lessons": [
+            "retrieval-ai/multi-hop-evidence-chain-and-stop-rules",
+            "retrieval-ai/table-retrieval-and-numeric-cell-context",
+            "retrieval-ai/multimodal-retrieval-and-asset-identity",
+            "retrieval-ai/incremental-ingestion-idempotency-and-delete-races",
+            "retrieval-ai/retrieval-traces-and-incident-debugging",
+            "retrieval-ai/query-expansion-guardrails-and-drift-tests"
+          ]
+        },
+        {
+          "title": "Graph, correction and evaluation",
+          "lessons": [
+            "retrieval-ai/knowledge-graph-retrieval-and-edge-provenance",
+            "retrieval-ai/corrective-retrieval-and-bounded-retry",
+            "retrieval-ai/retrieval-evaluation-labels-and-adjudication",
+            "retrieval-ai/federated-retrieval-source-budgets-and-merging"
+          ]
+        },
+        {
+          "title": "Structure, ranking and time",
+          "lessons": [
+            "retrieval-ai/hierarchical-retrieval-and-parent-child-evidence",
+            "retrieval-ai/late-interaction-ranking-and-token-budget",
+            "retrieval-ai/temporal-retrieval-as-of-validity-and-conflicts",
+            "retrieval-ai/near-duplicate-evidence-and-independent-support"
+          ]
+        },
+        {
+          "title": "Language, code, media and training data",
+          "lessons": [
+            "retrieval-ai/multilingual-retrieval-and-entity-preservation",
+            "retrieval-ai/code-repository-retrieval-by-symbol-and-revision",
+            "retrieval-ai/audio-video-retrieval-with-timecoded-evidence",
+            "retrieval-ai/hard-negative-mining-and-false-negative-audits"
+          ]
+        },
+        {
+          "title": "Scans, geography, records and dialogue",
+          "lessons": [
+            "retrieval-ai/ocr-layout-reading-order-and-confidence",
+            "retrieval-ai/geospatial-retrieval-radius-boundaries-and-evidence",
+            "retrieval-ai/schema-aware-database-retrieval-and-row-provenance",
+            "retrieval-ai/conversational-query-rewrite-and-constraint-carryover"
+          ]
+        },
+        {
+          "title": "Visual evidence, event windows and test probes",
+          "lessons": [
+            "retrieval-ai/image-region-retrieval-and-visual-grounding",
+            "retrieval-ai/event-window-retrieval-and-gap-semantics",
+            "retrieval-ai/entity-linking-aliases-and-ambiguous-mentions",
+            "retrieval-ai/counterfactual-retrieval-tests-and-distractor-resilience"
+          ]
+        },
+        {
+          "title": "Lexical scoring, compression, snapshots and trust",
+          "lessons": [
+            "retrieval-ai/lexical-analyzers-field-scoring-and-identifier-safety",
+            "retrieval-ai/vector-quantization-recall-and-exact-reranking",
+            "retrieval-ai/snapshot-consistent-multi-index-retrieval",
+            "retrieval-ai/corpus-poisoning-trust-tiers-and-evidence-admission"
+          ]
+        },
+        {
+          "title": "Score calibration, feedback, consent and freshness",
+          "lessons": [
+            "retrieval-ai/score-normalization-and-fusion-calibration",
+            "retrieval-ai/click-feedback-position-bias-and-offline-evaluation",
+            "retrieval-ai/personalized-retrieval-consent-and-memory-boundaries",
+            "retrieval-ai/index-watermarks-freshness-slos-and-stale-answer-policy"
+          ]
+        },
+        {
+          "title": "Sparse search, sharding, stable paging and chunk boundaries",
+          "lessons": [
+            "retrieval-ai/learned-sparse-retrieval-term-weights-and-index-cost",
+            "retrieval-ai/retrieval-shard-fanout-replicas-and-partial-results",
+            "retrieval-ai/stable-search-pagination-point-in-time-and-cursors",
+            "retrieval-ai/chunk-boundary-overlap-and-answer-span-evaluation"
+          ]
+        },
+        {
+          "title": "Query safety, snippets, index cutovers and drift",
+          "lessons": [
+            "retrieval-ai/safe-search-query-parsing-and-literal-identifiers",
+            "retrieval-ai/search-snippets-highlighting-offsets-and-redaction",
+            "retrieval-ai/retrieval-index-alias-cutover-and-rollback",
+            "retrieval-ai/retrieval-drift-monitoring-and-shadow-evaluation"
+          ]
+        },
+        {
+          "title": "Facets, tenant isolation, suggestions and graph search",
+          "lessons": [
+            "retrieval-ai/faceted-retrieval-counts-and-permission-safe-filters",
+            "retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing",
+            "retrieval-ai/retrieval-autocomplete-suggestions-and-privacy",
+            "retrieval-ai/hnsw-candidate-budgets-and-ann-recall-curves"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Retrieval-Based AI",
+          "path": "retrieval-ai/retrieval-ai-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "retrieval-ai/retrieval-ai-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "5a14eae3-0a31-5beb-9a43-40709220fce4",
+    "type": "subject",
+    "path": "retrieval-ai",
+    "title": "Retrieval-based AI",
+    "summary": "Ground generated answers in permitted, current documents and measure retrieval separately from response quality.",
+    "body": "<p>Ground generated answers in permitted, current documents and measure retrieval separately from response quality.</p><h2>Where to begin</h2><p>Start with the corpus contract: document identity, ownership, revision, and deletion. Then work through chunk boundaries, lexical and dense retrieval, reranking, evidence support, abstention, prompt injection, and evaluation. The project tests no-answer and restricted-document cases, not just successful lookups.</p><h2>Read the track</h2><ul><li><a href=\"/retrieval-ai/retrieval-ai-tutorial\">Retrieval-Based AI Tutorial</a></li><li><a href=\"/retrieval-ai/retrieval-vs-answer-evaluation\">RAG evaluation: separate retrieval recall from answer support</a></li><li><a href=\"/retrieval-ai/prompt-injection-and-tool-boundary\">Retrieved text as untrusted data: keep instructions and tools separate</a></li><li><a href=\"/retrieval-ai/freshness-deletion-and-index-swap\">Index freshness: publish complete revisions and remove stale chunks</a></li><li><a href=\"/retrieval-ai/support-policy-answer-project\">Project: answer support-policy questions with permission-aware evidence</a></li><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li><li><a href=\"/retrieval-ai/chunk-identity-and-context-boundaries\">Chunking documents: preserve section identity and answer boundaries</a></li><li><a href=\"/retrieval-ai/retrieval-recall-and-reranking\">Retrieval design: compare lexical, semantic and reranked candidates</a></li><li><a href=\"/retrieval-ai/evidence-bound-answer-and-abstention\">Grounded answers: require passage support and a no-answer path</a></li><li><a href=\"/retrieval-ai/retrieval-ai-tutorial/project\">Retrieval-Based AI: Projects</a></li></ul><h2>Choose the right method</h2><p>More retrieved chunks consume context, latency, and token budget. Improve candidate recall and evidence ranking before increasing the window; a long prompt cannot recover a relevant passage that the index never returned.</p><h3>Common Mistakes</h3><p>Do not let retrieved text issue instructions to a tool or override access rules. A fluent answer without a supporting passage should fail the evidence check.</p><h2>Related tracks</h2><ul><li><a href=\"/natural-language-processing\">Natural language processing learning path</a></li><li><a href=\"/knowledge-graphs\">Knowledge graphs</a></li></ul><h2>Advanced retrieval engineering</h2><ul><li><a href=\"/retrieval-ai/query-intent-and-retrieval-routing\">Retrieval query routing: preserve exact constraints before search</a></li><li><a href=\"/retrieval-ai/source-extraction-and-passage-provenance\">Document extraction: preserve passage provenance through OCR and parsing</a></li><li><a href=\"/retrieval-ai/embedding-space-version-and-migration\">Embedding migrations: keep query and document vectors in one space</a></li><li><a href=\"/retrieval-ai/filtered-ann-recall-and-latency\">Filtered vector search: measure ANN recall inside the permitted set</a></li><li><a href=\"/retrieval-ai/hybrid-search-and-reciprocal-rank-fusion\">Hybrid retrieval: fuse exact terms and semantic candidates by rank</a></li><li><a href=\"/retrieval-ai/reranker-candidate-window-and-budget\">Reranking: spend model budget on a bounded candidate window</a></li><li><a href=\"/retrieval-ai/context-packing-and-evidence-diversity\">Context packing: retain independent evidence under a token cap</a></li><li><a href=\"/retrieval-ai/claim-level-citation-and-support-checks\">Claim-level citations: verify each answer against its passage</a></li><li><a href=\"/retrieval-ai/permission-aware-cache-and-conversation-turns\">Retrieval caches and conversation turns: recheck access every time</a></li><li><a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Retrieval release gates: evaluate slices before changing an index</a></li></ul><h2>Evidence beyond plain passages</h2><ul><li><a href=\"/retrieval-ai/multi-hop-evidence-chain-and-stop-rules\">Multi-hop retrieval: build evidence chains with bounded searches</a></li><li><a href=\"/retrieval-ai/table-retrieval-and-numeric-cell-context\">Table retrieval: keep numeric cells attached to their labels</a></li><li><a href=\"/retrieval-ai/multimodal-retrieval-and-asset-identity\">Multimodal retrieval: connect images, OCR and text to one asset identity</a></li><li><a href=\"/retrieval-ai/incremental-ingestion-idempotency-and-delete-races\">Incremental retrieval ingestion: replay events without reviving deleted passages</a></li><li><a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">Retrieval traces: locate the stage that lost the answer</a></li><li><a href=\"/retrieval-ai/query-expansion-guardrails-and-drift-tests\">Query expansion: add recall terms without changing the user&#x27;s question</a></li></ul><h2>Graph, correction and evaluation</h2><ul><li><a href=\"/retrieval-ai/knowledge-graph-retrieval-and-edge-provenance\">Knowledge graph retrieval: prove every edge in the path</a></li><li><a href=\"/retrieval-ai/corrective-retrieval-and-bounded-retry\">Corrective retrieval: retry only when evidence is insufficient</a></li><li><a href=\"/retrieval-ai/retrieval-evaluation-labels-and-adjudication\">Retrieval evaluation labels: build a trustworthy judged set</a></li><li><a href=\"/retrieval-ai/federated-retrieval-source-budgets-and-merging\">Federated retrieval: search multiple stores without losing policy or time budgets</a></li></ul><h2>Structure, ranking and time</h2><ul><li><a href=\"/retrieval-ai/hierarchical-retrieval-and-parent-child-evidence\">Hierarchical retrieval: find a section before selecting its evidence</a></li><li><a href=\"/retrieval-ai/late-interaction-ranking-and-token-budget\">Late-interaction retrieval: score token matches without one-vector blur</a></li><li><a href=\"/retrieval-ai/temporal-retrieval-as-of-validity-and-conflicts\">Temporal retrieval: answer as-of questions from valid evidence</a></li><li><a href=\"/retrieval-ai/near-duplicate-evidence-and-independent-support\">Near-duplicate retrieval: collapse copies without hiding independent evidence</a></li></ul><h2>Language, code, media and training data</h2><ul><li><a href=\"/retrieval-ai/multilingual-retrieval-and-entity-preservation\">Multilingual retrieval without losing names, units or permissions</a></li><li><a href=\"/retrieval-ai/code-repository-retrieval-by-symbol-and-revision\">Code repository retrieval by symbol, call site and commit</a></li><li><a href=\"/retrieval-ai/audio-video-retrieval-with-timecoded-evidence\">Audio and video retrieval with timecoded evidence</a></li><li><a href=\"/retrieval-ai/hard-negative-mining-and-false-negative-audits\">Hard-negative mining without training against true answers</a></li></ul><h2>Scans, geography, records and dialogue</h2><ul><li><a href=\"/retrieval-ai/ocr-layout-reading-order-and-confidence\">OCR retrieval: preserve reading order, page regions and uncertainty</a></li><li><a href=\"/retrieval-ai/geospatial-retrieval-radius-boundaries-and-evidence\">Geospatial retrieval: combine meaning, distance and jurisdiction</a></li><li><a href=\"/retrieval-ai/schema-aware-database-retrieval-and-row-provenance\">Database retrieval: link a question to schema and trace the rows</a></li><li><a href=\"/retrieval-ai/conversational-query-rewrite-and-constraint-carryover\">Conversational retrieval: rewrite the follow-up without changing its scope</a></li></ul><h2>Visual evidence, event windows and test probes</h2><ul><li><a href=\"/retrieval-ai/image-region-retrieval-and-visual-grounding\">Image-region retrieval: cite the object, not merely the image</a></li><li><a href=\"/retrieval-ai/event-window-retrieval-and-gap-semantics\">Event-window retrieval: answer from complete time slices</a></li><li><a href=\"/retrieval-ai/entity-linking-aliases-and-ambiguous-mentions\">Entity linking for retrieval: resolve aliases before searching facts</a></li><li><a href=\"/retrieval-ai/counterfactual-retrieval-tests-and-distractor-resilience\">Counterfactual retrieval tests: change one fact and trace the failure</a></li></ul><h2>Lexical scoring, compression, snapshots and trust</h2><ul><li><a href=\"/retrieval-ai/lexical-analyzers-field-scoring-and-identifier-safety\">Lexical retrieval: analyzers, fields and exact identifiers</a></li><li><a href=\"/retrieval-ai/vector-quantization-recall-and-exact-reranking\">Vector compression: spend memory without losing the answer</a></li><li><a href=\"/retrieval-ai/snapshot-consistent-multi-index-retrieval\">Snapshot-consistent retrieval across changing indexes</a></li><li><a href=\"/retrieval-ai/corpus-poisoning-trust-tiers-and-evidence-admission\">Corpus poisoning: admit evidence before ranking it</a></li></ul><h2>Score calibration, feedback, consent and freshness</h2><ul><li><a href=\"/retrieval-ai/score-normalization-and-fusion-calibration\">Score normalization: combine retrievers without inventing certainty</a></li><li><a href=\"/retrieval-ai/click-feedback-position-bias-and-offline-evaluation\">Click feedback: correct exposure bias before tuning retrieval</a></li><li><a href=\"/retrieval-ai/personalized-retrieval-consent-and-memory-boundaries\">Personalized retrieval: preferences never grant access</a></li><li><a href=\"/retrieval-ai/index-watermarks-freshness-slos-and-stale-answer-policy\">Index watermarks: measure what the retriever has actually seen</a></li></ul><h2>Sparse search, sharding, stable paging and chunk boundaries</h2><ul><li><a href=\"/retrieval-ai/learned-sparse-retrieval-term-weights-and-index-cost\">Learned sparse retrieval: weighted terms without dense-vector search</a></li><li><a href=\"/retrieval-ai/retrieval-shard-fanout-replicas-and-partial-results\">Retrieval shards: fanout, replica lag and incomplete top-K results</a></li><li><a href=\"/retrieval-ai/stable-search-pagination-point-in-time-and-cursors\">Stable search pagination: point-in-time views and safe cursors</a></li><li><a href=\"/retrieval-ai/chunk-boundary-overlap-and-answer-span-evaluation\">Chunk boundaries: test whether the answer survives the split</a></li></ul><h2>Query safety, snippets, index cutovers and drift</h2><ul><li><a href=\"/retrieval-ai/safe-search-query-parsing-and-literal-identifiers\">Safe search query parsing: operators, filters and literal identifiers</a></li><li><a href=\"/retrieval-ai/search-snippets-highlighting-offsets-and-redaction\">Search snippets: highlighting, offsets and safe evidence previews</a></li><li><a href=\"/retrieval-ai/retrieval-index-alias-cutover-and-rollback\">Index alias cutovers: switch retrieval generations without mixed results</a></li><li><a href=\"/retrieval-ai/retrieval-drift-monitoring-and-shadow-evaluation\">Retrieval drift: monitor query slices and shadow a candidate safely</a></li></ul><h2>Facets, tenant isolation, suggestions and graph search</h2><ul><li><a href=\"/retrieval-ai/faceted-retrieval-counts-and-permission-safe-filters\">Faceted retrieval: trustworthy counts under permission filters</a></li><li><a href=\"/retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing\">Multi-tenant retrieval: isolate indexes, routes and noisy neighbors</a></li><li><a href=\"/retrieval-ai/retrieval-autocomplete-suggestions-and-privacy\">Retrieval autocomplete: useful suggestions without query leaks</a></li><li><a href=\"/retrieval-ai/hnsw-candidate-budgets-and-ann-recall-curves\">HNSW retrieval: candidate budgets, graph cost and recall curves</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": null,
+    "tags": [
+      "retrieval-ai",
+      "learning path"
+    ],
+    "data": {
+      "seo_ready": true,
+      "content_format": "html",
+      "subject_root": "retrieval-ai",
+      "section_path": "retrieval-ai",
+      "modules": [
+        {
+          "title": "Start and build",
+          "lessons": [
+            "retrieval-ai/retrieval-ai-tutorial",
+            "retrieval-ai/retrieval-vs-answer-evaluation",
+            "retrieval-ai/prompt-injection-and-tool-boundary",
+            "retrieval-ai/freshness-deletion-and-index-swap",
+            "retrieval-ai/corpus-permissions-and-document-lifecycle",
+            "retrieval-ai/chunk-identity-and-context-boundaries",
+            "retrieval-ai/retrieval-recall-and-reranking",
+            "retrieval-ai/evidence-bound-answer-and-abstention"
+          ]
+        },
+        {
+          "title": "Apply the ideas",
+          "lessons": [
+            "retrieval-ai/support-policy-answer-project",
+            "retrieval-ai/retrieval-ai-tutorial/project",
+            "retrieval-ai/hybrid-search-release-gate-project"
+          ]
+        },
+        {
+          "title": "Advanced retrieval engineering",
+          "lessons": [
+            "retrieval-ai/query-intent-and-retrieval-routing",
+            "retrieval-ai/source-extraction-and-passage-provenance",
+            "retrieval-ai/embedding-space-version-and-migration",
+            "retrieval-ai/filtered-ann-recall-and-latency",
+            "retrieval-ai/hybrid-search-and-reciprocal-rank-fusion",
+            "retrieval-ai/reranker-candidate-window-and-budget",
+            "retrieval-ai/context-packing-and-evidence-diversity",
+            "retrieval-ai/claim-level-citation-and-support-checks",
+            "retrieval-ai/permission-aware-cache-and-conversation-turns",
+            "retrieval-ai/retrieval-release-evaluation-and-slice-gates"
+          ]
+        },
+        {
+          "title": "Evidence beyond plain passages",
+          "lessons": [
+            "retrieval-ai/multi-hop-evidence-chain-and-stop-rules",
+            "retrieval-ai/table-retrieval-and-numeric-cell-context",
+            "retrieval-ai/multimodal-retrieval-and-asset-identity",
+            "retrieval-ai/incremental-ingestion-idempotency-and-delete-races",
+            "retrieval-ai/retrieval-traces-and-incident-debugging",
+            "retrieval-ai/query-expansion-guardrails-and-drift-tests"
+          ]
+        },
+        {
+          "title": "Graph, correction and evaluation",
+          "lessons": [
+            "retrieval-ai/knowledge-graph-retrieval-and-edge-provenance",
+            "retrieval-ai/corrective-retrieval-and-bounded-retry",
+            "retrieval-ai/retrieval-evaluation-labels-and-adjudication",
+            "retrieval-ai/federated-retrieval-source-budgets-and-merging"
+          ]
+        },
+        {
+          "title": "Structure, ranking and time",
+          "lessons": [
+            "retrieval-ai/hierarchical-retrieval-and-parent-child-evidence",
+            "retrieval-ai/late-interaction-ranking-and-token-budget",
+            "retrieval-ai/temporal-retrieval-as-of-validity-and-conflicts",
+            "retrieval-ai/near-duplicate-evidence-and-independent-support"
+          ]
+        },
+        {
+          "title": "Language, code, media and training data",
+          "lessons": [
+            "retrieval-ai/multilingual-retrieval-and-entity-preservation",
+            "retrieval-ai/code-repository-retrieval-by-symbol-and-revision",
+            "retrieval-ai/audio-video-retrieval-with-timecoded-evidence",
+            "retrieval-ai/hard-negative-mining-and-false-negative-audits"
+          ]
+        },
+        {
+          "title": "Scans, geography, records and dialogue",
+          "lessons": [
+            "retrieval-ai/ocr-layout-reading-order-and-confidence",
+            "retrieval-ai/geospatial-retrieval-radius-boundaries-and-evidence",
+            "retrieval-ai/schema-aware-database-retrieval-and-row-provenance",
+            "retrieval-ai/conversational-query-rewrite-and-constraint-carryover"
+          ]
+        },
+        {
+          "title": "Visual evidence, event windows and test probes",
+          "lessons": [
+            "retrieval-ai/image-region-retrieval-and-visual-grounding",
+            "retrieval-ai/event-window-retrieval-and-gap-semantics",
+            "retrieval-ai/entity-linking-aliases-and-ambiguous-mentions",
+            "retrieval-ai/counterfactual-retrieval-tests-and-distractor-resilience"
+          ]
+        },
+        {
+          "title": "Lexical scoring, compression, snapshots and trust",
+          "lessons": [
+            "retrieval-ai/lexical-analyzers-field-scoring-and-identifier-safety",
+            "retrieval-ai/vector-quantization-recall-and-exact-reranking",
+            "retrieval-ai/snapshot-consistent-multi-index-retrieval",
+            "retrieval-ai/corpus-poisoning-trust-tiers-and-evidence-admission"
+          ]
+        },
+        {
+          "title": "Score calibration, feedback, consent and freshness",
+          "lessons": [
+            "retrieval-ai/score-normalization-and-fusion-calibration",
+            "retrieval-ai/click-feedback-position-bias-and-offline-evaluation",
+            "retrieval-ai/personalized-retrieval-consent-and-memory-boundaries",
+            "retrieval-ai/index-watermarks-freshness-slos-and-stale-answer-policy"
+          ]
+        },
+        {
+          "title": "Sparse search, sharding, stable paging and chunk boundaries",
+          "lessons": [
+            "retrieval-ai/learned-sparse-retrieval-term-weights-and-index-cost",
+            "retrieval-ai/retrieval-shard-fanout-replicas-and-partial-results",
+            "retrieval-ai/stable-search-pagination-point-in-time-and-cursors",
+            "retrieval-ai/chunk-boundary-overlap-and-answer-span-evaluation"
+          ]
+        },
+        {
+          "title": "Query safety, snippets, index cutovers and drift",
+          "lessons": [
+            "retrieval-ai/safe-search-query-parsing-and-literal-identifiers",
+            "retrieval-ai/search-snippets-highlighting-offsets-and-redaction",
+            "retrieval-ai/retrieval-index-alias-cutover-and-rollback",
+            "retrieval-ai/retrieval-drift-monitoring-and-shadow-evaluation"
+          ]
+        },
+        {
+          "title": "Facets, tenant isolation, suggestions and graph search",
+          "lessons": [
+            "retrieval-ai/faceted-retrieval-counts-and-permission-safe-filters",
+            "retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing",
+            "retrieval-ai/retrieval-autocomplete-suggestions-and-privacy",
+            "retrieval-ai/hnsw-candidate-budgets-and-ann-recall-curves"
+          ]
+        }
+      ]
+    },
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8299,
+    "status": "published",
+    "published_at": "2026-10-07T08:22:48.087670+00:00",
+    "created_at": "2026-10-07T08:22:48.087670+00:00",
+    "updated_at": "2026-10-07T17:21:48.568808+00:00"
+  },
+  {
+    "id": "f5724557-4d91-534a-8df9-2cc89a551a99",
+    "type": "article",
+    "path": "retrieval-ai/chunk-identity-and-context-boundaries",
+    "title": "Chunking documents: preserve section identity and answer boundaries",
+    "summary": "A chunk is a retrievable unit with text, document revision and structural context; its boundaries affect both recall and evidence quality.",
+    "body": "<p>A chunk is a retrievable unit with text, document revision and structural context; its boundaries affect both recall and evidence quality.</p><h2>Split on meaning first</h2><p>A policy heading and its exception should remain connected. Blind fixed-character windows may separate the rule from a qualifying sentence and cause a plausible but wrong answer. Prefer section or paragraph boundaries, then enforce a size limit. Carry heading path, document ID, revision and exact offsets. <a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Document identity</a>] remains attached to every chunk.</p><h2>Budget overlap deliberately</h2><p>Small chunks improve pinpoint retrieval but can lose context. Large chunks carry context but consume more prompt budget and may rank by unrelated words. Overlap helps at boundaries but creates near duplicates. Count distinct parent documents in the final context so four overlapping chunks do not crowd out another necessary policy.</p><h2>Preserve reproducibility</h2><p>Version parser, normalization, chunking parameters and embedding model together. If extraction from a PDF changes line order, a stable document revision can still produce different chunks. Store a content hash and offset or section identifier for each passage. An answer audit should resolve exactly the passage the model saw, not today’s edited page.</p><h2>Test difficult structure</h2><p>Create a table-like policy with a footnote, a long section and two near-identical headings. Check that the exception stays retrievable with the rule. Verify each chunk respects its input limit and can be mapped back to an exact document revision. <a href=\"/retrieval-ai/retrieval-recall-and-reranking\">Retrieval evaluation</a>] will show whether the chosen boundaries help real questions.</p><h2>Implementation</h2><pre><code class=\"language-python\">import hashlib\nimport json\n\ndef make_chunk_id(document_id, revision, section_path, text):\n    identity = json.dumps([document_id, revision, section_path, text], ensure_ascii=False)\n    return hashlib.sha256(identity.encode(&quot;utf-8&quot;)).hexdigest()[:24]\n\nchunk_record = {&quot;chunk_id&quot;: make_chunk_id(document_id, revision, section_path, passage_text),\n                &quot;document_id&quot;: document_id, &quot;revision&quot;: revision,\n                &quot;section&quot;: section_path, &quot;text&quot;: passage_text}</code></pre><h2>Performance and operating cost</h2><p>Parsing and splitting C characters is at least O(C); embedding every chunk adds model cost proportional to chunk count and length. Overlap raises both index size and query-context duplication.</p><h3>Common Mistakes</h3><ul><li>Do not separate an exception from the rule it qualifies.</li><li>Do not lose document revision and offsets when storing chunks.</li><li>Do not let overlapping chunks monopolize the context.</li></ul><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li><li><a href=\"/retrieval-ai/retrieval-recall-and-reranking\">Retrieval design: compare lexical, semantic and reranked candidates</a></li><li><a href=\"/retrieval-ai/evidence-bound-answer-and-abstention\">Grounded answers: require passage support and a no-answer path</a></li><li><a href=\"/natural-language-processing/unicode-tokenization-boundary\">Unicode and tokenization: preserve meaning at the text boundary</a></li></ul><h2>Continue the retrieval workflow</h2><ul><li><a href=\"/retrieval-ai/source-extraction-and-passage-provenance\">Document extraction: preserve passage provenance through OCR and parsing</a></li><li><a href=\"/retrieval-ai/context-packing-and-evidence-diversity\">Context packing: retain independent evidence under a token cap</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/hierarchical-retrieval-and-parent-child-evidence\">Hierarchical retrieval: find a section before selecting its evidence</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/chunk-boundary-overlap-and-answer-span-evaluation\">Chunk boundaries: test whether the answer survives the split</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/faceted-retrieval-counts-and-permission-safe-filters\">Faceted retrieval: trustworthy counts under permission filters</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "retrieval-ai"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8413,
+    "status": "published",
+    "published_at": "2026-10-05T05:07:46.434939+00:00",
+    "created_at": "2026-10-05T05:07:46.434939+00:00",
+    "updated_at": "2026-10-07T17:21:48.568808+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "retrieval-ai/corpus-permissions-and-document-lifecycle",
+          "title": "Retrieval corpus contracts: identity, permissions and document lifecycle"
+        },
+        {
+          "path": "retrieval-ai/retrieval-recall-and-reranking",
+          "title": "Retrieval design: compare lexical, semantic and reranked candidates"
+        },
+        {
+          "path": "retrieval-ai/evidence-bound-answer-and-abstention",
+          "title": "Grounded answers: require passage support and a no-answer path"
+        },
+        {
+          "path": "natural-language-processing/unicode-tokenization-boundary",
+          "title": "Unicode and tokenization: preserve meaning at the text boundary"
+        },
+        {
+          "path": "retrieval-ai/source-extraction-and-passage-provenance",
+          "title": "Document extraction: preserve passage provenance through OCR and parsing"
+        },
+        {
+          "path": "retrieval-ai/context-packing-and-evidence-diversity",
+          "title": "Context packing: retain independent evidence under a token cap"
+        },
+        {
+          "path": "retrieval-ai/hierarchical-retrieval-and-parent-child-evidence",
+          "title": "Hierarchical retrieval: find a section before selecting its evidence"
+        },
+        {
+          "path": "retrieval-ai/chunk-boundary-overlap-and-answer-span-evaluation",
+          "title": "Chunk boundaries: test whether the answer survives the split"
+        },
+        {
+          "path": "retrieval-ai/faceted-retrieval-counts-and-permission-safe-filters",
+          "title": "Faceted retrieval: trustworthy counts under permission filters"
+        }
+      ]
+    }
+  },
+  {
+    "id": "7b469bfb-ec1d-5a20-9eed-38b943547f8e",
+    "type": "article",
+    "path": "retrieval-ai/corpus-permissions-and-document-lifecycle",
+    "title": "Retrieval corpus contracts: identity, permissions and document lifecycle",
+    "summary": "A retrieval system must know which document revision a passage came from and who may read it before indexing begins.",
+    "body": "<p>A retrieval system must know which document revision a passage came from and who may read it before indexing begins.</p><h2>Treat documents as governed records</h2><p>An internal support handbook may contain policy pages, drafts and retired procedures. Assign stable document ID, revision, effective time, owner and visibility scope. Do not merge a current policy with a superseded one merely because both mention the same product. <a href=\"/data-engineering/source-contract-and-raw-landing\">The source contract</a>] should preserve an immutable copy for replay and audit.</p><h2>Carry permissions into the index</h2><p>Every indexed passage inherits the document’s authorization policy. Retrieval must filter candidates for the current user before a passage can enter the model context or a cache. Filtering only after generation is too late. Test two employees with different scopes against the same question and confirm neither receives inaccessible passages, even in suggestions or logs.</p><h2>Model deletion and replacement</h2><p>A document removal should invalidate all derived chunks, embeddings and cached answers tied to that revision. An update should produce a new revision, then switch the visible index generation after the new representation is complete. <a href=\"/retrieval-ai/freshness-deletion-and-index-swap\">Index publication</a>] prevents readers from seeing a half-updated corpus.</p><h2>Audit a complete path</h2><p>For a retrieved passage, trace document ID, revision, chunk ID, permissions and index generation. Add fixtures for an expired policy, revoked access and an identical title in two departments. A keyword match is not evidence that the user may read the result.</p><h2>Implementation</h2><pre><code class=\"language-python\">def visible_passages(passages, principal_scopes, query_time):\n    permitted = []\n    for passage in passages:\n        if not passage.active_from &lt;= query_time:\n            continue\n        if passage.active_until and query_time &gt;= passage.active_until:\n            continue\n        if not passage.allowed_scopes.intersection(principal_scopes):\n            continue\n        permitted.append(passage)\n    return permitted</code></pre><h2>Performance and operating cost</h2><p>Filtering K candidate passages is O(K) in this example; indexed permission filters can reduce work earlier. Retaining revisions consumes storage but supports correct deletion, audit and rollback.</p><h3>Common Mistakes</h3><ul><li>Do not filter permissions only after generation.</li><li>Do not leave retired policy chunks searchable.</li><li>Do not use a title as a stable document identity.</li></ul><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/chunk-identity-and-context-boundaries\">Chunking documents: preserve section identity and answer boundaries</a></li><li><a href=\"/retrieval-ai/freshness-deletion-and-index-swap\">Index freshness: publish complete revisions and remove stale chunks</a></li><li><a href=\"/retrieval-ai/prompt-injection-and-tool-boundary\">Retrieved text as untrusted data: keep instructions and tools separate</a></li><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/machine-learning/ranking-serving-budget-and-candidate-recall\">Ranking serving budget and candidate recall</a>.</p><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing\">Multi-tenant retrieval: isolate indexes, routes and noisy neighbors</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "retrieval-ai"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8412,
+    "status": "published",
+    "published_at": "2026-10-05T05:07:46.434939+00:00",
+    "created_at": "2026-10-05T05:07:46.434939+00:00",
+    "updated_at": "2026-10-07T17:21:48.568808+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project inputs needed for runtime checks",
+      "related": [
+        {
+          "path": "retrieval-ai/chunk-identity-and-context-boundaries",
+          "title": "Chunking documents: preserve section identity and answer boundaries"
+        },
+        {
+          "path": "retrieval-ai/freshness-deletion-and-index-swap",
+          "title": "Index freshness: publish complete revisions and remove stale chunks"
+        },
+        {
+          "path": "retrieval-ai/prompt-injection-and-tool-boundary",
+          "title": "Retrieved text as untrusted data: keep instructions and tools separate"
+        },
+        {
+          "path": "data-engineering/source-contract-and-raw-landing",
+          "title": "Data source contracts: preserve raw records before transformation"
+        },
+        {
+          "path": "machine-learning/ranking-serving-budget-and-candidate-recall",
+          "title": "Ranking serving budget and candidate recall"
+        },
+        {
+          "path": "retrieval-ai/multi-tenant-retrieval-isolation-and-shard-routing",
+          "title": "Multi-tenant retrieval: isolate indexes, routes and noisy neighbors"
+        }
+      ]
+    }
+  },
+  {
+    "id": "27f84241-5d20-5dd6-afb3-7ec2df2cde7f",
+    "type": "article",
+    "path": "retrieval-ai/safe-search-query-parsing-and-literal-identifiers",
+    "title": "Safe search query parsing: operators, filters and literal identifiers",
+    "summary": "Parse a small search grammar without allowing user text to become backend query syntax or corrupting exact identifiers.",
+    "body": "<p>Parse a small search grammar without allowing user text to become backend query syntax or corrupting exact identifiers.</p><h2>Separate user text from query instructions</h2><p>A search box receives untrusted text. Some users want literal terms; others want a quoted phrase or a field filter. Treating every colon, quote or minus sign as an operator makes part numbers and copied error messages disappear. Sending the entire string to an engine&#x27;s strict query-language parser also exposes backend syntax and brittle error behavior. Define a small public grammar and compile it to typed backend clauses. Keep <a href=\"/retrieval-ai/lexical-analyzers-field-scoring-and-identifier-safety\">literal identifier matching</a> available even when the ordinary text analyzer stems or splits words.</p><h2>Write down the grammar before the parser</h2><p>For a maintenance archive, allow plain words, double-quoted phrases and one filter of the form site:plant-a. Make the allowed filter names explicit. Put bounds on query bytes, phrase length and operator count before parsing; a syntactically valid query can still consume excessive work. Reject unknown filters rather than silently treating them as authorization. A site filter narrows a search; it cannot grant access to a plant the user is forbidden to see. <a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Corpus permissions</a> must be applied by the server independently of the query.</p><h2>Compile to data, never to a concatenated query string</h2><p>The backend should receive structured term, phrase and filter values. It should escape or parameterize them using its own API, not string interpolation into a query-language expression. If an external search service accepts only a query string, encode literal tokens with that service&#x27;s documented escaping rules and test metacharacters end to end. Do not reuse SQL quoting rules for search-engine syntax. Parse errors should be explicit and safe: show the offending span without echoing private backend diagnostics. <a href=\"/retrieval-ai/query-expansion-guardrails-and-drift-tests\">Query expansion</a> is a separate, measured step after the literal request is preserved.</p><h2>Preserve exact tokens and interpretation</h2><p>Store the raw query, parsed clauses, parser version and final backend request in a protected trace. A serial such as P-47/AC may need both a raw keyword field and a normalized text field; the slash and hyphen should not accidentally become operators. Search analytics can group equivalent grammar versions, but never rewrite a user&#x27;s identifier into a guessed synonym without retaining an exact branch. When a result seems wrong, <a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">retrieval traces</a> reveal whether the parser, analyzer, filter or ranker changed the request.</p><h2>Test the contract at its boundaries</h2><p>Build a table of valid and invalid requests: empty input, unmatched quotes, doubled filters, Unicode letters, copied stack traces, 47-word inputs and punctuation-heavy IDs. Check that forbidden sites stay excluded even when the user asks for them. Compare parsed intent with human judgments on realistic query logs after redacting personal data. A permissive fallback that sends a malformed query directly to the engine defeats the parser; return a clear error or treat the whole input as literal text according to one documented rule.</p><h2>Worked contract</h2><pre><code class=\"language-python\">import re\nfrom dataclasses import dataclass\n\n@dataclass(frozen=True)\nclass SearchRequest:\n    terms: tuple[str, ...]\n    phrases: tuple[str, ...]\n    site: str | None\n\nTOKEN = re.compile(r&#x27;&quot;[^&quot;\\n]{1,80}&quot;|[^\\s&quot;]+&#x27;)\nSITE = re.compile(r&quot;site:([a-z0-9][a-z0-9-]{0,31})$&quot;, re.I)\n\ndef parse_search(raw_query: str, allowed_sites: set[str]) -&gt; SearchRequest:\n    if len(raw_query.encode(&quot;utf-8&quot;)) &gt; 384:\n        raise ValueError(&quot;query too long&quot;)\n    terms, phrases, site = [], [], None\n    remaining = TOKEN.sub(&quot;&quot;, raw_query).strip()\n    if remaining:\n        raise ValueError(&quot;unmatched quote or unsupported syntax&quot;)\n    for token in TOKEN.findall(raw_query):\n        if token.startswith(&#x27;&quot;&#x27;):\n            phrases.append(token[1:-1])\n        elif token.startswith(&quot;site:&quot;):\n            match = SITE.fullmatch(token)\n            if match is None or site is not None:\n                raise ValueError(&quot;invalid site filter&quot;)\n            site = match.group(1).lower()\n            if site not in allowed_sites:\n                raise ValueError(&quot;site not available&quot;)\n        else:\n            terms.append(token)\n    if not terms and not phrases:\n        raise ValueError(&quot;query needs search text&quot;)\n    if len(terms) + len(phrases) &gt; 47:\n        raise ValueError(&quot;too many clauses&quot;)\n    return SearchRequest(tuple(terms), tuple(phrases), site)\n\nrequest = parse_search(&#x27;P-47/AC &quot;seal pressure&quot; site:plant-a&#x27;, {&quot;plant-a&quot;})\nassert request.terms == (&quot;P-47/AC&quot;,)\nassert request.phrases == (&quot;seal pressure&quot;,)\nassert request.site == &quot;plant-a&quot;</code></pre><h2>Performance and operating cost</h2><p>For N query characters, tokenization and parsing take O(N) time and O(N) space. The backend&#x27;s cost depends on posting-list size, phrase positions, filters and top-K ranking; parsing is rarely the expensive part. The demonstration describes a deliberately narrow grammar, not a full search-language parser. Its caller must still enforce tenant authorization and compile the typed values through the backend&#x27;s safe query API.</p><h3>Common Mistakes</h3><ul><li>Passing raw user text to a strict backend query-language parser.</li><li>Using a user-supplied site filter as an access-control decision.</li><li>Dropping punctuation from an exact serial number before literal matching.</li><li>Silently falling back to unrestricted search after a syntax error.</li></ul><h2>Validation drill</h2><p>Collect 63 redacted archive queries containing IDs, quotes and filters. Label each intended interpretation, then test parser acceptance, exact-token retention and permission enforcement before comparing top-12 recall.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/lexical-analyzers-field-scoring-and-identifier-safety\">Lexical retrieval: analyzers, fields and exact identifiers</a></li><li><a href=\"/retrieval-ai/query-expansion-guardrails-and-drift-tests\">Query expansion: add recall terms without changing the user&#x27;s question</a></li><li><a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Retrieval corpus contracts: identity, permissions and document lifecycle</a></li><li><a href=\"/retrieval-ai/retrieval-traces-and-incident-debugging\">Retrieval traces: locate the stage that lost the answer</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/retrieval-autocomplete-suggestions-and-privacy\">Retrieval autocomplete: useful suggestions without query leaks</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8465,
+    "status": "published",
+    "published_at": "2026-10-07T17:09:05.862017+00:00",
+    "created_at": "2026-10-07T17:09:05.862017+00:00",
+    "updated_at": "2026-10-07T17:21:48.568808+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/lexical-analyzers-field-scoring-and-identifier-safety",
+          "title": "Lexical retrieval: analyzers, fields and exact identifiers"
+        },
+        {
+          "path": "retrieval-ai/query-expansion-guardrails-and-drift-tests",
+          "title": "Query expansion: add recall terms without changing the user's question"
+        },
+        {
+          "path": "retrieval-ai/corpus-permissions-and-document-lifecycle",
+          "title": "Retrieval corpus contracts: identity, permissions and document lifecycle"
+        },
+        {
+          "path": "retrieval-ai/retrieval-traces-and-incident-debugging",
+          "title": "Retrieval traces: locate the stage that lost the answer"
+        },
+        {
+          "path": "retrieval-ai/retrieval-autocomplete-suggestions-and-privacy",
+          "title": "Retrieval autocomplete: useful suggestions without query leaks"
+        }
+      ]
+    }
+  },
+  {
+    "id": "a7ce2b5c-d1b2-5e14-aa9b-386145362514",
+    "type": "article",
+    "path": "retrieval-ai/filtered-ann-recall-and-latency",
+    "title": "Filtered vector search: measure ANN recall inside the permitted set",
+    "summary": "Approximate nearest-neighbor speed is useful only if access filters and candidate limits still surface relevant permitted passages.",
+    "body": "<p>Approximate nearest-neighbor speed is useful only if access filters and candidate limits still surface relevant permitted passages.</p><h2>Name the reference set</h2><p>Approximate nearest-neighbor search trades some exact-neighbor recall for latency and memory behavior. Evaluate it against an exact search over the same eligible documents, query embedding and distance metric. If the exact baseline includes another tenant&#x27;s records, its recall number is meaningless for a permission-filtered product. Apply tenant, revision and document-state filters before ranking, or use an index layout whose filtering semantics are proven. <a href=\"/retrieval-ai/corpus-permissions-and-document-lifecycle\">Access policy</a> is a hard eligibility rule.</p><h2>Test selective filters</h2><p>A broad tenant with millions of passages and a small tenant with 47 passages may exercise different search paths. Some engines prefilter the graph; others use postfiltering or adaptive methods. Postfiltering the global top K can return zero permitted results even when a perfect permitted answer exists just outside K. Ask the engine what it actually does, then test the behavior. A filter that removes forbidden hits after they have already entered prompt assembly is too late.</p><h2>Separate relevance from system recall</h2><p>Measure exact top-K overlap to quantify approximation loss, then judge whether answer-bearing passages remain in the candidate pool. A candidate can differ from the exact top K yet still answer the question; conversely, excellent vector overlap can miss a literal error code. Compare by tenant size, filter selectivity, language and document length. <a href=\"/retrieval-ai/hybrid-search-and-reciprocal-rank-fusion\">Hybrid retrieval</a> can recover some exact-token cases but is not a repair for access leakage.</p><h2>Set a latency budget with an exit</h2><p>Tune search breadth and K on a fixed judged set while measuring p50 and p95 latency. Keep a limit on vector comparisons, rerank candidates and total response time. When filtered ANN returns too few candidates, a bounded exact fallback may be reasonable for a small eligible set. Do not retry forever with a larger global K: that raises cost and can still miss the allowed island. Record when fallback runs, so an index regression is not hidden by the safety net.</p><h2>Worked contract</h2><pre><code class=\"language-python\">def recall_at_k(returned_ids: list[str], exact_ids: list[str], k: int) -&gt; float:\n    if k &lt; 1 or len(exact_ids) &lt; k:\n        raise ValueError(&quot;invalid recall cutoff&quot;)\n    permitted_reference = set(exact_ids[:k])\n    return len(set(returned_ids[:k]) &amp; permitted_reference) / k\n\nexact_permitted = [&quot;west-r8-p4&quot;, &quot;west-r8-p9&quot;, &quot;west-r8-p2&quot;]\nann_permitted = [&quot;west-r8-p4&quot;, &quot;west-r8-p2&quot;, &quot;west-r8-p11&quot;]\nassert recall_at_k(ann_permitted, exact_permitted, 3) == 2 / 3\n\ndef allowed_candidates(candidates: list[dict], tenant_id: str) -&gt; list[dict]:\n    return [passage for passage in candidates if passage[&quot;tenant_id&quot;] == tenant_id\n            and passage[&quot;state&quot;] == &quot;active&quot;]\n\nassert allowed_candidates([{&quot;tenant_id&quot;: &quot;west&quot;, &quot;state&quot;: &quot;active&quot;},\n                           {&quot;tenant_id&quot;: &quot;east&quot;, &quot;state&quot;: &quot;active&quot;}], &quot;west&quot;) == [\n                               {&quot;tenant_id&quot;: &quot;west&quot;, &quot;state&quot;: &quot;active&quot;}]</code></pre><h2>Performance and operating cost</h2><p>An exact scan costs O(Nd) distance work for N eligible d-dimensional vectors; an ANN index aims to reduce query work but adds build time, memory and tuning. The filter check shown costs O(K) over returned candidates and does not replace index-side authorization. Report recall and latency together at the production filter distribution.</p><h3>Common Mistakes</h3><ul><li>Computing ANN recall against a reference set that includes forbidden documents.</li><li>Postfiltering only the global top K and calling an empty result a true no-answer.</li><li>Treating vector-neighbor overlap as answer-bearing passage recall.</li><li>Using an unbounded retry or exact fallback on a large tenant.</li></ul><h2>Validation drill</h2><p>Create a large and a small tenant with overlapping language. Compare exact and ANN top-8 within each tenant, then revoke one document and prove it cannot appear in candidates, reranker inputs or citations.</p><h2>Read next</h2><ul><li><a href=\"/retrieval-ai/embedding-space-version-and-migration\">Embedding migrations: keep query and document vectors in one space</a></li><li><a href=\"/retrieval-ai/hybrid-search-and-reciprocal-rank-fusion\">Hybrid retrieval: fuse exact terms and semantic candidates by rank</a></li><li><a href=\"/retrieval-ai/retrieval-release-evaluation-and-slice-gates\">Retrieval release gates: evaluate slices before changing an index</a></li><li><a href=\"/deep-learning/retrieval-index-version-and-candidate-parity\">Retrieval index versions, eligibility filters and candidate parity</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/vector-quantization-recall-and-exact-reranking\">Vector compression: spend memory without losing the answer</a></li></ul><h2>Continue this retrieval path</h2><ul><li><a href=\"/retrieval-ai/hnsw-candidate-budgets-and-ann-recall-curves\">HNSW retrieval: candidate budgets, graph cost and recall curves</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "retrieval-ai",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "retrieval-ai",
+      "tutorial"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 8419,
+    "status": "published",
+    "published_at": "2026-10-07T14:45:02.452377+00:00",
+    "created_at": "2026-10-07T14:45:02.452377+00:00",
+    "updated_at": "2026-10-07T17:21:48.568808+00:00",
+    "data": {
+      "subject_root": "retrieval-ai/retrieval-ai-tutorial",
+      "section_path": "retrieval-ai/retrieval-ai-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 6,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Executable standard-library example and editorial review",
+      "related": [
+        {
+          "path": "retrieval-ai/embedding-space-version-and-migration",
+          "title": "Embedding migrations: keep query and document vectors in one space"
+        },
+        {
+          "path": "retrieval-ai/hybrid-search-and-reciprocal-rank-fusion",
+          "title": "Hybrid retrieval: fuse exact terms and semantic candidates by rank"
+        },
+        {
+          "path": "retrieval-ai/retrieval-release-evaluation-and-slice-gates",
+          "title": "Retrieval release gates: evaluate slices before changing an index"
+        },
+        {
+          "path": "deep-learning/retrieval-index-version-and-candidate-parity",
+          "title": "Retrieval index versions, eligibility filters and candidate parity"
+        },
+        {
+          "path": "retrieval-ai/vector-quantization-recall-and-exact-reranking",
+          "title": "Vector compression: spend memory without losing the answer"
+        },
+        {
+          "path": "retrieval-ai/hnsw-candidate-budgets-and-ann-recall-curves",
+          "title": "HNSW retrieval: candidate budgets, graph cost and recall curves"
+        }
+      ]
+    }
+  }
+]

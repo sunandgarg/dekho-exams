@@ -1,0 +1,1412 @@
+[
+  {
+    "id": "0ec67828-11d9-5a30-87ea-c65b6907e915",
+    "type": "article",
+    "path": "data-engineering/compaction-retention-and-replay-horizon",
+    "title": "Compaction, retention and the replay horizon",
+    "summary": "Compaction rewrites small or fragmented files into fewer files; retention decides when old snapshots and their unreferenced files may be removed.",
+    "body": "<p>Compaction rewrites small or fragmented files into fewer files; retention decides when old snapshots and their unreferenced files may be removed.</p><h2>Name the reason to compact</h2><p>A stream writing 2,400 five-kilobyte files per hour can spend more time opening files than scanning rows. Bin-packing them into larger files lowers open and planning overhead. It does not reduce the logical row count or repair duplicate records. Measure file count, average compressed size, query planning time, and bytes rewritten before scheduling the job.</p><h2>Separate a rewrite from publication</h2><p>A compactor writes replacement files, validates row totals and key-level checksums, and commits a new snapshot that swaps file references. Readers pinned to the older snapshot keep seeing the old files. A failed rewrite must leave old references intact. <a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Snapshot commits</a> provide this isolation; deleting files as soon as the replacement is written does not.</p><h2>Set retention from real dependencies</h2><p>A month-end audit may need a snapshot from 35 days ago even when routine dashboards need only a week. A delayed CDC replay may need source logs, original raw records, schemas, and the table snapshot that formed its input. List each recovery and audit requirement, then set retention to the longest required horizon plus operational margin. <a href=\"/data-engineering/cdc-replay-and-deletes\">CDC replay</a> fails if its earliest necessary source position has expired.</p><h2>Prove cleanup safety</h2><p>Old snapshots can reference files still needed by pinned readers, rollback plans, or branches. First expire eligible references according to the table&#x27;s retention rules; then remove only orphan files that no live reference can reach, after a delay that covers in-flight writes. Keep a dry-run manifest and deletion count. Mistaking a candidate write for an orphan is a data-loss event.</p><h2>Watch write amplification</h2><p>Compacting every partition on every ingest batch repeatedly rewrites the same bytes. Target partitions whose file count or average size crosses a measured threshold. A hot partition may need scheduled compaction after its late-arrival window closes. <a href=\"/data-engineering/partition-planning-and-skew\">Skew diagnostics</a> identify partitions that deserve separate treatment.</p><h2>Implementation</h2><pre><code class=\"language-python\">files = [\n    {&quot;name&quot;: &quot;day47-a&quot;, &quot;day&quot;: 47, &quot;bytes&quot;: 28_000},\n    {&quot;name&quot;: &quot;day47-b&quot;, &quot;day&quot;: 47, &quot;bytes&quot;: 34_000},\n    {&quot;name&quot;: &quot;day48-a&quot;, &quot;day&quot;: 48, &quot;bytes&quot;: 156_000},\n]\n\ndef compaction_candidates(manifest, min_file_bytes=50_000):\n    by_day = {}\n    for item in manifest:\n        if item[&quot;bytes&quot;] &lt; min_file_bytes:\n            by_day.setdefault(item[&quot;day&quot;], []).append(item[&quot;name&quot;])\n    return {day: names for day, names in by_day.items() if len(names) &gt; 1}\n\nassert compaction_candidates(files) == {47: [&quot;day47-a&quot;, &quot;day47-b&quot;]}</code></pre><h2>Performance and operating cost</h2><p>Scanning F file summaries is O(F) time and O(P + C) memory for P candidate partitions and C candidate files. A real rewrite costs read and write I/O for every selected byte. Excessive compaction trades query savings for higher storage and compute bills.</p><h3>Common Mistakes</h3><ul><li>Do not delete old files before all retained snapshots stop referring to them.</li><li>Do not compact on a timer without checking file sizes and write amplification.</li><li>Do not set retention shorter than replay, audit, or rollback requirements.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/parquet-row-groups-and-column-pruning\">Parquet row groups, projection and scan cost</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/partition-planning-and-skew\">Partition planning, pruning and skew</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li><li><a href=\"/data-engineering/cdc-replay-and-deletes\">Change data capture: apply updates and deletes by source order</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/delete-file-amplification-and-compaction\">Delete-file amplification and compaction</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7824,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/parquet-row-groups-and-column-pruning",
+          "title": "Parquet row groups, projection and scan cost"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/partition-planning-and-skew",
+          "title": "Partition planning, pruning and skew"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        },
+        {
+          "path": "data-engineering/versioned-order-lake-release-project",
+          "title": "Project: release a versioned order lake"
+        },
+        {
+          "path": "data-engineering/cdc-replay-and-deletes",
+          "title": "Change data capture: apply updates and deletes by source order"
+        },
+        {
+          "path": "data-engineering/delete-file-amplification-and-compaction",
+          "title": "Delete-file amplification and compaction"
+        }
+      ]
+    }
+  },
+  {
+    "id": "4aa4a19e-f0c1-5d8a-b3ba-6783958493e8",
+    "type": "article",
+    "path": "data-engineering/data-classification-and-access-boundaries",
+    "title": "Data classification and access boundaries",
+    "summary": "Classification labels data by sensitivity and allowed use; access boundaries turn those labels into enforceable permissions at each pipeline stage.",
+    "body": "<p>Classification labels data by sensitivity and allowed use; access boundaries turn those labels into enforceable permissions at each pipeline stage.</p><h2>Classify the fields actually stored</h2><p>A payments pipeline may carry account ID, merchant ID, card token, postal code and derived risk score. Classify raw values, joinable pseudonyms and aggregates separately. A hashed account ID may still identify someone when the mapping is available or the input space is small. Record the purpose, retention and authorized readers for every sensitive field, not only the table name.</p><h2>Keep raw and serving zones distinct</h2><p>Landing stores the minimum source payload needed for replay under restricted roles. Transformation workers receive only the fields needed for their task; an analytics mart publishes approved columns and aggregates. <a href=\"/data-engineering/source-contract-and-raw-landing\">Raw landing</a> should not become a broad query playground. Limit export, temporary tables, logs and failed-record queues too, since those paths often copy sensitive values.</p><h2>Bind permission to identity and purpose</h2><p>Grant access to service identities and named job roles, then map human users to reviewed groups. Avoid shared credentials that erase accountability. A pipeline operator may need to inspect health and row counts without reading full payment identifiers. A data steward may approve a new use but should not have to run the compute job. Separation makes incident review possible.</p><h2>Propagate labels through derivations</h2><p>A joined table inherits the sensitivity of its inputs unless the derivation provably removes it for the authorized use. Small group counts can reveal an individual even when direct identifiers are absent. Keep lineage from source fields to output fields, and require a new access review when a new join or export makes previously separate attributes linkable. <a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Lineage</a> provides the dependency map.</p><h2>Verify denial as well as approval</h2><p>Test that an approved report role can read its aggregate, that an analyst role cannot read raw account IDs, and that an operations role sees logs with values redacted. Record which identity ran the test and which policy version applied. A permission policy is incomplete until the denied paths are exercised.</p><h2>Implementation</h2><pre><code class=\"language-python\">FIELD_POLICY = {\n    &quot;account_id&quot;: {&quot;class&quot;: &quot;restricted&quot;, &quot;roles&quot;: {&quot;risk_service&quot;}},\n    &quot;merchant_region&quot;: {&quot;class&quot;: &quot;internal&quot;, &quot;roles&quot;: {&quot;risk_service&quot;, &quot;analyst&quot;}},\n    &quot;daily_count&quot;: {&quot;class&quot;: &quot;aggregate&quot;, &quot;roles&quot;: {&quot;risk_service&quot;, &quot;analyst&quot;}},\n}\n\ndef permitted_fields(role, requested):\n    denied = [name for name in requested if role not in FIELD_POLICY[name][&quot;roles&quot;]]\n    if denied:\n        raise PermissionError(&quot;requested fields exceed role policy&quot;)\n    return requested\n\nassert permitted_fields(&quot;analyst&quot;, [&quot;merchant_region&quot;, &quot;daily_count&quot;])\ntry:\n    permitted_fields(&quot;analyst&quot;, [&quot;account_id&quot;])\nexcept PermissionError:\n    pass\nelse:\n    raise AssertionError(&quot;restricted field was exposed&quot;)</code></pre><h2>Performance and operating cost</h2><p>A set-membership check takes O(F) time for F requested fields and O(F) policy metadata. Real access controls add identity lookup, policy evaluation, audit writes and possibly query rewriting. Denying an unauthorized scan early is cheaper than filtering sensitive records after they have already moved to a less trusted stage.</p><h3>Common Mistakes</h3><ul><li>Do not treat a hash as automatically anonymous.</li><li>Do not forget logs, exports and quarantine tables when classifying data.</li><li>Do not rely on a role name without testing both allowed and denied queries.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/regional-data-boundary-and-egress-gates\">Regional data boundaries and egress gates</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/tenant-query-budgets-and-fairness\">Tenant query budgets and fairness</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/lineage-metadata-minimization\">Lineage metadata minimization and access</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7865,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        },
+        {
+          "path": "data-engineering/source-contract-and-raw-landing",
+          "title": "Data source contracts: preserve raw records before transformation"
+        },
+        {
+          "path": "data-engineering/regional-data-boundary-and-egress-gates",
+          "title": "Regional data boundaries and egress gates"
+        },
+        {
+          "path": "data-engineering/tenant-query-budgets-and-fairness",
+          "title": "Tenant query budgets and fairness"
+        },
+        {
+          "path": "data-engineering/lineage-metadata-minimization",
+          "title": "Lineage metadata minimization and access"
+        }
+      ]
+    }
+  },
+  {
+    "id": "0b3a6048-ae60-5c15-b799-5c385e461318",
+    "type": "subject",
+    "path": "data-engineering/data-engineering-tutorial",
+    "title": "Data Engineering Tutorial",
+    "summary": "Build replayable data products with explicit event contracts, atomic tables, governed access and tested recovery.",
+    "body": "<p>Build replayable data products with explicit event contracts, atomic tables, governed access and tested recovery.</p><h2>Learning path</h2><ul><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li><li><a href=\"/data-engineering/incremental-watermark-and-ties\">Incremental extraction: advance a compound watermark without losing ties</a></li><li><a href=\"/data-engineering/cdc-replay-and-deletes\">Change data capture: apply updates and deletes by source order</a></li><li><a href=\"/data-engineering/idempotent-load-and-checkpoint\">Idempotent loads: commit target rows and extraction progress together</a></li><li><a href=\"/data-engineering/event-time-and-late-arrivals\">Event time and late arrivals: close windows with an explicit correction policy</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-engineering/warehouse-history-asof-join\">Warehouse history: join facts to the dimension version valid at event time</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li><li><a href=\"/data-engineering/receipt-pipeline-replay-project\">Project: build a replayable receipt pipeline with an atomic publish gate</a></li></ul><h2>Connected foundation</h2><p>Bring the earlier analysis and evaluation contracts into this subject.</p><ul><li><a href=\"/data-science/data-science-for-beginners\">Data Science for Beginners</a></li><li><a href=\"/data-science/reproducible-analysis-snapshot\">Reproducible analysis snapshots: pin data, code and cutoff together</a></li></ul><h2>Practice</h2><p>Complete the project with its failure-case evidence.</p><ul><li><a href=\"/data-engineering/data-engineering-tutorial/project\">Data Engineering: Projects</a></li></ul><p><strong>Continue into another subject:</strong> <a href=\"/streaming-analytics/streaming-analytics-tutorial\">Streaming Analytics Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/feature-stores/feature-stores-tutorial\">Feature Stores Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/knowledge-graphs/knowledge-graphs-tutorial\">Knowledge Graphs Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/synthetic-data/synthetic-data-tutorial\">Synthetic Data &amp; Simulation Tutorial</a>.</p><h2>Storage contracts and table design</h2><ul><li><a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">Schema compatibility and consumer rollout</a></li><li><a href=\"/data-engineering/parquet-row-groups-and-column-pruning\">Parquet row groups, projection and scan cost</a></li><li><a href=\"/data-engineering/partition-planning-and-skew\">Partition planning, pruning and skew</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li></ul><h2>Versioned order-lake release project</h2><ul><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li></ul><h2>Orchestration and production operations</h2><ul><li><a href=\"/data-engineering/dag-intervals-and-idempotent-tasks\">DAG intervals and idempotent task outputs</a></li><li><a href=\"/data-engineering/dependency-readiness-and-source-freshness\">Dependency readiness and source freshness</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li><li><a href=\"/data-engineering/failure-classification-and-retry-budget\">Failure classification and retry budgets</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul><h2>Daily billing operations project</h2><ul><li><a href=\"/data-engineering/billing-pipeline-operations-project\">Project: operate a daily billing pipeline</a></li></ul><h2>Distributed execution and data movement</h2><ul><li><a href=\"/data-engineering/shuffle-boundaries-and-local-combiners\">Shuffle boundaries and local combiners</a></li><li><a href=\"/data-engineering/broadcast-join-and-build-side-limits\">Broadcast joins and build-side limits</a></li><li><a href=\"/data-engineering/skewed-keys-and-salted-aggregation\">Skewed keys and salted aggregation</a></li><li><a href=\"/data-engineering/task-retries-and-atomic-partition-output\">Task retries and atomic partition output</a></li></ul><h2>Distributed invoice rollup</h2><ul><li><a href=\"/data-engineering/distributed-invoice-rollup-project\">Project: release a distributed invoice rollup</a></li></ul><h2>Warehouse models and metric contracts</h2><ul><li><a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain and measure additivity</a></li><li><a href=\"/data-engineering/conformed-dimensions-and-surrogate-keys\">Conformed dimensions and surrogate keys</a></li><li><a href=\"/data-engineering/late-arriving-dimensions-and-fact-repair\">Late-arriving dimensions and fact repair</a></li><li><a href=\"/data-engineering/semantic-metric-contract-and-reconciliation\">Semantic metric contracts and reconciliation</a></li></ul><h2>Revenue mart release</h2><ul><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li></ul><h2>Streaming state and recovery</h2><ul><li><a href=\"/data-engineering/keyed-state-checkpoints-and-recovery\">Keyed state, checkpoints and recovery</a></li><li><a href=\"/data-engineering/watermark-retention-and-late-corrections\">Watermark retention and late corrections</a></li><li><a href=\"/data-engineering/stream-table-join-and-reference-versions\">Stream-table joins and reference versions</a></li><li><a href=\"/data-engineering/stream-backpressure-and-catch-up-budget\">Stream backpressure and catch-up budget</a></li></ul><h2>Streaming risk ledger</h2><ul><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li></ul><h2>Governance, access and cost</h2><ul><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a></li><li><a href=\"/data-engineering/pipeline-cost-attribution-and-right-sizing\">Pipeline cost attribution and right-sizing</a></li></ul><h2>Governed customer mart</h2><ul><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li></ul><h2>Event contracts and concurrent tables</h2><ul><li><a href=\"/data-engineering/schema-registry-transitive-compatibility\">Schema registry and transitive compatibility</a></li><li><a href=\"/data-engineering/event-envelope-identity-and-tombstones\">Event envelopes, identity and tombstones</a></li><li><a href=\"/data-engineering/optimistic-table-commits-and-conflicts\">Optimistic table commits and write conflicts</a></li></ul><h2>Order event migration</h2><ul><li><a href=\"/data-engineering/order-event-migration-project\">Project: migrate an order event contract safely</a></li></ul><h2>Regional recovery and query serving</h2><ul><li><a href=\"/data-engineering/data-pipeline-rpo-rto-and-replication-lag\">Pipeline RPO, RTO and replication lag</a></li><li><a href=\"/data-engineering/failover-writer-fencing-and-source-positions\">Failover writer fencing and source positions</a></li><li><a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a></li></ul><h2>Regional analytics recovery</h2><ul><li><a href=\"/data-engineering/regional-analytics-recovery-project\">Project: recover a regional analytics mart</a></li></ul><h2>Runtime lineage and incident evidence</h2><ul><li><a href=\"/data-engineering/run-scoped-lineage-and-release-evidence\">Run-scoped lineage and release evidence</a></li><li><a href=\"/data-engineering/telemetry-correlation-and-cardinality-budget\">Telemetry correlation and cardinality budgets</a></li></ul><h2>Incident evidence project</h2><ul><li><a href=\"/data-engineering/revenue-incident-evidence-project\">Project: trace a missing revenue slice to one release</a></li></ul><h2>Residency and replica erasure</h2><ul><li><a href=\"/data-engineering/regional-data-boundary-and-egress-gates\">Regional data boundaries and egress gates</a></li><li><a href=\"/data-engineering/replica-version-erasure-and-restore-guard\">Replica version erasure and restore guards</a></li></ul><h2>Replica erasure project</h2><ul><li><a href=\"/data-engineering/replica-erasure-proof-project\">Project: prove erasure after a regional restore</a></li></ul><h2>Statistical quality and correction windows</h2><ul><li><a href=\"/data-engineering/cohort-baselines-and-denominator-drift\">Cohort baselines and denominator drift</a></li><li><a href=\"/data-engineering/correction-aware-quality-alerts\">Correction-aware quality alerts</a></li></ul><h2>Quality release project</h2><ul><li><a href=\"/data-engineering/payment-quality-release-project\">Project: gate a payment mart on quality evidence</a></li></ul><h2>Query admission and tenant isolation</h2><ul><li><a href=\"/data-engineering/query-admission-queues-and-deadlines\">Query admission queues and deadlines</a></li><li><a href=\"/data-engineering/tenant-query-budgets-and-fairness\">Tenant query budgets and fairness</a></li></ul><h2>Burst isolation project</h2><ul><li><a href=\"/data-engineering/analytics-burst-isolation-project\">Project: protect analytics reads during a tenant burst</a></li></ul><h2>Online schema migration and historical repair</h2><ul><li><a href=\"/data-engineering/expand-contract-schema-migration\">Expand-contract schema migration</a></li><li><a href=\"/data-engineering/migration-reconciliation-and-cutover\">Migration reconciliation and cutover gates</a></li></ul><h2>Schema cutover project</h2><ul><li><a href=\"/data-engineering/payment-schema-cutover-project\">Project: migrate a live payment amount contract</a></li></ul><h2>Materialized views and freshness budgets</h2><ul><li><a href=\"/data-engineering/materialized-view-refresh-strategies\">Materialized view refresh strategies</a></li><li><a href=\"/data-engineering/refresh-lag-and-cost-budget\">Refresh lag and cost budgets</a></li></ul><h2>View refresh project</h2><ul><li><a href=\"/data-engineering/store-day-view-refresh-project\">Project: keep a store-day view within its freshness budget</a></li></ul><h2>Delete-file maintenance and snapshot safety</h2><ul><li><a href=\"/data-engineering/delete-file-amplification-and-compaction\">Delete-file amplification and compaction</a></li><li><a href=\"/data-engineering/snapshot-safe-delete-rewrite\">Snapshot-safe delete rewrites</a></li></ul><h2>Delete maintenance project</h2><ul><li><a href=\"/data-engineering/order-lake-delete-maintenance-project\">Project: reduce delete overhead without breaking old snapshots</a></li></ul><h2>Aggregate privacy and lineage access</h2><ul><li><a href=\"/data-engineering/small-group-suppression-and-release-grain\">Small-group suppression and release grain</a></li><li><a href=\"/data-engineering/lineage-metadata-minimization\">Lineage metadata minimization and access</a></li></ul><h2>Private metrics project</h2><ul><li><a href=\"/data-engineering/regional-metrics-privacy-release-project\">Project: release regional metrics without exposing small groups</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7600,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Source and replay",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "data-engineering/source-contract-and-raw-landing",
+            "data-engineering/incremental-watermark-and-ties",
+            "data-engineering/cdc-replay-and-deletes",
+            "data-engineering/idempotent-load-and-checkpoint"
+          ]
+        },
+        {
+          "title": "Time, quality and publication",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "data-engineering/event-time-and-late-arrivals",
+            "data-engineering/quality-quarantine-and-reconciliation",
+            "data-engineering/warehouse-history-asof-join",
+            "data-engineering/backfill-publication-boundary"
+          ]
+        },
+        {
+          "title": "Storage contracts and table design",
+          "summary": "A connected release path from contract to verified operation.",
+          "lessons": [
+            "data-engineering/schema-compatibility-and-consumer-rollout",
+            "data-engineering/parquet-row-groups-and-column-pruning",
+            "data-engineering/partition-planning-and-skew",
+            "data-engineering/lakehouse-snapshot-and-atomic-commit",
+            "data-engineering/compaction-retention-and-replay-horizon",
+            "data-engineering/deletion-propagation-and-erasure-proof"
+          ]
+        },
+        {
+          "title": "Orchestration and production operations",
+          "summary": "A connected release path from contract to verified operation.",
+          "lessons": [
+            "data-engineering/dag-intervals-and-idempotent-tasks",
+            "data-engineering/dependency-readiness-and-source-freshness",
+            "data-engineering/pipeline-lineage-and-impact-analysis",
+            "data-engineering/pipeline-slos-and-error-budgets",
+            "data-engineering/failure-classification-and-retry-budget",
+            "data-engineering/replay-manifest-and-audit-trail"
+          ]
+        },
+        {
+          "title": "Distributed execution and data movement",
+          "summary": "Run the implementation and failure checks before the project.",
+          "lessons": [
+            "data-engineering/shuffle-boundaries-and-local-combiners",
+            "data-engineering/broadcast-join-and-build-side-limits",
+            "data-engineering/skewed-keys-and-salted-aggregation",
+            "data-engineering/task-retries-and-atomic-partition-output"
+          ]
+        },
+        {
+          "title": "Warehouse models and metric contracts",
+          "summary": "Run the implementation and failure checks before the project.",
+          "lessons": [
+            "data-engineering/fact-grain-and-measure-additivity",
+            "data-engineering/conformed-dimensions-and-surrogate-keys",
+            "data-engineering/late-arriving-dimensions-and-fact-repair",
+            "data-engineering/semantic-metric-contract-and-reconciliation"
+          ]
+        },
+        {
+          "title": "Streaming state and recovery",
+          "summary": "Work through the failure and release checks, then complete the project.",
+          "lessons": [
+            "data-engineering/keyed-state-checkpoints-and-recovery",
+            "data-engineering/watermark-retention-and-late-corrections",
+            "data-engineering/stream-table-join-and-reference-versions",
+            "data-engineering/stream-backpressure-and-catch-up-budget"
+          ]
+        },
+        {
+          "title": "Governance, access and cost",
+          "summary": "Work through the failure and release checks, then complete the project.",
+          "lessons": [
+            "data-engineering/data-classification-and-access-boundaries",
+            "data-engineering/row-policy-and-column-mask-tests",
+            "data-engineering/dataset-ownership-and-change-approval",
+            "data-engineering/pipeline-cost-attribution-and-right-sizing"
+          ]
+        },
+        {
+          "title": "Event contracts and concurrent tables",
+          "summary": "Verify the migration or recovery contract before completing the project.",
+          "lessons": [
+            "data-engineering/schema-registry-transitive-compatibility",
+            "data-engineering/event-envelope-identity-and-tombstones",
+            "data-engineering/optimistic-table-commits-and-conflicts"
+          ]
+        },
+        {
+          "title": "Regional recovery and query serving",
+          "summary": "Verify the migration or recovery contract before completing the project.",
+          "lessons": [
+            "data-engineering/data-pipeline-rpo-rto-and-replication-lag",
+            "data-engineering/failover-writer-fencing-and-source-positions",
+            "data-engineering/serving-index-and-freshness-contract"
+          ]
+        },
+        {
+          "title": "Runtime lineage and incident evidence",
+          "summary": "Follow the evidence chain, then test the release gate.",
+          "lessons": [
+            "data-engineering/run-scoped-lineage-and-release-evidence",
+            "data-engineering/telemetry-correlation-and-cardinality-budget"
+          ]
+        },
+        {
+          "title": "Residency and replica erasure",
+          "summary": "Follow the evidence chain, then test the release gate.",
+          "lessons": [
+            "data-engineering/regional-data-boundary-and-egress-gates",
+            "data-engineering/replica-version-erasure-and-restore-guard"
+          ]
+        },
+        {
+          "title": "Statistical quality and correction windows",
+          "summary": "Check the failure boundary, then complete the release exercise.",
+          "lessons": [
+            "data-engineering/cohort-baselines-and-denominator-drift",
+            "data-engineering/correction-aware-quality-alerts"
+          ]
+        },
+        {
+          "title": "Query admission and tenant isolation",
+          "summary": "Check the failure boundary, then complete the release exercise.",
+          "lessons": [
+            "data-engineering/query-admission-queues-and-deadlines",
+            "data-engineering/tenant-query-budgets-and-fairness"
+          ]
+        },
+        {
+          "title": "Online schema migration and historical repair",
+          "summary": "Check the failure boundary, then complete the release exercise.",
+          "lessons": [
+            "data-engineering/expand-contract-schema-migration",
+            "data-engineering/migration-reconciliation-and-cutover"
+          ]
+        },
+        {
+          "title": "Materialized views and freshness budgets",
+          "summary": "Check the failure boundary, then complete the release exercise.",
+          "lessons": [
+            "data-engineering/materialized-view-refresh-strategies",
+            "data-engineering/refresh-lag-and-cost-budget"
+          ]
+        },
+        {
+          "title": "Delete-file maintenance and snapshot safety",
+          "summary": "Check the failure boundary, then complete the release exercise.",
+          "lessons": [
+            "data-engineering/delete-file-amplification-and-compaction",
+            "data-engineering/snapshot-safe-delete-rewrite"
+          ]
+        },
+        {
+          "title": "Aggregate privacy and lineage access",
+          "summary": "Check the failure boundary, then complete the release exercise.",
+          "lessons": [
+            "data-engineering/small-group-suppression-and-release-grain",
+            "data-engineering/lineage-metadata-minimization"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "data-engineering/receipt-pipeline-replay-project",
+            "data-engineering/versioned-order-lake-release-project",
+            "data-engineering/billing-pipeline-operations-project",
+            "data-engineering/distributed-invoice-rollup-project",
+            "data-engineering/revenue-mart-release-project",
+            "data-engineering/streaming-risk-ledger-project",
+            "data-engineering/governed-customer-mart-project",
+            "data-engineering/order-event-migration-project",
+            "data-engineering/regional-analytics-recovery-project",
+            "data-engineering/revenue-incident-evidence-project",
+            "data-engineering/replica-erasure-proof-project",
+            "data-engineering/payment-quality-release-project",
+            "data-engineering/analytics-burst-isolation-project",
+            "data-engineering/payment-schema-cutover-project",
+            "data-engineering/store-day-view-refresh-project",
+            "data-engineering/order-lake-delete-maintenance-project",
+            "data-engineering/regional-metrics-privacy-release-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Data Engineering",
+          "path": "data-engineering/data-engineering-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "data-engineering/data-engineering-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "c712b504-52c2-5860-ba39-b408de5247cb",
+    "type": "subject",
+    "path": "data-engineering/data-engineering-tutorial/project",
+    "title": "Data Engineering: Projects",
+    "summary": "A checked project for the Data Engineering curriculum.",
+    "body": "<p>Build and review a complete Data Engineering project.</p><h2>Project brief</h2><ul><li><a href=\"/data-engineering/receipt-pipeline-replay-project\">Project: build a replayable receipt pipeline with an atomic publish gate</a></li></ul><h2>Required concepts</h2><ul><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li><li><a href=\"/data-engineering/incremental-watermark-and-ties\">Incremental extraction: advance a compound watermark without losing ties</a></li><li><a href=\"/data-engineering/cdc-replay-and-deletes\">Change data capture: apply updates and deletes by source order</a></li><li><a href=\"/data-engineering/idempotent-load-and-checkpoint\">Idempotent loads: commit target rows and extraction progress together</a></li><li><a href=\"/data-engineering/event-time-and-late-arrivals\">Event time and late arrivals: close windows with an explicit correction policy</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-engineering/warehouse-history-asof-join\">Warehouse history: join facts to the dimension version valid at event time</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li></ul><h2>Completion standard</h2><p>Submit inputs, runnable work, measured output, failure-case results and a short decision note.</p><h2>Versioned order-lake release project</h2><ul><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li></ul><h2>Daily billing operations project</h2><ul><li><a href=\"/data-engineering/billing-pipeline-operations-project\">Project: operate a daily billing pipeline</a></li></ul><h2>Distributed invoice rollup</h2><ul><li><a href=\"/data-engineering/distributed-invoice-rollup-project\">Project: release a distributed invoice rollup</a></li></ul><h2>Revenue mart release</h2><ul><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li></ul><h2>Streaming risk ledger</h2><ul><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li></ul><h2>Governed customer mart</h2><ul><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li></ul><h2>Order event migration</h2><ul><li><a href=\"/data-engineering/order-event-migration-project\">Project: migrate an order event contract safely</a></li></ul><h2>Regional analytics recovery</h2><ul><li><a href=\"/data-engineering/regional-analytics-recovery-project\">Project: recover a regional analytics mart</a></li></ul><h2>Runtime lineage and incident evidence</h2><ul><li><a href=\"/data-engineering/revenue-incident-evidence-project\">Project: trace a missing revenue slice to one release</a></li></ul><h2>Residency and replica erasure</h2><ul><li><a href=\"/data-engineering/replica-erasure-proof-project\">Project: prove erasure after a regional restore</a></li></ul><h2>Statistical quality and correction windows</h2><ul><li><a href=\"/data-engineering/payment-quality-release-project\">Project: gate a payment mart on quality evidence</a></li></ul><h2>Query admission and tenant isolation</h2><ul><li><a href=\"/data-engineering/analytics-burst-isolation-project\">Project: protect analytics reads during a tenant burst</a></li></ul><h2>Online schema migration and historical repair</h2><ul><li><a href=\"/data-engineering/payment-schema-cutover-project\">Project: migrate a live payment amount contract</a></li></ul><h2>Materialized views and freshness budgets</h2><ul><li><a href=\"/data-engineering/store-day-view-refresh-project\">Project: keep a store-day view within its freshness budget</a></li></ul><h2>Delete-file maintenance and snapshot safety</h2><ul><li><a href=\"/data-engineering/order-lake-delete-maintenance-project\">Project: reduce delete overhead without breaking old snapshots</a></li></ul><h2>Aggregate privacy and lineage access</h2><ul><li><a href=\"/data-engineering/regional-metrics-privacy-release-project\">Project: release regional metrics without exposing small groups</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7601,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Projects",
+          "lessons": [
+            "data-engineering/receipt-pipeline-replay-project",
+            "data-engineering/versioned-order-lake-release-project",
+            "data-engineering/billing-pipeline-operations-project",
+            "data-engineering/distributed-invoice-rollup-project",
+            "data-engineering/revenue-mart-release-project",
+            "data-engineering/streaming-risk-ledger-project",
+            "data-engineering/governed-customer-mart-project",
+            "data-engineering/order-event-migration-project",
+            "data-engineering/regional-analytics-recovery-project",
+            "data-engineering/revenue-incident-evidence-project",
+            "data-engineering/replica-erasure-proof-project",
+            "data-engineering/payment-quality-release-project",
+            "data-engineering/analytics-burst-isolation-project",
+            "data-engineering/payment-schema-cutover-project",
+            "data-engineering/store-day-view-refresh-project",
+            "data-engineering/order-lake-delete-maintenance-project",
+            "data-engineering/regional-metrics-privacy-release-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Data Engineering",
+          "path": "data-engineering/data-engineering-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "data-engineering/data-engineering-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "c0190749-beb8-5682-afd6-f4fa3c026c3d",
+    "type": "article",
+    "path": "data-engineering/delete-file-amplification-and-compaction",
+    "title": "Delete-file amplification and compaction",
+    "summary": "A lakehouse delete can avoid rewriting a large data file immediately, but accumulated delete metadata raises planning and read cost until maintenance catches up.",
+    "body": "<p>A lakehouse delete can avoid rewriting a large data file immediately, but accumulated delete metadata raises planning and read cost until maintenance catches up.</p><h2>Distinguish logical removal from rewritten data</h2><p>A reader may combine live data files with position deletes, equality deletes or a table-specific deletion bitmap. The row disappears from the current query, yet the original bytes can remain in older files and snapshots. Do not treat a successful row-level query as physical erasure. <a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Erasure proof</a> must examine retention and every copy separately.</p><h2>Count work at the query boundary</h2><p>One tiny delete file per transaction can make a scan open hundreds of objects before producing a few rows. Track applicable delete-file count, delete bytes, changed-row density, data-file size and query latency by partition. A table-wide average hides a hot partition. Run the same query before and after maintenance; file count alone is a proxy, not the user-facing outcome.</p><h2>Choose the narrowest rewrite</h2><p>If the data files are well sized but delete files are fragmented, compact compatible delete files without rewriting unaffected data. If many rows in a data file are deleted, rewrite that data file with surviving rows and publish a new snapshot. Preserve the delete applicability rules and sequence ordering; combining incompatible generations can resurrect a row or erase a newer insert.</p><h2>Schedule by benefit and budget</h2><p>Estimate bytes read, bytes written, metadata operations and expected scan reduction for each candidate partition. Prefer the hottest high-amplification partitions under a daily I/O budget. A low-traffic historical partition may safely wait. Coordinate maintenance with ingestion so repeated rewrites do not chase each new small batch; <a href=\"/data-engineering/compaction-retention-and-replay-horizon\">retention policy</a> determines when old files may finally be removed.</p><h2>Prove the post-commit state</h2><p>Commit replacement files and metadata as one snapshot, then compare visible keys and control totals before moving consumers. A failed rewrite must leave the old snapshot queryable. Check readers pinned to older snapshots before deleting physical files. Measure query p95 after the commit and record whether the predicted benefit materialized; otherwise the scheduler may spend more than it saves.</p><h2>Implementation</h2><pre><code class=\"language-python\">partitions = [\n    {&quot;name&quot;: &quot;orders-west&quot;, &quot;data_mb&quot;: 384, &quot;delete_files&quot;: 47, &quot;reads_per_day&quot;: 260},\n    {&quot;name&quot;: &quot;orders-archive&quot;, &quot;data_mb&quot;: 512, &quot;delete_files&quot;: 6, &quot;reads_per_day&quot;: 2},\n]\n\ndef maintenance_priority(partition):\n    return partition[&quot;delete_files&quot;] * partition[&quot;reads_per_day&quot;] / partition[&quot;data_mb&quot;]\n\nranked = sorted(partitions, key=maintenance_priority, reverse=True)\nassert ranked[0][&quot;name&quot;] == &quot;orders-west&quot;\nassert maintenance_priority(ranked[0]) &gt; maintenance_priority(ranked[1])</code></pre><h2>Performance and operating cost</h2><p>Ranking P partitions costs O(P log P) time and O(P) space in this reference. Actual rewrite cost is dominated by bytes read and written, while every retained snapshot adds metadata and storage pressure. A cheap delete-file merge can reduce open overhead without reclaiming deleted row bytes; a data-file rewrite costs more but may reduce both scan work and later delete handling.</p><h3>Common Mistakes</h3><ul><li>Do not infer physical erasure from a current-snapshot query.</li><li>Do not merge delete metadata across incompatible sequence boundaries.</li><li>Do not rewrite every partition on the same fixed schedule without measuring read benefit.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/snapshot-safe-delete-rewrite\">Snapshot-safe delete rewrites</a></li><li><a href=\"/data-engineering/order-lake-delete-maintenance-project\">Project: reduce delete overhead without breaking old snapshots</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7900,
+    "status": "published",
+    "published_at": "2026-10-06T07:28:54.783939+00:00",
+    "created_at": "2026-10-06T07:28:54.783939+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/compaction-retention-and-replay-horizon",
+          "title": "Compaction, retention and the replay horizon"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/snapshot-safe-delete-rewrite",
+          "title": "Snapshot-safe delete rewrites"
+        },
+        {
+          "path": "data-engineering/order-lake-delete-maintenance-project",
+          "title": "Project: reduce delete overhead without breaking old snapshots"
+        }
+      ]
+    }
+  },
+  {
+    "id": "10fa6a7d-0dfc-58f9-9c24-50f43a8c2d50",
+    "type": "article",
+    "path": "data-engineering/deletion-propagation-and-erasure-proof",
+    "title": "Deletion propagation and erasure proof",
+    "summary": "A deletion request is complete only when every authorized serving path stops returning the subject and the remaining retained copies follow a defined erasure schedule.",
+    "body": "<p>A deletion request is complete only when every authorized serving path stops returning the subject and the remaining retained copies follow a defined erasure schedule.</p><h2>Inventory the copies</h2><p>One customer identifier may appear in a raw event log, current customer table, warehouse history, feature snapshot, search index, export, and backup. Deleting only the primary table leaves other paths readable. Maintain a dataset inventory with owner, purpose, key format, retention, deletion method, and verification query. <a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Lineage</a> helps find descendants, but untracked manual exports need a separate inventory.</p><h2>Distinguish logical and physical removal</h2><p>A table delete may mark rows invisible in the current snapshot while their bytes remain in old files or snapshots until rewrite and retention cleanup. That can satisfy an immediate serving requirement, but physical erasure requires additional work. Define which guarantees apply to live queries, time travel, raw storage, caches, and backups; do not treat one SQL DELETE as proof for all of them.</p><h2>Track an erasure job</h2><p>Assign a request ID and normalized subject key, then record every target dataset, attempted operation, completion state, and evidence timestamp. Deduplicate repeated requests. A transient failure in one downstream index should remain visible and retryable, while already completed targets should not be reinserted from an old backfill. <a href=\"/data-engineering/backfill-publication-boundary\">Backfill publication</a> must consult the active deletion ledger.</p><h2>Verify through production readers</h2><p>Run the same queries and API reads that users and internal jobs use, pinned to the post-delete snapshot where applicable. Check the current table, historical views, and downstream serving stores. A count of zero in one warehouse table is insufficient if a cached endpoint still returns the customer. For backups that cannot be modified in place, record expiry and require reapplication of the ledger during restore.</p><h2>Prevent reappearance</h2><p>Keep tombstones or a suppression ledger long enough that delayed CDC, retries, and raw replay cannot recreate the subject. Treat a create event older than the deletion boundary as stale. If the business legitimately creates a new account with the same identifier, define a new entity epoch; otherwise key reuse can make the suppression rule ambiguous.</p><h2>Implementation</h2><pre><code class=\"language-python\">deletion_ledger = {&quot;cust-47&quot;: 131}\nevents = [\n    {&quot;customer&quot;: &quot;cust-47&quot;, &quot;source_position&quot;: 128, &quot;kind&quot;: &quot;upsert&quot;},\n    {&quot;customer&quot;: &quot;cust-83&quot;, &quot;source_position&quot;: 129, &quot;kind&quot;: &quot;upsert&quot;},\n]\n\ndef publishable_events(records, tombstones):\n    return [record for record in records\n            if record[&quot;customer&quot;] not in tombstones]\n\nassert [record[&quot;customer&quot;] for record in publishable_events(events, deletion_ledger)] == [&quot;cust-83&quot;]</code></pre><h2>Performance and operating cost</h2><p>Filtering N events against a hashed ledger is O(N) expected time and O(N) output space; ledger storage grows with active suppression keys. Full physical erasure can require rewriting files and waiting through backup retention. The code demonstrates a replay barrier, not a substitute for authorization or legal retention policy.</p><h3>Common Mistakes</h3><ul><li>Do not call a logical table delete physical erasure.</li><li>Do not let backfills ignore the deletion ledger.</li><li>Do not claim completion from one table query when caches or exports remain.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/cdc-replay-and-deletes\">Change data capture: apply updates and deletes by source order</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li><li><a href=\"/privacy-aware-ml/privacy-aware-ml-tutorial\">Privacy-Aware ML Tutorial</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/replica-version-erasure-and-restore-guard\">Replica version erasure and restore guards</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/delete-file-amplification-and-compaction\">Delete-file amplification and compaction</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7825,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/cdc-replay-and-deletes",
+          "title": "Change data capture: apply updates and deletes by source order"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/compaction-retention-and-replay-horizon",
+          "title": "Compaction, retention and the replay horizon"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/versioned-order-lake-release-project",
+          "title": "Project: release a versioned order lake"
+        },
+        {
+          "path": "privacy-aware-ml/privacy-aware-ml-tutorial",
+          "title": "Privacy-Aware ML Tutorial"
+        },
+        {
+          "path": "data-engineering/replica-version-erasure-and-restore-guard",
+          "title": "Replica version erasure and restore guards"
+        },
+        {
+          "path": "data-engineering/delete-file-amplification-and-compaction",
+          "title": "Delete-file amplification and compaction"
+        }
+      ]
+    }
+  },
+  {
+    "id": "a220620c-2cd7-5ff1-844b-4f97bd31f9e9",
+    "type": "article",
+    "path": "data-engineering/fact-grain-and-measure-additivity",
+    "title": "Fact grain and measure additivity",
+    "summary": "A fact grain states what one row represents; a measure is additive only across dimensions where summing preserves its business meaning.",
+    "body": "<p>A fact grain states what one row represents; a measure is additive only across dimensions where summing preserves its business meaning.</p><h2>Declare a row before the schema</h2><p>A payment fact may be one row per captured payment, not per order or customer. An order with two captures must therefore have two payment rows. Store the stable capture ID and test its uniqueness. Joining order lines directly to captures creates a many-to-many multiplication unless each side is reduced to a compatible grain. <a href=\"/data-science/dataset-grain-and-join-cardinality\">Join cardinality</a> is an executable contract.</p><h2>Classify measures by direction</h2><p>Captured cents can be summed across customers and days if corrections and currency are handled consistently. An end-of-day account balance can be summed across accounts for one day, but summing balances across days double-counts the same money; it is semi-additive. A conversion rate is a ratio and cannot be summed at all. Store numerator and denominator at a clear grain.</p><h2>Separate transactions from snapshots</h2><p>An event fact records that something happened at a time. A periodic snapshot records state at a cutoff. Mixing them in one table invites a dashboard to add balances to transaction amounts. If both are needed, publish separate fact tables with distinct names, keys and time columns. <a href=\"/data-engineering/replay-manifest-and-audit-trail\">The run manifest</a> should name the cutoff for each snapshot.</p><h2>Handle corrections explicitly</h2><p>A captured payment may later be reversed. Choose whether the fact contains a signed reversal event or a mutable current status, and define how finance totals use it. A silent overwrite can make last month change with no trace. A new correcting event retains the transaction trail but demands a clear netting rule. <a href=\"/data-engineering/cdc-replay-and-deletes\">CDC</a> carries the source mutation; the mart defines its analytical meaning.</p><h2>Prove totals at two grains</h2><p>Reconcile source captures to fact rows by capture ID, then aggregate fact cents by day and compare with the authorized ledger for the same cutoff and currency. Test a split capture, a reversal and a zero-activity day. A row-count match alone cannot detect duplicated amounts or wrong signs.</p><h2>Implementation</h2><pre><code class=\"language-python\">captures = [\n    {&quot;capture_id&quot;: &quot;cap-47&quot;, &quot;order_id&quot;: &quot;ord-9&quot;, &quot;day&quot;: 47, &quot;cents&quot;: 4200},\n    {&quot;capture_id&quot;: &quot;cap-48&quot;, &quot;order_id&quot;: &quot;ord-9&quot;, &quot;day&quot;: 47, &quot;cents&quot;: 1700},\n    {&quot;capture_id&quot;: &quot;rev-49&quot;, &quot;order_id&quot;: &quot;ord-9&quot;, &quot;day&quot;: 48, &quot;cents&quot;: -900},\n]\n\ndef net_cents_by_day(rows):\n    if len({row[&quot;capture_id&quot;] for row in rows}) != len(rows):\n        raise ValueError(&quot;capture grain violated&quot;)\n    totals = {}\n    for row in rows:\n        totals[row[&quot;day&quot;]] = totals.get(row[&quot;day&quot;], 0) + row[&quot;cents&quot;]\n    return totals\n\nassert net_cents_by_day(captures) == {47: 5900, 48: -900}</code></pre><h2>Performance and operating cost</h2><p>One pass over N captures takes O(N) expected time and O(D + N) memory for D days plus the uniqueness set. Warehouse aggregation may push this work into the query engine, but a badly chosen grain creates incorrect results regardless of compute speed.</p><h3>Common Mistakes</h3><ul><li>Do not sum periodic balances across dates.</li><li>Do not join facts at incompatible grains without a cardinality rule.</li><li>Do not call a rate an additive fact or average rates without denominators.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/conformed-dimensions-and-surrogate-keys\">Conformed dimensions and surrogate keys</a></li><li><a href=\"/data-engineering/late-arriving-dimensions-and-fact-repair\">Late-arriving dimensions and fact repair</a></li><li><a href=\"/data-engineering/semantic-metric-contract-and-reconciliation\">Semantic metric contracts and reconciliation</a></li><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li><li><a href=\"/data-science/dataset-grain-and-join-cardinality\">Dataset grain and join cardinality: protect the unit of analysis</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/cohort-baselines-and-denominator-drift\">Cohort baselines and denominator drift</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/materialized-view-refresh-strategies\">Materialized view refresh strategies</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/small-group-suppression-and-release-grain\">Small-group suppression and release grain</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7845,
+    "status": "published",
+    "published_at": "2026-10-06T05:28:49.615773+00:00",
+    "created_at": "2026-10-06T05:28:49.615773+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/conformed-dimensions-and-surrogate-keys",
+          "title": "Conformed dimensions and surrogate keys"
+        },
+        {
+          "path": "data-engineering/late-arriving-dimensions-and-fact-repair",
+          "title": "Late-arriving dimensions and fact repair"
+        },
+        {
+          "path": "data-engineering/semantic-metric-contract-and-reconciliation",
+          "title": "Semantic metric contracts and reconciliation"
+        },
+        {
+          "path": "data-engineering/revenue-mart-release-project",
+          "title": "Project: release a reconciled revenue mart"
+        },
+        {
+          "path": "data-science/dataset-grain-and-join-cardinality",
+          "title": "Dataset grain and join cardinality: protect the unit of analysis"
+        },
+        {
+          "path": "data-engineering/cohort-baselines-and-denominator-drift",
+          "title": "Cohort baselines and denominator drift"
+        },
+        {
+          "path": "data-engineering/materialized-view-refresh-strategies",
+          "title": "Materialized view refresh strategies"
+        },
+        {
+          "path": "data-engineering/small-group-suppression-and-release-grain",
+          "title": "Small-group suppression and release grain"
+        }
+      ]
+    }
+  },
+  {
+    "id": "509e306b-c1ee-5847-b8a7-57c2e72ce668",
+    "type": "article",
+    "path": "data-engineering/governed-customer-mart-project",
+    "title": "Project: release a governed customer mart",
+    "summary": "Release a customer analytics mart with declared field sensitivity, tested row policies, named approvals and measurable cost per published row.",
+    "body": "<p>Release a customer analytics mart with declared field sensitivity, tested row policies, named approvals and measurable cost per published row.</p><h2>Specify the product boundary</h2><p>The mart has one row per customer and reporting day, with region, eligible-order count and net captured cents. Raw landing retains namespaced customer IDs under a restricted role; analysts see regional aggregates and masked tokens. Record field classifications, allowed uses, retention, consumer roles and the business owner before creating the serving view.</p><h2>Build and reconcile the release</h2><p>Pin source snapshots, deduplicate captures by stable ID, resolve the dimension version valid at event time and aggregate at the declared grain. Reconcile source and mart cents by day, then publish one immutable snapshot. <a href=\"/data-engineering/fact-grain-and-measure-additivity\">Grain rules</a> prevent capture multiplication. Keep quarantine counts and unresolved customer keys visible to the operator.</p><h2>Test permissions as consumers</h2><p>Query the actual serving view as north-region analyst, west-region analyst, finance service and an unauthorized identity. Assert exact allowed row IDs, masked token values and denied access to raw landing. Try a join and export path available to each role. <a href=\"/data-engineering/row-policy-and-column-mask-tests\">Policy tests</a> must fail when a new sensitive field appears without an explicit allowlist decision.</p><h2>Approve and cost the change</h2><p>Introduce a new postal-zone field and run classification review before exposing it. The business owner approves its meaning; the steward and security approver decide access. Compare old and new output on the same input and retain a rollback pointer. Attribute compute attempts, storage generations and validation scans to this release, then report cost per accepted million rows.</p><h2>Deliver audit evidence</h2><p>Provide the source contract, data classification matrix, role-query transcript, field lineage, signed change record, reconciliation report, cost attribution and snapshot manifest. Simulate a denied analyst query and a failed compute attempt; neither should leak raw data or disappear from the cost ledger. Record who can authorize a repair or rollback.</p><h2>Implementation</h2><pre><code class=\"language-python\">captures = [\n    {&quot;id&quot;: &quot;cap-47&quot;, &quot;customer&quot;: &quot;cust-7&quot;, &quot;region&quot;: &quot;north&quot;, &quot;cents&quot;: 5200},\n    {&quot;id&quot;: &quot;cap-48&quot;, &quot;customer&quot;: &quot;cust-8&quot;, &quot;region&quot;: &quot;west&quot;, &quot;cents&quot;: 1700},\n]\n\ndef regional_mart(rows):\n    identities = set()\n    totals = {}\n    for row in rows:\n        if row[&quot;id&quot;] in identities:\n            raise ValueError(&quot;duplicate capture&quot;)\n        identities.add(row[&quot;id&quot;])\n        totals[row[&quot;region&quot;]] = totals.get(row[&quot;region&quot;], 0) + row[&quot;cents&quot;]\n    return totals\n\nassert regional_mart(captures) == {&quot;north&quot;: 5200, &quot;west&quot;: 1700}</code></pre><h2>Performance and operating cost</h2><p>The reference aggregation takes O(N) expected time and O(N + G) memory for N captures and G regions because it checks identities. Production cost includes versioned joins, access-policy evaluation, release validation, retained snapshots and failed attempts. Report cost against accepted output and keep policy tests in the release gate even when their scans add expense.</p><h3>Common Mistakes</h3><ul><li>Do not publish a new derived identifier before classifying it.</li><li>Do not validate permissions with an administrator account.</li><li>Do not price only the final successful compute attempt.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a></li><li><a href=\"/data-engineering/pipeline-cost-attribution-and-right-sizing\">Pipeline cost attribution and right-sizing</a></li><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/replica-erasure-proof-project\">Project: prove erasure after a regional restore</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/analytics-burst-isolation-project\">Project: protect analytics reads during a tenant burst</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/regional-metrics-privacy-release-project\">Project: release regional metrics without exposing small groups</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7869,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        },
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/dataset-ownership-and-change-approval",
+          "title": "Dataset ownership and change approval"
+        },
+        {
+          "path": "data-engineering/pipeline-cost-attribution-and-right-sizing",
+          "title": "Pipeline cost attribution and right-sizing"
+        },
+        {
+          "path": "data-engineering/revenue-mart-release-project",
+          "title": "Project: release a reconciled revenue mart"
+        },
+        {
+          "path": "data-engineering/serving-index-and-freshness-contract",
+          "title": "Serving indexes and freshness contracts"
+        },
+        {
+          "path": "data-engineering/replica-erasure-proof-project",
+          "title": "Project: prove erasure after a regional restore"
+        },
+        {
+          "path": "data-engineering/analytics-burst-isolation-project",
+          "title": "Project: protect analytics reads during a tenant burst"
+        },
+        {
+          "path": "data-engineering/regional-metrics-privacy-release-project",
+          "title": "Project: release regional metrics without exposing small groups"
+        }
+      ]
+    }
+  },
+  {
+    "id": "6c7046ed-1ccf-5b67-9837-0f07583a24ad",
+    "type": "article",
+    "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+    "title": "Table snapshots and atomic publication",
+    "summary": "A table snapshot names one committed set of data and delete files, letting readers observe a complete version while writers prepare the next.",
+    "body": "<p>A table snapshot names one committed set of data and delete files, letting readers observe a complete version while writers prepare the next.</p><h2>Treat files as candidates until commit</h2><p>An order correction may write three new files and retire two old ones. If a reader lists the directory halfway through, it can combine incompatible generations. Instead, write immutable candidate files, validate their row counts and checksums, then commit a new metadata pointer that names exactly the accepted files. <a href=\"/data-engineering/backfill-publication-boundary\">Backfill publication</a> follows the same boundary.</p><h2>Understand conflict detection</h2><p>Two writers can start from snapshot 41 and both prepare updates. A commit protocol must validate whether either writer changed data that the other relied on, then reject or retry a conflicting commit. Blindly replacing the pointer with the last writer&#x27;s manifest loses earlier work. A retry must recalculate against the current snapshot rather than reuse an invalid old read set.</p><h2>Keep reads pinned</h2><p>A report that reads several files should pin a snapshot ID for its whole job. It must not fetch the newest pointer between partitions. Record the snapshot ID with the report and its query version so a later discrepancy can be reproduced. <a href=\"/data-science/reproducible-analysis-snapshot\">Analysis snapshots</a> extend this discipline to code and cutoff time.</p><h2>Account for row-level changes</h2><p>Some table formats represent deletes separately from data files. The reader must apply all delete files valid for its snapshot; a raw Parquet reader that ignores them can expose deleted rows. Deletion file format and applicability vary by table specification, so test through the production engine before claiming the row is gone. <a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Erasure verification</a> must check every reader path.</p><h2>Publish only after checks</h2><p>For a daily order table, compare source count, accepted count, quarantined count, and distinct order keys before commit. If 47 source records become 45 accepted plus two quarantined, that balance is coherent; 44 plus two is not. A failed validation should leave the previous snapshot visible and the candidate files eligible for safe cleanup.</p><h2>Implementation</h2><pre><code class=\"language-python\">snapshots = {41: {&quot;orders-a&quot;, &quot;orders-b&quot;}}\n\ndef commit_snapshot(history, expected_parent, add_files, remove_files):\n    current = max(history)\n    if current != expected_parent:\n        raise RuntimeError(&quot;stale parent snapshot&quot;)\n    old_files = history[current]\n    if not set(remove_files).issubset(old_files):\n        raise ValueError(&quot;remove set not in parent&quot;)\n    next_id = current + 1\n    history[next_id] = (old_files - set(remove_files)) | set(add_files)\n    return next_id\n\nassert commit_snapshot(snapshots, 41, {&quot;orders-c&quot;}, {&quot;orders-a&quot;}) == 42\nassert snapshots[41] == {&quot;orders-a&quot;, &quot;orders-b&quot;}\nassert snapshots[42] == {&quot;orders-b&quot;, &quot;orders-c&quot;}</code></pre><h2>Performance and operating cost</h2><p>The set operation shown costs O(F) time and space for F files in the parent manifest. Real table formats use metadata trees and optimistic commits to avoid copying every file name for every write. Snapshot metadata, conflict retries, and old-file retention add cost in exchange for consistent reads.</p><h3>Common Mistakes</h3><ul><li>Do not expose candidate files through directory listing before commit.</li><li>Do not retry a conflicting write without rechecking its read set.</li><li>Do not read raw data files while ignoring snapshot-specific deletes.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li><li><a href=\"/data-engineering/partition-planning-and-skew\">Partition planning, pruning and skew</a></li><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li><li><a href=\"/data-science/reproducible-analysis-snapshot\">Reproducible analysis snapshots: pin data, code and cutoff together</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/task-retries-and-atomic-partition-output\">Task retries and atomic partition output</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/optimistic-table-commits-and-conflicts\">Optimistic table commits and write conflicts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/snapshot-safe-delete-rewrite\">Snapshot-safe delete rewrites</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7823,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/backfill-publication-boundary",
+          "title": "Backfills: rebuild history without exposing a half-written result"
+        },
+        {
+          "path": "data-engineering/compaction-retention-and-replay-horizon",
+          "title": "Compaction, retention and the replay horizon"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        },
+        {
+          "path": "data-engineering/partition-planning-and-skew",
+          "title": "Partition planning, pruning and skew"
+        },
+        {
+          "path": "data-engineering/versioned-order-lake-release-project",
+          "title": "Project: release a versioned order lake"
+        },
+        {
+          "path": "data-science/reproducible-analysis-snapshot",
+          "title": "Reproducible analysis snapshots: pin data, code and cutoff together"
+        },
+        {
+          "path": "data-engineering/task-retries-and-atomic-partition-output",
+          "title": "Task retries and atomic partition output"
+        },
+        {
+          "path": "data-engineering/optimistic-table-commits-and-conflicts",
+          "title": "Optimistic table commits and write conflicts"
+        },
+        {
+          "path": "data-engineering/snapshot-safe-delete-rewrite",
+          "title": "Snapshot-safe delete rewrites"
+        }
+      ]
+    }
+  },
+  {
+    "id": "8c524196-980b-5ce3-8544-d39a46183e4f",
+    "type": "article",
+    "path": "data-engineering/lineage-metadata-minimization",
+    "title": "Lineage metadata minimization and access",
+    "summary": "Lineage is operational evidence, but raw file paths, partition values and row samples can reveal information even when the data table itself is protected.",
+    "body": "<p>Lineage is operational evidence, but raw file paths, partition values and row samples can reveal information even when the data table itself is protected.</p><h2>Separate graph shape from evidence</h2><p>Most readers need to know that a regional mart depends on orders and exchange rates; they do not need customer IDs, exact object paths or failed-row payloads. Publish dataset- and transform-level edges broadly, then keep run-level versions in a restricted evidence store. <a href=\"/data-engineering/run-scoped-lineage-and-release-evidence\">Runtime lineage</a> remains precise without making every detail visible in the catalog.</p><h2>Classify metadata fields</h2><p>A partition key may contain an account number or small geographic area. A file path can reveal a tenant name. Label fields by sensitivity, not by the fact that they are metadata. Remove or tokenize identifiers before emitting traces and catalog events, and avoid copying sample records into error descriptions. <a href=\"/data-engineering/data-classification-and-access-boundaries\">The classification contract</a> should cover lineage and diagnostic copies.</p><h2>Grant by investigation purpose</h2><p>A general analyst may inspect upstream dataset names and published freshness. An incident responder may temporarily read a run manifest with input generations, while an erasure operator needs deletion evidence. Apply separate roles, retention windows and access logs. A single all-access catalog role makes sensitive metadata available to people who never needed the underlying rows.</p><h2>Preserve joinability safely</h2><p>Use opaque run IDs to connect an alert, trace and restricted manifest. The lookup from opaque ID to sensitive source details belongs behind access control; hashing a predictable customer ID without a secret does not reliably hide it. Keep stable IDs only for the period required to investigate and audit a release. Avoid high-cardinality identifiers in metric labels even when access is restricted.</p><h2>Exercise a failed job</h2><p>Cause a malformed row to fail and inspect every emitted surface: job log, trace, alert, catalog event and support export. None of the broad surfaces should contain the row payload or tenant path. An authorized reviewer must still be able to map the opaque incident key to the restricted evidence and the exact published generation. Record denied access attempts without echoing the protected value.</p><h2>Implementation</h2><pre><code class=\"language-python\">run_manifest = {\n    &quot;run_id&quot;: &quot;run-247&quot;,\n    &quot;dataset&quot;: &quot;regional_sales&quot;,\n    &quot;source_path&quot;: &quot;restricted/tenant-47/orders&quot;,\n    &quot;generation&quot;: 82,\n}\n\ndef catalog_projection(manifest):\n    return {&quot;run_id&quot;: manifest[&quot;run_id&quot;],\n            &quot;dataset&quot;: manifest[&quot;dataset&quot;],\n            &quot;generation&quot;: manifest[&quot;generation&quot;]}\n\npublic_metadata = catalog_projection(run_manifest)\nassert &quot;source_path&quot; not in public_metadata\nassert public_metadata[&quot;generation&quot;] == 82</code></pre><h2>Performance and operating cost</h2><p>Projecting M manifests is O(M) time and O(M) output state; access checks add one policy decision per read. Keeping full evidence in a restricted store has storage and operational cost, but avoids broad catalog exposure. A useful catalog need not replicate every source field. Measure audit retention and lookup frequency before expanding a lineage payload.</p><h3>Common Mistakes</h3><ul><li>Do not assume metadata is nonsensitive because it is not a table row.</li><li>Do not put predictable raw IDs in broadly visible logs or metric labels.</li><li>Do not remove so much evidence that an authorized responder cannot reconstruct a release.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/run-scoped-lineage-and-release-evidence\">Run-scoped lineage and release evidence</a></li><li><a href=\"/data-engineering/telemetry-correlation-and-cardinality-budget\">Telemetry correlation and cardinality budgets</a></li><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/small-group-suppression-and-release-grain\">Small-group suppression and release grain</a></li><li><a href=\"/data-engineering/regional-metrics-privacy-release-project\">Project: release regional metrics without exposing small groups</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7904,
+    "status": "published",
+    "published_at": "2026-10-06T07:28:54.783939+00:00",
+    "created_at": "2026-10-06T07:28:54.783939+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/run-scoped-lineage-and-release-evidence",
+          "title": "Run-scoped lineage and release evidence"
+        },
+        {
+          "path": "data-engineering/telemetry-correlation-and-cardinality-budget",
+          "title": "Telemetry correlation and cardinality budgets"
+        },
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        },
+        {
+          "path": "data-engineering/small-group-suppression-and-release-grain",
+          "title": "Small-group suppression and release grain"
+        },
+        {
+          "path": "data-engineering/regional-metrics-privacy-release-project",
+          "title": "Project: release regional metrics without exposing small groups"
+        }
+      ]
+    }
+  },
+  {
+    "id": "88672188-697d-5be4-b325-382b7cceb934",
+    "type": "article",
+    "path": "data-engineering/optimistic-table-commits-and-conflicts",
+    "title": "Optimistic table commits and write conflicts",
+    "summary": "An optimistic table writer reads a snapshot, prepares new files and attempts an atomic metadata commit; a competing commit may force validation or retry.",
+    "body": "<p>An optimistic table writer reads a snapshot, prepares new files and attempts an atomic metadata commit; a competing commit may force validation or retry.</p><h2>Name the read and write sets</h2><p>A nightly account correction reads account-day rows and replaces the affected partition. A second writer appends new account-day rows. Whether they conflict depends on table isolation and which files or predicates each writer touched. Recording only the target table name is too coarse. <a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Atomic publication</a> makes each successful version visible at once, but does not settle conflicting intentions.</p><h2>Do not blindly replay a failed commit</h2><p>If writer A validates against snapshot 47 while writer B commits snapshot 48 first, A may need to recompute against 48. Reusing A’s old candidate files without checking the new table state can discard B’s rows or violate uniqueness. Distinguish a safe metadata retry from a business transformation that must be rerun. Pin source inputs and record the base snapshot.</p><h2>Keep attempts off the reader path</h2><p>Candidate files are not published merely because they exist. The commit points readers to one accepted metadata generation. An abandoned writer can leave unreferenced files; remove them only after in-flight attempts and rollback windows are ruled out. <a href=\"/data-engineering/task-retries-and-atomic-partition-output\">Task attempt selection</a> handles this lower boundary.</p><h2>Choose a conflict policy by grain</h2><p>Two independent appends to disjoint partitions may both succeed after revalidation. Two updates to the same order version cannot be merged by appending both unless the product explicitly keeps both versions. Define unique keys and affected predicates, then fail or serialize competing changes that alter the same logical row. A retry that silently changes which correction wins is a semantic decision.</p><h2>Exercise concurrent release</h2><p>Start two writers from the same snapshot. Commit the first, force the second to validate against the new metadata, and assert either a correct rebase or an explicit conflict. Verify only one current snapshot pointer, complete files, unchanged unrelated partitions and a manifest naming both attempts. Measure orphan cleanup separately from commit success.</p><h2>Implementation</h2><pre><code class=\"language-python\">table = {&quot;version&quot;: 47, &quot;rows&quot;: {&quot;ord-47&quot;: 4200}}\n\ndef commit_update(current, base_version, order_id, cents):\n    if current[&quot;version&quot;] != base_version:\n        raise RuntimeError(&quot;snapshot changed; recompute before commit&quot;)\n    next_rows = dict(current[&quot;rows&quot;])\n    next_rows[order_id] = cents\n    return {&quot;version&quot;: base_version + 1, &quot;rows&quot;: next_rows}\n\nfirst = commit_update(table, 47, &quot;ord-48&quot;, 1900)\ntry:\n    commit_update(first, 47, &quot;ord-47&quot;, 4300)\nexcept RuntimeError:\n    pass\nelse:\n    raise AssertionError(&quot;stale writer committed&quot;)\nassert first[&quot;rows&quot;] == {&quot;ord-47&quot;: 4200, &quot;ord-48&quot;: 1900}</code></pre><h2>Performance and operating cost</h2><p>The reference copy costs O(K) time and space for K rows; real table formats avoid copying all data by writing changed files and a new metadata tree. Conflict validation adds metadata reads and may force repeated compute. Under contention, the cost of discarded candidate files and recomputation can dominate the small atomic pointer swap.</p><h3>Common Mistakes</h3><ul><li>Do not treat prepared files as committed rows.</li><li>Do not retry a stale business transform without revalidating its read set.</li><li>Do not delete abandoned files while another writer can still reference them.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/task-retries-and-atomic-partition-output\">Task retries and atomic partition output</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/order-event-migration-project\">Project: migrate an order event contract safely</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/snapshot-safe-delete-rewrite\">Snapshot-safe delete rewrites</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7882,
+    "status": "published",
+    "published_at": "2026-10-06T05:58:36.102579+00:00",
+    "created_at": "2026-10-06T05:58:36.102579+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/task-retries-and-atomic-partition-output",
+          "title": "Task retries and atomic partition output"
+        },
+        {
+          "path": "data-engineering/compaction-retention-and-replay-horizon",
+          "title": "Compaction, retention and the replay horizon"
+        },
+        {
+          "path": "data-engineering/order-event-migration-project",
+          "title": "Project: migrate an order event contract safely"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        },
+        {
+          "path": "data-engineering/snapshot-safe-delete-rewrite",
+          "title": "Snapshot-safe delete rewrites"
+        }
+      ]
+    }
+  },
+  {
+    "id": "bd2a8be3-b398-5ead-bd0e-3629cb736246",
+    "type": "article",
+    "path": "data-engineering/order-lake-delete-maintenance-project",
+    "title": "Project: reduce delete overhead without breaking old snapshots",
+    "summary": "Plan a bounded delete-file maintenance run, prove current-row equivalence and keep a retained snapshot readable after publication.",
+    "body": "<p>Plan a bounded delete-file maintenance run, prove current-row equivalence and keep a retained snapshot readable after publication.</p><h2>Create the workload</h2><p>Load 470 order rows into three partitions. Mark 73 rows as deleted through several small delete batches, then create a retained snapshot before maintenance. Give one partition most of the delete files and most of the reader traffic. Record per-partition file counts, scan bytes, query latency and visible totals. <a href=\"/data-engineering/delete-file-amplification-and-compaction\">The priority score</a> should select the hot partition first rather than the largest partition by bytes.</p><h2>Build a bounded plan</h2><p>Set a daily rewrite ceiling of 768 MB and list the selected files, applicable delete generations and expected bytes written. Choose whether merging delete metadata or rewriting data files offers the better read-cost reduction. Name the snapshot and input sequence in the plan. A plan with no budget ceiling can consume capacity needed by ingestion or interactive reads.</p><h2>Inject a concurrent update</h2><p>Start rewriting from snapshot 74, then commit one new order and one delete to the same partition. The first candidate must fail conflict validation or be safely rebased. Retry with the new snapshot and prove that the newer insert is visible while the deleted old row remains absent. <a href=\"/data-engineering/snapshot-safe-delete-rewrite\">Snapshot safety</a> is tested at both the current and retained generations.</p><h2>Validate publication and cleanup</h2><p>Compare current key sets, duplicate counts and amount totals with a pinned pre-rewrite oracle. Query the retained snapshot to show its older answer is still readable. Commit the replacement atomically. Run garbage-collection eligibility checks but leave old files in place while the replay horizon references them; record this as retained storage, not an incomplete maintenance commit.</p><h2>Deliver the evidence</h2><p>Provide the before-and-after file inventory, selection score, I/O budget, conflict trace, retry snapshot, two query outputs, p95 scan latency and cleanup eligibility report. Include a deliberately invalid candidate that omits one delete and show the gate rejecting it. A lower file count without row-equivalence proof is not a successful project result.</p><h2>Implementation</h2><pre><code class=\"language-python\">source = {f&quot;order-{order_number}&quot;: order_number * 25\n          for order_number in range(47, 517)}\ndeleted = {f&quot;order-{order_number}&quot; for order_number in range(47, 120)}\n\ndef current_snapshot(rows, removed):\n    return {key: amount for key, amount in rows.items() if key not in removed}\n\nbefore = current_snapshot(source, deleted)\nafter = current_snapshot(source, deleted)\nassert len(source) == 470\nassert len(before) == 397\nassert before == after</code></pre><h2>Performance and operating cost</h2><p>The reference comparison is O(N) expected time and O(N) state for N orders. The lakehouse exercise also incurs object opens, delete-file scans, candidate writes and one retained snapshot. A bounded maintenance plan controls compute spend; it does not authorize early deletion of files needed by readers pinned to older generations.</p><h3>Common Mistakes</h3><ul><li>Do not select work by file size alone when reader traffic differs.</li><li>Do not publish a candidate that ignores a concurrent commit.</li><li>Do not treat a correct current query as proof that retained snapshots survived.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/delete-file-amplification-and-compaction\">Delete-file amplification and compaction</a></li><li><a href=\"/data-engineering/snapshot-safe-delete-rewrite\">Snapshot-safe delete rewrites</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/optimistic-table-commits-and-conflicts\">Optimistic table commits and write conflicts</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7902,
+    "status": "published",
+    "published_at": "2026-10-06T07:28:54.783939+00:00",
+    "created_at": "2026-10-06T07:28:54.783939+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/delete-file-amplification-and-compaction",
+          "title": "Delete-file amplification and compaction"
+        },
+        {
+          "path": "data-engineering/snapshot-safe-delete-rewrite",
+          "title": "Snapshot-safe delete rewrites"
+        },
+        {
+          "path": "data-engineering/compaction-retention-and-replay-horizon",
+          "title": "Compaction, retention and the replay horizon"
+        },
+        {
+          "path": "data-engineering/optimistic-table-commits-and-conflicts",
+          "title": "Optimistic table commits and write conflicts"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        }
+      ]
+    }
+  },
+  {
+    "id": "de8cdbc1-98f8-58e2-91bd-8419a7c9c882",
+    "type": "article",
+    "path": "data-engineering/regional-data-boundary-and-egress-gates",
+    "title": "Regional data boundaries and egress gates",
+    "summary": "A regional data boundary defines where classified inputs, derived outputs, processing jobs and diagnostic copies may exist; an egress gate checks each movement against that policy.",
+    "body": "<p>A regional data boundary defines where classified inputs, derived outputs, processing jobs and diagnostic copies may exist; an egress gate checks each movement against that policy.</p><h2>Inventory more than the main table</h2><p>A warehouse table may stay in an approved region while query results, temporary spill files, error queues, traces, backups or a disaster-recovery replica cross the boundary. List every storage and processing location in the data product manifest. Attach classification and allowed region set to the dataset, then propagate the restriction to derived data unless an approved transformation changes its classification. <a href=\"/data-engineering/data-classification-and-access-boundaries\">Classification</a> begins the decision; it does not enforce placement.</p><h2>Check movement before bytes move</h2><p>Validate destination region, service purpose, encryption key boundary and recipient authorization before a copy job starts. A nightly transfer that fails a policy check should not create a partial object at the destination. Apply the gate to backfills and emergency failover as well as steady-state replication. <a href=\"/data-engineering/data-pipeline-rpo-rto-and-replication-lag\">Recovery targets</a> cannot be met by silently violating a placement contract.</p><h2>Treat processing as a location</h2><p>A dataset stored in one region can still be processed elsewhere by an export, managed query service or diagnostic tool. Keep the execution location in the release manifest and test the path a real operator uses. An encryption key in an approved region does not by itself prove that plaintext processing stayed there. Distinguish storage, transit, processing and support-access boundaries.</p><h2>Record exceptions with expiry</h2><p>Some products allow de-identified aggregates to leave the source region. State the transformation, re-identification risk, owner approval, receiving region and exception expiry. Reject an exception whose scope is simply all customer data. When the job changes schema or joins a new identifier, rerun classification before reusing the exception.</p><h2>Exercise denied and allowed routes</h2><p>Run a permitted intra-region materialization and a prohibited cross-region export in a test environment. The permitted path should publish one generation with location evidence; the prohibited path should write no destination artifact and emit a policy denial. Inspect backup and error paths too. A policy document without a failing deployment test is only an intention.</p><h2>Implementation</h2><pre><code class=\"language-python\">datasets = {\n    &quot;customer_receipts&quot;: {&quot;classification&quot;: &quot;restricted&quot;, &quot;allowed&quot;: {&quot;region-west&quot;}},\n    &quot;daily_counts&quot;: {&quot;classification&quot;: &quot;aggregate&quot;, &quot;allowed&quot;: {&quot;region-west&quot;, &quot;region-east&quot;}},\n}\n\ndef permit_copy(catalog, dataset_name, destination):\n    if dataset_name not in catalog:\n        raise KeyError(&quot;unclassified dataset&quot;)\n    return destination in catalog[dataset_name][&quot;allowed&quot;]\n\nassert permit_copy(datasets, &quot;daily_counts&quot;, &quot;region-east&quot;)\nassert not permit_copy(datasets, &quot;customer_receipts&quot;, &quot;region-east&quot;)</code></pre><h2>Performance and operating cost</h2><p>The catalog lookup and set membership are O(1) expected time and space per decision, with O(D + P) policy storage for D datasets and P allowed placements. Real gates also check service identities, keys and lineage before transfer; those calls add latency and must fail closed when policy state is unavailable. The cost of regional copies includes network egress, storage and duplicate retention.</p><h3>Common Mistakes</h3><ul><li>Do not check only the primary table while ignoring logs, spill and backup copies.</li><li>Do not treat encryption key location as proof of processing location.</li><li>Do not let an emergency recovery path bypass the egress gate.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/data-pipeline-rpo-rto-and-replication-lag\">Pipeline RPO, RTO and replication lag</a></li><li><a href=\"/data-engineering/replica-version-erasure-and-restore-guard\">Replica version erasure and restore guards</a></li><li><a href=\"/data-engineering/replica-erasure-proof-project\">Project: prove erasure after a regional restore</a></li><li><a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/regional-metrics-privacy-release-project\">Project: release regional metrics without exposing small groups</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7893,
+    "status": "published",
+    "published_at": "2026-10-06T06:45:48.420862+00:00",
+    "created_at": "2026-10-06T06:45:48.420862+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        },
+        {
+          "path": "data-engineering/data-pipeline-rpo-rto-and-replication-lag",
+          "title": "Pipeline RPO, RTO and replication lag"
+        },
+        {
+          "path": "data-engineering/replica-version-erasure-and-restore-guard",
+          "title": "Replica version erasure and restore guards"
+        },
+        {
+          "path": "data-engineering/replica-erasure-proof-project",
+          "title": "Project: prove erasure after a regional restore"
+        },
+        {
+          "path": "data-engineering/dataset-ownership-and-change-approval",
+          "title": "Dataset ownership and change approval"
+        },
+        {
+          "path": "data-engineering/regional-metrics-privacy-release-project",
+          "title": "Project: release regional metrics without exposing small groups"
+        }
+      ]
+    }
+  },
+  {
+    "id": "cdc8968f-60e6-56d9-8349-e3ad18454a40",
+    "type": "article",
+    "path": "data-engineering/regional-metrics-privacy-release-project",
+    "title": "Project: release regional metrics without exposing small groups",
+    "summary": "Build a regional payment summary whose query surface, exports and lineage catalog agree on the same disclosure boundary.",
+    "body": "<p>Build a regional payment summary whose query surface, exports and lineage catalog agree on the same disclosure boundary.</p><h2>Write the release contract</h2><p>Create payment records for several regions and days, including a sparse region with two people making multiple payments. Define the person as the privacy unit and name the permitted region-week output grain. List every consumer: dashboard, CSV export, query API and catalog. <a href=\"/data-engineering/small-group-suppression-and-release-grain\">The group gate</a> must apply to all of them, not only the chart.</p><h2>Build and challenge the aggregate</h2><p>Count distinct people and sum payment amounts for each candidate cell. Set a minimum of five people, suppress the sparse region and test whether any exact parent total reveals its amount through subtraction. If it does, withhold or coarsen that parent as well. Introduce a late correction and rerun the release checks before moving the pointer. A corrected table does not authorize a narrower disclosure.</p><h2>Split broad and restricted lineage</h2><p>Publish dataset dependencies, release generation and opaque run ID in the general catalog. Keep partition paths, tenant mapping and detailed source positions in a restricted manifest. <a href=\"/data-engineering/lineage-metadata-minimization\">Metadata minimization</a> should be visible in a failed-job log and support export too. Grant one incident-responder role temporary access and prove a general analyst is denied the restricted view.</p><h2>Test differencing and replay</h2><p>Publish two adjacent candidate weeks, then see whether subtracting their exact totals isolates a newly added person. Reject or generalize a release that leaks through this path. Replay the same correction and verify the published aggregate does not double count it. Query both the serving API and a cached response after pointer movement; an old cache can disclose an earlier, less protected generation.</p><h2>Submit a proof bundle</h2><p>Provide the privacy-unit definition, approved dimensions, suppressed-cell report, parent-total test, late-correction result, public and restricted lineage projections, role checks, cache result and final consumer query. Show one denied narrow query and one permitted broad query. The exercise is not complete merely because a transformation produced a table with fewer rows.</p><h2>Implementation</h2><pre><code class=\"language-python\">payments = [\n    (&quot;west&quot;, &quot;cust-47&quot;, 2375), (&quot;west&quot;, &quot;cust-48&quot;, 6400),\n    (&quot;west&quot;, &quot;cust-49&quot;, 1250), (&quot;west&quot;, &quot;cust-50&quot;, 3100),\n    (&quot;west&quot;, &quot;cust-51&quot;, 800), (&quot;east&quot;, &quot;cust-52&quot;, 900),\n    (&quot;east&quot;, &quot;cust-52&quot;, 400), (&quot;east&quot;, &quot;cust-53&quot;, 1700),\n]\n\ndef released_totals(records, minimum_people):\n    groups = {}\n    for region, customer_id, cents in records:\n        state = groups.setdefault(region, {&quot;people&quot;: set(), &quot;cents&quot;: 0})\n        state[&quot;people&quot;].add(customer_id)\n        state[&quot;cents&quot;] += cents\n    return {region: state[&quot;cents&quot;] for region, state in groups.items()\n            if len(state[&quot;people&quot;]) &gt;= minimum_people}\n\nassert released_totals(payments, 5) == {&quot;west&quot;: 13925}</code></pre><h2>Performance and operating cost</h2><p>Aggregation is O(N) expected time and O(U + G) state for N payments, U unique people and G groups. Full disclosure testing adds work across all released combinations and versions, not just the current table. A restricted evidence store and dated last-good release add storage, while coarse cells reduce analytical detail. The threshold demonstration is not a formal anonymity guarantee.</p><h3>Common Mistakes</h3><ul><li>Do not count the same person twice because they made multiple payments.</li><li>Do not expose a suppressed amount through a parent total or stale export.</li><li>Do not put tenant paths into a broadly readable lineage catalog.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/small-group-suppression-and-release-grain\">Small-group suppression and release grain</a></li><li><a href=\"/data-engineering/lineage-metadata-minimization\">Lineage metadata minimization and access</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/correction-aware-quality-alerts\">Correction-aware quality alerts</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7905,
+    "status": "published",
+    "published_at": "2026-10-06T07:28:54.783939+00:00",
+    "created_at": "2026-10-06T07:28:54.783939+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/small-group-suppression-and-release-grain",
+          "title": "Small-group suppression and release grain"
+        },
+        {
+          "path": "data-engineering/lineage-metadata-minimization",
+          "title": "Lineage metadata minimization and access"
+        },
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/correction-aware-quality-alerts",
+          "title": "Correction-aware quality alerts"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        }
+      ]
+    }
+  },
+  {
+    "id": "67902066-d6bb-5cc0-8239-c915e4cfbad4",
+    "type": "article",
+    "path": "data-engineering/replay-manifest-and-audit-trail",
+    "title": "Replay manifests and audit trails",
+    "summary": "A replay manifest pins the input positions, dataset versions, code version, interval and output identity needed to rerun or explain a pipeline result.",
+    "body": "<p>A replay manifest pins the input positions, dataset versions, code version, interval and output identity needed to rerun or explain a pipeline result.</p><h2>Capture the actual inputs</h2><p>A day-47 billing run reads source snapshot 41, exchange-rate snapshot 12 and source positions 900 through 1,147. Record those identifiers at execution, not just the logical table names. If the upstream table changes next week, &#x27;rerun day 47&#x27; without a pinned version does not reproduce the original result. <a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Snapshot identity</a> anchors file-based tables.</p><h2>Record transformation identity</h2><p>Store the code commit or artifact digest, configuration version, schema versions and execution parameters. Secrets do not belong in the manifest. A retry with the same manifest should produce the same canonical output checksum; a deliberate correction should create a new manifest and link to the superseded run.</p><h2>Represent counts and decisions</h2><p>For each stage, record extracted, accepted, quarantined, deleted and published counts at a declared grain. A source count of 1,147 with 1,139 accepted, six quarantined and two deletion events can reconcile if those categories partition the source events; explain that arithmetic in the contract. <a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Reconciliation</a> should fail before publication when counts do not balance.</p><h2>Tie manifests to lineage</h2><p>The manifest records a run&#x27;s exact inputs and output. The lineage graph connects that output to later consumers. Together they answer which reports used a bad exchange-rate version and which input should be replayed. <a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Impact analysis</a> walks this graph, then the manifests select the precise intervals.</p><h2>Protect the audit record</h2><p>Write manifests immutably or version them with a tamper-evident digest, restrict who can amend them, and retain them at least as long as their associated data and audit requirement. A manifest that names expired source data cannot guarantee replay; keep retention schedules aligned. Document a forward repair when exact replay is impossible, rather than calling a reconstruction identical.</p><h2>Implementation</h2><pre><code class=\"language-python\">import hashlib\nimport json\n\nrun_manifest = {\n    &quot;interval&quot;: [47, 48], &quot;source_snapshot&quot;: &quot;snap-41&quot;,\n    &quot;rate_snapshot&quot;: &quot;rates-12&quot;, &quot;source_positions&quot;: [900, 1147],\n    &quot;code_digest&quot;: &quot;billing-v3&quot;, &quot;output_snapshot&quot;: &quot;snap-42&quot;,\n}\n\ndef manifest_digest(manifest):\n    canonical = json.dumps(manifest, sort_keys=True, separators=(&quot;,&quot;, &quot;:&quot;))\n    return hashlib.sha256(canonical.encode()).hexdigest()\n\nassert manifest_digest(run_manifest) == manifest_digest(dict(reversed(list(run_manifest.items()))))</code></pre><h2>Performance and operating cost</h2><p>Canonical serialization and hashing cost O(B) time and space for B manifest bytes. The larger operational cost is retaining addressable input versions and connecting manifests to published outputs. A digest detects change; it does not prove the source data was truthful.</p><h3>Common Mistakes</h3><ul><li>Do not store only table names when exact snapshots or offsets determine the result.</li><li>Do not put credentials or raw sensitive payloads in a manifest.</li><li>Do not promise replay after the source retention horizon has passed.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/dag-intervals-and-idempotent-tasks\">DAG intervals and idempotent task outputs</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li><li><a href=\"/data-engineering/billing-pipeline-operations-project\">Project: operate a daily billing pipeline</a></li><li><a href=\"/data-science/reproducible-analysis-snapshot\">Reproducible analysis snapshots: pin data, code and cutoff together</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/data-pipeline-rpo-rto-and-replication-lag\">Pipeline RPO, RTO and replication lag</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/run-scoped-lineage-and-release-evidence\">Run-scoped lineage and release evidence</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/payment-schema-cutover-project\">Project: migrate a live payment amount contract</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/order-lake-delete-maintenance-project\">Project: reduce delete overhead without breaking old snapshots</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7832,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/dag-intervals-and-idempotent-tasks",
+          "title": "DAG intervals and idempotent task outputs"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        },
+        {
+          "path": "data-engineering/backfill-publication-boundary",
+          "title": "Backfills: rebuild history without exposing a half-written result"
+        },
+        {
+          "path": "data-engineering/billing-pipeline-operations-project",
+          "title": "Project: operate a daily billing pipeline"
+        },
+        {
+          "path": "data-science/reproducible-analysis-snapshot",
+          "title": "Reproducible analysis snapshots: pin data, code and cutoff together"
+        },
+        {
+          "path": "data-engineering/revenue-mart-release-project",
+          "title": "Project: release a reconciled revenue mart"
+        },
+        {
+          "path": "data-engineering/data-pipeline-rpo-rto-and-replication-lag",
+          "title": "Pipeline RPO, RTO and replication lag"
+        },
+        {
+          "path": "data-engineering/run-scoped-lineage-and-release-evidence",
+          "title": "Run-scoped lineage and release evidence"
+        },
+        {
+          "path": "data-engineering/payment-schema-cutover-project",
+          "title": "Project: migrate a live payment amount contract"
+        },
+        {
+          "path": "data-engineering/order-lake-delete-maintenance-project",
+          "title": "Project: reduce delete overhead without breaking old snapshots"
+        }
+      ]
+    }
+  },
+  {
+    "id": "22cc3150-2866-5190-9150-0fb3d7298580",
+    "type": "article",
+    "path": "data-engineering/row-policy-and-column-mask-tests",
+    "title": "Row policy and column mask tests",
+    "summary": "A row policy limits which records an identity can read; a column mask changes the value it sees, so both need tests at the consumer query boundary.",
+    "body": "<p>A row policy limits which records an identity can read; a column mask changes the value it sees, so both need tests at the consumer query boundary.</p><h2>State the intended visibility</h2><p>A regional support analyst may see only customers assigned to their region, with account token masked. A finance service may read all regions but only the aggregate billing amount. Write this as an identity-by-field matrix, including null and unknown region cases. An unassigned customer should not become visible merely because the policy comparison returns an unexpected null value.</p><h2>Test through the same query path</h2><p>A unit test of a masking expression cannot prove the BI connection, view ownership and role mapping apply it. Execute representative SELECTs as each real role against the published view. Verify allowed row IDs, denied row IDs and exact masked values. Then try a join, export and materialized copy if those paths are available to the role.</p><h2>Guard policy inputs</h2><p>If an administrator can edit the analyst-to-region mapping, that mapping is part of the security boundary. Version it, review changes and test a user moved between regions. Default-deny when membership is absent or ambiguous. A policy that reads a mutable lookup can produce different historical query results; retain audit evidence of the mapping used.</p><h2>Account for derived exposure</h2><p>Masking a direct account token is insufficient if a combination of postal code, event time and rare merchant makes the person identifiable. Review derived columns and small cohorts under the same classification rules. <a href=\"/data-engineering/data-classification-and-access-boundaries\">The classification contract</a> decides which joins and exports are allowed, while the row and mask policies enforce the resulting boundary.</p><h2>Recheck after schema changes</h2><p>Adding a new sensitive column can bypass an explicit mask list if the view uses wildcard selection. Require an allowlist of exposed fields and run policy tests as part of the release gate. Confirm that an authorized role still sees the values it needs; over-masking can break operations and create unsafe workarounds.</p><h2>Implementation</h2><pre><code class=\"language-python\">customers = [\n    {&quot;id&quot;: &quot;cust-47&quot;, &quot;region&quot;: &quot;north&quot;, &quot;token&quot;: &quot;tok-4731&quot;},\n    {&quot;id&quot;: &quot;cust-83&quot;, &quot;region&quot;: &quot;west&quot;, &quot;token&quot;: &quot;tok-8394&quot;},\n]\n\ndef support_view(rows, assigned_region):\n    return [{&quot;id&quot;: row[&quot;id&quot;], &quot;region&quot;: row[&quot;region&quot;], &quot;token&quot;: &quot;[masked]&quot;}\n            for row in rows if assigned_region is not None\n            and row[&quot;region&quot;] == assigned_region]\n\nassert support_view(customers, &quot;north&quot;) == [\n    {&quot;id&quot;: &quot;cust-47&quot;, &quot;region&quot;: &quot;north&quot;, &quot;token&quot;: &quot;[masked]&quot;}]\nassert support_view(customers, None) == []</code></pre><h2>Performance and operating cost</h2><p>A full in-memory scan is O(N) time and O(R) output for N rows and R authorized rows. A database may push row filters into indexed access, but complex policy functions can prevent pruning or add per-row work. Benchmark the authorized query plan without weakening the policy, and test the actual database role rather than only this reference function.</p><h3>Common Mistakes</h3><ul><li>Do not test masking only through an administrator connection.</li><li>Do not make unknown region membership mean all regions.</li><li>Do not expose newly added columns through wildcard views.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a></li><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/regional-analytics-recovery-project\">Project: recover a regional analytics mart</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/tenant-query-budgets-and-fairness\">Tenant query budgets and fairness</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/small-group-suppression-and-release-grain\">Small-group suppression and release grain</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7866,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        },
+        {
+          "path": "data-engineering/dataset-ownership-and-change-approval",
+          "title": "Dataset ownership and change approval"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        },
+        {
+          "path": "data-engineering/regional-analytics-recovery-project",
+          "title": "Project: recover a regional analytics mart"
+        },
+        {
+          "path": "data-engineering/tenant-query-budgets-and-fairness",
+          "title": "Tenant query budgets and fairness"
+        },
+        {
+          "path": "data-engineering/small-group-suppression-and-release-grain",
+          "title": "Small-group suppression and release grain"
+        }
+      ]
+    }
+  },
+  {
+    "id": "987789b5-a56d-5ef5-bfbd-60bcc640474c",
+    "type": "article",
+    "path": "data-engineering/run-scoped-lineage-and-release-evidence",
+    "title": "Run-scoped lineage and release evidence",
+    "summary": "Run-scoped lineage records the exact input and output generations used by one execution, rather than only a planned table dependency.",
+    "body": "<p>Run-scoped lineage records the exact input and output generations used by one execution, rather than only a planned table dependency.</p><h2>Distinguish design from execution</h2><p>A planned DAG says that the revenue job reads orders and rates. It cannot prove which order snapshot or rate revision produced a specific published total. Record a run ID, code release, named input generations, output generation and final status for every publish attempt. <a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Static lineage</a> still helps estimate impact, but runtime evidence answers what actually happened.</p><h2>Capture the committed boundary</h2><p>An attempt may read data, write candidate files and then fail. Its lineage is useful for debugging, yet it must not be labelled as the lineage of a published dataset. Attach the output generation only after the atomic commit succeeds. Keep failed attempts under their own run IDs. A consumer should be able to follow the current table pointer to one successful run and then to its exact inputs.</p><h2>Avoid false many-to-many edges</h2><p>A job that reads customer and invoice tables may write separate customer and invoice summaries. Treating every input as the parent of every output invents dependencies. Capture edges at the output or transform level, including filtered partitions when practical. If the implementation cannot prove a column-level edge, label it as unknown rather than presenting an inferred edge as certain.</p><h2>Preserve identity across retries</h2><p>A retry of the same interval is a new attempt under a stable logical run key. Pin source generations or record that inputs changed before retry; otherwise two attempts with the same scheduled time can calculate different answers. <a href=\"/data-engineering/replay-manifest-and-audit-trail\">The replay manifest</a> should retain both attempts and name the winning publication. This also makes a rollback reviewable.</p><h2>Query backward from an answer</h2><p>Given a suspicious dashboard total, start with its serving generation, find the table snapshot and successful run, then inspect input versions and source positions. Test the chain with a deliberately failed attempt between two successful releases: the failed candidate must appear in diagnostics but never in the published answer. Keep access controls on lineage metadata because identifiers and partition values can reveal sensitive activity.</p><h2>Implementation</h2><pre><code class=\"language-python\">runs = [\n    {&quot;id&quot;: &quot;run-71&quot;, &quot;status&quot;: &quot;failed&quot;, &quot;inputs&quot;: (&quot;orders-47&quot;, &quot;rates-8&quot;), &quot;output&quot;: None},\n    {&quot;id&quot;: &quot;run-72&quot;, &quot;status&quot;: &quot;committed&quot;, &quot;inputs&quot;: (&quot;orders-48&quot;, &quot;rates-8&quot;), &quot;output&quot;: &quot;revenue-49&quot;},\n]\n\ndef published_parents(releases, output_generation):\n    matches = [run for run in releases if run[&quot;output&quot;] == output_generation\n               and run[&quot;status&quot;] == &quot;committed&quot;]\n    if len(matches) != 1:\n        raise ValueError(&quot;output has no unique committed run&quot;)\n    return matches[0][&quot;inputs&quot;]\n\nassert published_parents(runs, &quot;revenue-49&quot;) == (&quot;orders-48&quot;, &quot;rates-8&quot;)</code></pre><h2>Performance and operating cost</h2><p>The direct lookup above scans R runs in O(R) time and stores O(R) records. Indexing committed output generation reduces expected lookup to O(1), while recording partition or column edges increases metadata volume. Retain evidence at least as long as the snapshots and audit period it must explain; sampling away successful release events destroys the proof chain.</p><h3>Common Mistakes</h3><ul><li>Do not label a failed candidate as the parent of a published snapshot.</li><li>Do not infer all-to-all edges from a multi-input, multi-output job.</li><li>Do not identify a run solely by its scheduled timestamp.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li><li><a href=\"/data-engineering/telemetry-correlation-and-cardinality-budget\">Telemetry correlation and cardinality budgets</a></li><li><a href=\"/data-engineering/revenue-incident-evidence-project\">Project: trace a missing revenue slice to one release</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/correction-aware-quality-alerts\">Correction-aware quality alerts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/lineage-metadata-minimization\">Lineage metadata minimization and access</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7890,
+    "status": "published",
+    "published_at": "2026-10-06T06:45:48.420862+00:00",
+    "created_at": "2026-10-06T06:45:48.420862+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        },
+        {
+          "path": "data-engineering/telemetry-correlation-and-cardinality-budget",
+          "title": "Telemetry correlation and cardinality budgets"
+        },
+        {
+          "path": "data-engineering/revenue-incident-evidence-project",
+          "title": "Project: trace a missing revenue slice to one release"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/correction-aware-quality-alerts",
+          "title": "Correction-aware quality alerts"
+        },
+        {
+          "path": "data-engineering/lineage-metadata-minimization",
+          "title": "Lineage metadata minimization and access"
+        }
+      ]
+    }
+  },
+  {
+    "id": "1922f0ad-c9a5-59d4-9ceb-5bb6cada562d",
+    "type": "article",
+    "path": "data-engineering/small-group-suppression-and-release-grain",
+    "title": "Small-group suppression and release grain",
+    "summary": "An aggregate can expose a person when its released group is too narrow or when another published total lets a reader subtract a hidden group.",
+    "body": "<p>An aggregate can expose a person when its released group is too narrow or when another published total lets a reader subtract a hidden group.</p><h2>Name the privacy unit</h2><p>A customer may make several transactions. Counting rows instead of distinct customers makes a small group look safer than it is. Define the privacy unit and the smallest combination of dimensions that a consumer may query. A region-day-channel cube is far more revealing than a region-month rollup, even when both report the same overall revenue. <a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain</a> must be separate from the release grain.</p><h2>Set a minimum cohort rule</h2><p>Require a minimum distinct-person count for each released cell and suppress cells below it. State whether totals that include suppressed cells can also be released. A single suppressed cell can be recovered by subtracting visible child cells from an exact parent total. Test the full set of available queries and exports, not one dashboard tile in isolation. A threshold reduces risk but does not prove anonymity.</p><h2>Generalize when suppression destroys use</h2><p>If store-day cells are sparse, publish store-week or region-day groups instead. Bucketing can preserve useful trends while making individuals harder to isolate. Keep the grouping decision and owner approval in the dataset contract. Never choose a broader group by silently merging unrelated populations if that changes the business meaning of the metric.</p><h2>Control repeated releases</h2><p>A cell with 47 people today and 48 tomorrow may disclose the added person when exact totals are compared. Define a release cadence and whether historical revisions replace earlier public answers. For high-risk use, consider a formally reviewed privacy mechanism with a budget for repeated queries; simple thresholding cannot solve every differencing attack. <a href=\"/data-engineering/correction-aware-quality-alerts\">Correction handling</a> still has to keep the published numbers accurate.</p><h2>Test the consumer surface</h2><p>Query permitted groups, suppressed groups, parent totals and neighboring dates through the same API the consumer uses. Inspect CSV exports, cached responses and chart tooltips. A privacy check only in the transformation job is bypassed if a flexible query endpoint can create narrower groups. Record the accepted release schema and deny unapproved dimensions before any result leaves the service.</p><h2>Implementation</h2><pre><code class=\"language-python\">customers_by_region = {\n    &quot;west&quot;: {&quot;cust-47&quot;, &quot;cust-48&quot;, &quot;cust-49&quot;, &quot;cust-50&quot;, &quot;cust-51&quot;, &quot;cust-52&quot;},\n    &quot;east&quot;: {&quot;cust-53&quot;, &quot;cust-54&quot;},\n}\n\ndef releasable_counts(groups, minimum_people):\n    return {region: len(customers) for region, customers in groups.items()\n            if len(customers) &gt;= minimum_people}\n\nassert releasable_counts(customers_by_region, 5) == {&quot;west&quot;: 6}</code></pre><h2>Performance and operating cost</h2><p>Counting distinct units across N records is O(N) expected time and O(U) state for U distinct people in the reference. Fine-grained cubes multiply stored groups and disclosure checks; broader groups cost less but lose detail. This simple gate is illustrative, not a formal privacy guarantee: repeated releases and overlapping totals require additional policy and testing.</p><h3>Common Mistakes</h3><ul><li>Do not count transactions when the privacy unit is a person.</li><li>Do not publish an exact parent total that reveals one suppressed child by subtraction.</li><li>Do not claim a group threshold alone guarantees anonymity.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain and measure additivity</a></li><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/lineage-metadata-minimization\">Lineage metadata minimization and access</a></li><li><a href=\"/data-engineering/regional-metrics-privacy-release-project\">Project: release regional metrics without exposing small groups</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7903,
+    "status": "published",
+    "published_at": "2026-10-06T07:28:54.783939+00:00",
+    "created_at": "2026-10-06T07:28:54.783939+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/fact-grain-and-measure-additivity",
+          "title": "Fact grain and measure additivity"
+        },
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        },
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/lineage-metadata-minimization",
+          "title": "Lineage metadata minimization and access"
+        },
+        {
+          "path": "data-engineering/regional-metrics-privacy-release-project",
+          "title": "Project: release regional metrics without exposing small groups"
+        }
+      ]
+    }
+  },
+  {
+    "id": "96a0ab1f-0ec6-5ffa-8d0b-8baace5602f4",
+    "type": "article",
+    "path": "data-engineering/snapshot-safe-delete-rewrite",
+    "title": "Snapshot-safe delete rewrites",
+    "summary": "A delete rewrite is correct only if the new snapshot preserves the visible row set and an older retained snapshot remains readable for its supported lifetime.",
+    "body": "<p>A delete rewrite is correct only if the new snapshot preserves the visible row set and an older retained snapshot remains readable for its supported lifetime.</p><h2>Pin the starting snapshot</h2><p>A maintenance worker reads snapshot 74 while ingestion continues. It must identify the exact data files, applicable deletes and sequence positions it intends to replace. An unpinned scan can mix two table states and produce a candidate that never corresponded to one valid snapshot. <a href=\"/data-engineering/optimistic-table-commits-and-conflicts\">Optimistic commit rules</a> decide whether the replacement still applies when another writer advances the table.</p><h2>Preserve applicability</h2><p>A position delete names a file and row location; moving rows to a new file changes that location. A rewrite must apply the old delete before writing surviving rows, then retire only metadata whose scope is fully replaced. An equality delete may also affect other live files. Do not discard it merely because one rewritten file no longer needs it. Retain or transform it according to the table format and sequence contract.</p><h2>Validate two snapshots</h2><p>Compare visible key sets, duplicate counts and monetary controls between the pinned source and candidate. Also query one older retained snapshot through its original metadata after the new commit. A maintenance job that produces the right current answer but garbage-collects files still referenced by an older snapshot breaks time travel and rollback. <a href=\"/data-engineering/replay-manifest-and-audit-trail\">The manifest</a> should name both snapshots and their file inventories.</p><h2>Handle concurrent writes explicitly</h2><p>If an ingestion commit adds a newer row or delete while compaction runs, either rebase the candidate after conflict validation or retry from the new snapshot. Never publish a replacement that silently drops the concurrent change. Bound retries and surface repeated conflicts; a hot partition might need a smaller maintenance slice or a quiet window rather than an infinite retry loop.</p><h2>Separate commit from cleanup</h2><p>A new snapshot can be committed before obsolete files are eligible for physical removal. Keep cleanup asynchronous and governed by replay horizons, legal holds and replica lag. Verify no retained snapshot references a file before removing it. A delete request may require an independent erasure workflow that can shorten the normal retention path only where policy permits.</p><h2>Implementation</h2><pre><code class=\"language-python\">source_rows = {&quot;order-47&quot;: 2375, &quot;order-48&quot;: 6400, &quot;order-49&quot;: -125}\ndeleted = {&quot;order-48&quot;}\n\ndef visible_rows(rows, removed):\n    return {order_id: cents for order_id, cents in rows.items()\n            if order_id not in removed}\n\ncandidate = visible_rows(source_rows, deleted)\nassert candidate == {&quot;order-47&quot;: 2375, &quot;order-49&quot;: -125}\nassert sum(candidate.values()) == 2250\nassert source_rows[&quot;order-48&quot;] == 6400  # retained snapshot still has its bytes</code></pre><h2>Performance and operating cost</h2><p>Filtering N rows uses O(N) expected time and O(N) candidate space. Real snapshot validation also reads metadata and often the rewritten data, so its I/O is proportional to selected files. Retaining old files costs storage until expiry, but deleting them early can invalidate rollback. Conflict retries multiply rewrite cost and should be measured separately from successful maintenance.</p><h3>Common Mistakes</h3><ul><li>Do not remove an equality delete that still applies to another live file.</li><li>Do not garbage-collect files referenced by retained snapshots.</li><li>Do not ignore an ingestion commit that lands during a rewrite.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/optimistic-table-commits-and-conflicts\">Optimistic table commits and write conflicts</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/delete-file-amplification-and-compaction\">Delete-file amplification and compaction</a></li><li><a href=\"/data-engineering/order-lake-delete-maintenance-project\">Project: reduce delete overhead without breaking old snapshots</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7901,
+    "status": "published",
+    "published_at": "2026-10-06T07:28:54.783939+00:00",
+    "created_at": "2026-10-06T07:28:54.783939+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/optimistic-table-commits-and-conflicts",
+          "title": "Optimistic table commits and write conflicts"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/compaction-retention-and-replay-horizon",
+          "title": "Compaction, retention and the replay horizon"
+        },
+        {
+          "path": "data-engineering/delete-file-amplification-and-compaction",
+          "title": "Delete-file amplification and compaction"
+        },
+        {
+          "path": "data-engineering/order-lake-delete-maintenance-project",
+          "title": "Project: reduce delete overhead without breaking old snapshots"
+        }
+      ]
+    }
+  },
+  {
+    "id": "fd13ea3c-6610-5c5a-ba0e-ce8329ac8831",
+    "type": "article",
+    "path": "data-engineering/versioned-order-lake-release-project",
+    "title": "Project: release a versioned order lake",
+    "summary": "Build a versioned order table that accepts two payload schemas, prunes useful partitions, commits complete snapshots, and proves a deletion survives replay.",
+    "body": "<p>Build a versioned order table that accepts two payload schemas, prunes useful partitions, commits complete snapshots, and proves a deletion survives replay.</p><h2>Fix the release contract</h2><p>The source produces order events with order ID, amount in integer cents, event day, and a schema version. Version three adds currency, while version two defaults to INR. Define one current row per order ID, ordered by source position; a delete event removes that row. Keep a raw immutable batch and a rejected-record ledger so the accepted plus rejected count matches the source count.</p><h2>Build two candidate partitions</h2><p>Prepare day 47 and day 48 output under new file names. A late correction to an order from day 47 must rewrite or merge into that event-day partition even if it arrives on day 52. Record file sizes, min/max days, distinct keys and a checksum before commit. <a href=\"/data-engineering/partition-planning-and-skew\">Partition design</a> should make the day-bounded audit scan cheaper without creating one file per order.</p><h2>Simulate a failed commit</h2><p>Start from snapshot 41. Have writer A prepare a corrected order and writer B prepare a deletion against the same parent. Commit B first. Writer A must receive a stale-parent error, reload snapshot 42, apply the tombstone, and rebuild its candidate. Publishing A&#x27;s old candidate would resurrect the deleted order. <a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Atomic publication</a> supplies the conflict boundary.</p><h2>Run release checks</h2><p>Decode retained version-two and version-three fixtures, check the amount unit, verify accepted plus quarantined equals extracted, and query the table through a pinned snapshot. Execute a deletion request and replay the old raw batch; the subject must stay absent. Inspect one audit query&#x27;s candidate row groups and compare bytes scanned to a full scan. Record the exact snapshot ID and schema versions in the release packet.</p><h2>State the outcome and rollback</h2><p>Ship only when both schema fixtures decode, checksums match, the conflict test rejects stale publication, and deletion verification passes. A rollback points readers to the previous allowed snapshot only if doing so cannot expose a subject that must remain erased; otherwise repair forward. Record what evidence is still pending when backup expiry extends beyond the release window.</p><h2>Implementation</h2><pre><code class=\"language-python\">source_events = [\n    {&quot;order_id&quot;: &quot;ord-47&quot;, &quot;position&quot;: 81, &quot;kind&quot;: &quot;upsert&quot;, &quot;amount_cents&quot;: 7350},\n    {&quot;order_id&quot;: &quot;ord-83&quot;, &quot;position&quot;: 82, &quot;kind&quot;: &quot;upsert&quot;, &quot;amount_cents&quot;: 4200},\n    {&quot;order_id&quot;: &quot;ord-47&quot;, &quot;position&quot;: 84, &quot;kind&quot;: &quot;delete&quot;},\n]\n\ndef materialize_current(records):\n    current = {}\n    for event in sorted(records, key=lambda item: item[&quot;position&quot;]):\n        if event[&quot;kind&quot;] == &quot;delete&quot;:\n            current.pop(event[&quot;order_id&quot;], None)\n        else:\n            current[event[&quot;order_id&quot;]] = event[&quot;amount_cents&quot;]\n    return current\n\nassert materialize_current(source_events) == {&quot;ord-83&quot;: 4200}</code></pre><h2>Performance and operating cost</h2><p>Sorting N events costs O(N log N) time and O(N) space; an already ordered change log can be applied in O(N) time. File rewrite and validation cost depend on affected partitions, not only changed rows. The release packet must also price retained snapshots and the deletion ledger.</p><h3>Common Mistakes</h3><ul><li>Do not merge rows by arrival time when source position defines order.</li><li>Do not publish a stale candidate after a concurrent deletion.</li><li>Do not roll back to a snapshot that would expose an erased subject.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">Schema compatibility and consumer rollout</a></li><li><a href=\"/data-engineering/parquet-row-groups-and-column-pruning\">Parquet row groups, projection and scan cost</a></li><li><a href=\"/data-engineering/partition-planning-and-skew\">Partition planning, pruning and skew</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li><li><a href=\"/data-engineering/receipt-pipeline-replay-project\">Project: build a replayable receipt pipeline with an atomic publish gate</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/distributed-invoice-rollup-project\">Project: release a distributed invoice rollup</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/order-event-migration-project\">Project: migrate an order event contract safely</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/order-lake-delete-maintenance-project\">Project: reduce delete overhead without breaking old snapshots</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7826,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T07:28:54.783939+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/schema-compatibility-and-consumer-rollout",
+          "title": "Schema compatibility and consumer rollout"
+        },
+        {
+          "path": "data-engineering/parquet-row-groups-and-column-pruning",
+          "title": "Parquet row groups, projection and scan cost"
+        },
+        {
+          "path": "data-engineering/partition-planning-and-skew",
+          "title": "Partition planning, pruning and skew"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/compaction-retention-and-replay-horizon",
+          "title": "Compaction, retention and the replay horizon"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        },
+        {
+          "path": "data-engineering/receipt-pipeline-replay-project",
+          "title": "Project: build a replayable receipt pipeline with an atomic publish gate"
+        },
+        {
+          "path": "data-engineering/distributed-invoice-rollup-project",
+          "title": "Project: release a distributed invoice rollup"
+        },
+        {
+          "path": "data-engineering/order-event-migration-project",
+          "title": "Project: migrate an order event contract safely"
+        },
+        {
+          "path": "data-engineering/order-lake-delete-maintenance-project",
+          "title": "Project: reduce delete overhead without breaking old snapshots"
+        }
+      ]
+    }
+  }
+]

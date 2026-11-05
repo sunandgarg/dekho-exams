@@ -1,0 +1,1340 @@
+[
+  {
+    "id": "8f0f2d0a-c2d9-5fdf-8ed0-a25c64af053f",
+    "type": "article",
+    "path": "data-engineering/analytics-burst-isolation-project",
+    "title": "Project: protect analytics reads during a tenant burst",
+    "summary": "Design and test an admission policy that protects customer dashboards while allowing bounded batch progress during a shared-cluster burst.",
+    "body": "<p>Design and test an admission policy that protects customer dashboards while allowing bounded batch progress during a shared-cluster burst.</p><h2>Record the workload contract</h2><p>Two tenants share an analytics cluster. North runs long exploratory scans; South has a dashboard with a 14-second end-to-end target. A maintenance extract must complete within 36 minutes. Set per-class concurrency, queue size, deadline and measured usage budget. <a href=\"/data-engineering/query-admission-queues-and-deadlines\">Admission rules</a> apply before query execution, while row policies protect data access.</p><h2>Simulate the burst</h2><p>Start two North scans, enqueue a third, then submit two South dashboard queries and one maintenance extract. Reject the North request that exceeds its waiting bound. Expire a queued dashboard refresh whose deadline passes, then admit its newer replacement. Record enqueue, start and finish time for each accepted request. A dashboard that runs quickly after a long wait still misses its target.</p><h2>Enforce tenant boundaries</h2><p>Derive tenant identity from authenticated context, execute row-policy tests under both tenant identities and confirm North cannot read South’s account rows. Apply cost limits to measured work units as well as estimated units. <a href=\"/data-engineering/tenant-query-budgets-and-fairness\">Tenant fairness</a> must not accidentally allow a query to borrow authorization along with idle compute.</p><h2>Publish only a consistent result</h2><p>Run dashboard queries against a named serving-index generation and disclose its source cutoff. A backlog can make a fast query stale; compare the answer’s freshness with the product contract. If the index rebuild and interactive queries share workers, reserve enough capacity for both or provide a dated last-good response. <a href=\"/data-engineering/serving-index-and-freshness-contract\">Freshness evidence</a> belongs in the result.</p><h2>Review the failure transcript</h2><p>Deliver admitted, queued, expired and rejected request lists; queue and runtime percentiles; per-tenant work units; policy and row-access test results; and maintenance completion time. Inject one estimate that is too low and verify a runtime cap still stops it. The policy passes only when South’s latency target and the maintenance deadline both hold under the burst.</p><h2>Implementation</h2><pre><code class=\"language-python\">requests = [\n    {&quot;id&quot;: &quot;north-71&quot;, &quot;tenant&quot;: &quot;north&quot;, &quot;units&quot;: 31},\n    {&quot;id&quot;: &quot;north-72&quot;, &quot;tenant&quot;: &quot;north&quot;, &quot;units&quot;: 29},\n    {&quot;id&quot;: &quot;south-73&quot;, &quot;tenant&quot;: &quot;south&quot;, &quot;units&quot;: 5},\n]\nrunning_cap = {&quot;north&quot;: 2, &quot;south&quot;: 1}\n\ndef schedule_by_tenant(items, caps):\n    active, accepted = {}, []\n    for request in items:\n        tenant = request[&quot;tenant&quot;]\n        if active.get(tenant, 0) &lt; caps[tenant]:\n            accepted.append(request[&quot;id&quot;])\n            active[tenant] = active.get(tenant, 0) + 1\n    return accepted\n\nassert schedule_by_tenant(requests, running_cap) == [&quot;north-71&quot;, &quot;north-72&quot;, &quot;south-73&quot;]</code></pre><h2>Performance and operating cost</h2><p>The reference pass is O(Q) time for Q requests and O(T) counter state for T tenants. A full scheduler also maintains bounded waiting queues and per-window usage ledgers. Capacity reserved for dashboards and maintenance adds cost, but an uncontrolled burst can exceed the user-facing deadline even when the average cluster utilization appears reasonable.</p><h3>Common Mistakes</h3><ul><li>Do not let a long scan fill every shared worker.</li><li>Do not report latency without queue time and freshness.</li><li>Do not treat tenant resource limits as a replacement for data-access policy.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/query-admission-queues-and-deadlines\">Query admission queues and deadlines</a></li><li><a href=\"/data-engineering/tenant-query-budgets-and-fairness\">Tenant query budgets and fairness</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7905,
+    "status": "published",
+    "published_at": "2026-10-06T06:58:43.308049+00:00",
+    "created_at": "2026-10-06T06:58:43.308049+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/query-admission-queues-and-deadlines",
+          "title": "Query admission queues and deadlines"
+        },
+        {
+          "path": "data-engineering/tenant-query-budgets-and-fairness",
+          "title": "Tenant query budgets and fairness"
+        },
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/serving-index-and-freshness-contract",
+          "title": "Serving indexes and freshness contracts"
+        },
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        }
+      ]
+    }
+  },
+  {
+    "id": "780b1e9a-19a1-5b67-a654-60bc9f97729e",
+    "type": "article",
+    "path": "data-engineering/cohort-baselines-and-denominator-drift",
+    "title": "Cohort baselines and denominator drift",
+    "summary": "A cohort baseline compares a metric with a relevant historical population, while denominator checks distinguish true behavioral change from missing input.",
+    "body": "<p>A cohort baseline compares a metric with a relevant historical population, while denominator checks distinguish true behavioral change from missing input.</p><h2>Define the observation unit</h2><p>A payment-success rate needs successful payment attempts divided by eligible attempts. Comparing raw success counts across days can mistake a source outage for a business decline. Name the denominator, exclusion rules, grain and event-time window before setting a threshold. <a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain</a> matters because retry events should not automatically count as new eligible attempts. Keep numerator and denominator in the published quality record.</p><h2>Compare like with like</h2><p>A Saturday overnight batch should not be judged against a weekday afternoon baseline. Segment by processing calendar, region, channel or another known demand driver, but require a minimum cohort size before trusting a narrow split. Too many tiny cohorts make the alert unstable and expensive. Record which reference windows were selected and which were excluded because of incidents or backfills.</p><h2>Guard the input before the statistic</h2><p>A percentage can remain plausible when both numerator and denominator lose the same shard. Check source completeness, unique-key count and expected partition coverage first. If a region delivered zero rows, mark the rate unavailable instead of reporting a reassuring zero-percent change. <a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Reconciliation</a> validates the input boundary separately from drift.</p><h2>Use a bounded comparison</h2><p>A median and median absolute deviation can resist one unusually large historic day, though a near-zero deviation needs a floor to avoid division by zero. Alert only when the absolute shift and relative shift matter to the consumer. Show actual value, baseline, threshold, cohort size and source generations together. A fixed global threshold can hide a serious change in a quiet region.</p><h2>Retire stale baselines deliberately</h2><p>A new payment channel or scheduled price change may shift the normal distribution. Do not silently train the incident into the baseline. Approve the new regime after source checks and business review, then version the reference window. Test the gate with a missing shard, a legitimate scheduled promotion and a real conversion drop; they should produce different outcomes.</p><h2>Implementation</h2><pre><code class=\"language-python\">from statistics import median\n\nhistoric_rates = [0.71, 0.73, 0.72, 0.74, 0.72, 0.73, 0.71]\neligible_attempts = 470\nsuccessful_attempts = 277\n\ndef rate_guard(successes, eligible, history):\n    if eligible &lt; 300:\n        return &quot;insufficient-input&quot;\n    observed = successes / eligible\n    baseline = median(history)\n    deviation = median(abs(rate - baseline) for rate in history)\n    return &quot;drift&quot; if abs(observed - baseline) &gt; max(0.07, 4 * deviation) else &quot;pass&quot;\n\nassert rate_guard(successful_attempts, eligible_attempts, historic_rates) == &quot;drift&quot;\nassert rate_guard(0, 0, historic_rates) == &quot;insufficient-input&quot;</code></pre><h2>Performance and operating cost</h2><p>Sorting for a median costs O(H log H) time and O(H) space for H historical rates in this reference implementation. A production monitor can maintain compact summaries, but should preserve enough raw counts to audit a disputed alert. Every additional cohort multiplies retained state and test volume; choose segments that correspond to real consumer or source boundaries.</p><h3>Common Mistakes</h3><ul><li>Do not compare raw counts when the eligible population changed.</li><li>Do not report a normal rate from incomplete source partitions.</li><li>Do not auto-refresh a baseline with an unresolved incident.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain and measure additivity</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-engineering/correction-aware-quality-alerts\">Correction-aware quality alerts</a></li><li><a href=\"/data-engineering/payment-quality-release-project\">Project: gate a payment mart on quality evidence</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7900,
+    "status": "published",
+    "published_at": "2026-10-06T06:58:43.308049+00:00",
+    "created_at": "2026-10-06T06:58:43.308049+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/fact-grain-and-measure-additivity",
+          "title": "Fact grain and measure additivity"
+        },
+        {
+          "path": "data-engineering/quality-quarantine-and-reconciliation",
+          "title": "Data quality gates: quarantine bad rows and reconcile complete batches"
+        },
+        {
+          "path": "data-engineering/correction-aware-quality-alerts",
+          "title": "Correction-aware quality alerts"
+        },
+        {
+          "path": "data-engineering/payment-quality-release-project",
+          "title": "Project: gate a payment mart on quality evidence"
+        },
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        }
+      ]
+    }
+  },
+  {
+    "id": "bc3ee408-95d9-5a9f-92ff-9cfe1d7faba6",
+    "type": "article",
+    "path": "data-engineering/correction-aware-quality-alerts",
+    "title": "Correction-aware quality alerts",
+    "summary": "A correction-aware alert evaluates a published interval and its revision history without counting the same late change as a fresh incident on every replay.",
+    "body": "<p>A correction-aware alert evaluates a published interval and its revision history without counting the same late change as a fresh incident on every replay.</p><h2>Anchor the interval and version</h2><p>An account-day total may be published at noon and corrected after a late settlement arrives. Store event-time interval, source cutoff, table generation, correction generation and quality result. An alert key based only on calendar day conflates distinct evidence; a key based only on run ID creates a new incident for every retry. <a href=\"/data-engineering/watermark-retention-and-late-corrections\">Late-arrival policy</a> defines how long an interval may legitimately change.</p><h2>Separate provisional from final checks</h2><p>A window still accepting late events can have an expected shortfall. Apply a provisional threshold before closure and a stricter final reconciliation after the correction horizon. The status should say provisional, final or reopened. A consumer reading a provisional number needs that state attached to the release, especially when the serving index lags the warehouse.</p><h2>Deduplicate alerts by cause</h2><p>If the first failed run, its automatic retry and a manual replay all see the same missing source shard, create one incident with attempt evidence attached. A later independent loss after the source recovers can open another incident. Use the dataset, interval and failure signature as a stable key; close the incident only when a committed generation passes the check. <a href=\"/data-engineering/run-scoped-lineage-and-release-evidence\">Run evidence</a> identifies which attempts were published.</p><h2>Prevent false recovery</h2><p>A late correction can improve a metric while still leaving the row count below the source control. Require all release gates to pass before resolving the incident. Check totals, unique keys, source positions and the consumer-visible index generation. A green task and a quiet alert channel do not prove the old dashboard answer was replaced.</p><h2>Exercise replay and reopen</h2><p>Publish an interval with 47 missing transactions, retry it twice, then apply a 31-transaction correction. The incident should remain open because 16 are still absent. Apply the final 16 and publish one corrected generation; now resolve it. Replaying the identical correction must not reopen or double-count. If a later source gap appears, its new failure signature should create a separate case.</p><h2>Implementation</h2><pre><code class=\"language-python\">control_count = 470\npublished = {&quot;generation&quot;: 71, &quot;count&quot;: 423}\ncorrections = [(72, 31), (73, 16), (73, 16)]\n\ndef apply_unique_corrections(base, changes):\n    count = base[&quot;count&quot;]\n    seen = set()\n    for generation, increment in changes:\n        if generation in seen:\n            continue\n        seen.add(generation)\n        count += increment\n    return count\n\nassert apply_unique_corrections(published, corrections[:1]) == 454\nassert apply_unique_corrections(published, corrections) == control_count</code></pre><h2>Performance and operating cost</h2><p>The replay scan is O(C) expected time and O(C) deduplication state for C correction records. Production systems can use a stable correction ID and bounded retention, but that horizon must cover supported replays. Incident state adds one record per active dataset-interval-signature combination; excessive partition-level keys can overwhelm operators and should be rolled up by a meaningful failure boundary.</p><h3>Common Mistakes</h3><ul><li>Do not create one alert per retry of the same source failure.</li><li>Do not close an incident when only one of several release checks recovered.</li><li>Do not apply a duplicate late correction twice.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/watermark-retention-and-late-corrections\">Watermark retention and late corrections</a></li><li><a href=\"/data-engineering/run-scoped-lineage-and-release-evidence\">Run-scoped lineage and release evidence</a></li><li><a href=\"/data-engineering/cohort-baselines-and-denominator-drift\">Cohort baselines and denominator drift</a></li><li><a href=\"/data-engineering/payment-quality-release-project\">Project: gate a payment mart on quality evidence</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7901,
+    "status": "published",
+    "published_at": "2026-10-06T06:58:43.308049+00:00",
+    "created_at": "2026-10-06T06:58:43.308049+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/watermark-retention-and-late-corrections",
+          "title": "Watermark retention and late corrections"
+        },
+        {
+          "path": "data-engineering/run-scoped-lineage-and-release-evidence",
+          "title": "Run-scoped lineage and release evidence"
+        },
+        {
+          "path": "data-engineering/cohort-baselines-and-denominator-drift",
+          "title": "Cohort baselines and denominator drift"
+        },
+        {
+          "path": "data-engineering/payment-quality-release-project",
+          "title": "Project: gate a payment mart on quality evidence"
+        },
+        {
+          "path": "data-engineering/quality-quarantine-and-reconciliation",
+          "title": "Data quality gates: quarantine bad rows and reconcile complete batches"
+        }
+      ]
+    }
+  },
+  {
+    "id": "4aa4a19e-f0c1-5d8a-b3ba-6783958493e8",
+    "type": "article",
+    "path": "data-engineering/data-classification-and-access-boundaries",
+    "title": "Data classification and access boundaries",
+    "summary": "Classification labels data by sensitivity and allowed use; access boundaries turn those labels into enforceable permissions at each pipeline stage.",
+    "body": "<p>Classification labels data by sensitivity and allowed use; access boundaries turn those labels into enforceable permissions at each pipeline stage.</p><h2>Classify the fields actually stored</h2><p>A payments pipeline may carry account ID, merchant ID, card token, postal code and derived risk score. Classify raw values, joinable pseudonyms and aggregates separately. A hashed account ID may still identify someone when the mapping is available or the input space is small. Record the purpose, retention and authorized readers for every sensitive field, not only the table name.</p><h2>Keep raw and serving zones distinct</h2><p>Landing stores the minimum source payload needed for replay under restricted roles. Transformation workers receive only the fields needed for their task; an analytics mart publishes approved columns and aggregates. <a href=\"/data-engineering/source-contract-and-raw-landing\">Raw landing</a> should not become a broad query playground. Limit export, temporary tables, logs and failed-record queues too, since those paths often copy sensitive values.</p><h2>Bind permission to identity and purpose</h2><p>Grant access to service identities and named job roles, then map human users to reviewed groups. Avoid shared credentials that erase accountability. A pipeline operator may need to inspect health and row counts without reading full payment identifiers. A data steward may approve a new use but should not have to run the compute job. Separation makes incident review possible.</p><h2>Propagate labels through derivations</h2><p>A joined table inherits the sensitivity of its inputs unless the derivation provably removes it for the authorized use. Small group counts can reveal an individual even when direct identifiers are absent. Keep lineage from source fields to output fields, and require a new access review when a new join or export makes previously separate attributes linkable. <a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Lineage</a> provides the dependency map.</p><h2>Verify denial as well as approval</h2><p>Test that an approved report role can read its aggregate, that an analyst role cannot read raw account IDs, and that an operations role sees logs with values redacted. Record which identity ran the test and which policy version applied. A permission policy is incomplete until the denied paths are exercised.</p><h2>Implementation</h2><pre><code class=\"language-python\">FIELD_POLICY = {\n    &quot;account_id&quot;: {&quot;class&quot;: &quot;restricted&quot;, &quot;roles&quot;: {&quot;risk_service&quot;}},\n    &quot;merchant_region&quot;: {&quot;class&quot;: &quot;internal&quot;, &quot;roles&quot;: {&quot;risk_service&quot;, &quot;analyst&quot;}},\n    &quot;daily_count&quot;: {&quot;class&quot;: &quot;aggregate&quot;, &quot;roles&quot;: {&quot;risk_service&quot;, &quot;analyst&quot;}},\n}\n\ndef permitted_fields(role, requested):\n    denied = [name for name in requested if role not in FIELD_POLICY[name][&quot;roles&quot;]]\n    if denied:\n        raise PermissionError(&quot;requested fields exceed role policy&quot;)\n    return requested\n\nassert permitted_fields(&quot;analyst&quot;, [&quot;merchant_region&quot;, &quot;daily_count&quot;])\ntry:\n    permitted_fields(&quot;analyst&quot;, [&quot;account_id&quot;])\nexcept PermissionError:\n    pass\nelse:\n    raise AssertionError(&quot;restricted field was exposed&quot;)</code></pre><h2>Performance and operating cost</h2><p>A set-membership check takes O(F) time for F requested fields and O(F) policy metadata. Real access controls add identity lookup, policy evaluation, audit writes and possibly query rewriting. Denying an unauthorized scan early is cheaper than filtering sensitive records after they have already moved to a less trusted stage.</p><h3>Common Mistakes</h3><ul><li>Do not treat a hash as automatically anonymous.</li><li>Do not forget logs, exports and quarantine tables when classifying data.</li><li>Do not rely on a role name without testing both allowed and denied queries.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/regional-data-boundary-and-egress-gates\">Regional data boundaries and egress gates</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/tenant-query-budgets-and-fairness\">Tenant query budgets and fairness</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7865,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        },
+        {
+          "path": "data-engineering/source-contract-and-raw-landing",
+          "title": "Data source contracts: preserve raw records before transformation"
+        },
+        {
+          "path": "data-engineering/regional-data-boundary-and-egress-gates",
+          "title": "Regional data boundaries and egress gates"
+        },
+        {
+          "path": "data-engineering/tenant-query-budgets-and-fairness",
+          "title": "Tenant query budgets and fairness"
+        }
+      ]
+    }
+  },
+  {
+    "id": "0b3a6048-ae60-5c15-b799-5c385e461318",
+    "type": "subject",
+    "path": "data-engineering/data-engineering-tutorial",
+    "title": "Data Engineering Tutorial",
+    "summary": "Build replayable data products with explicit event contracts, atomic tables, governed access and tested recovery.",
+    "body": "<p>Build replayable data products with explicit event contracts, atomic tables, governed access and tested recovery.</p><h2>Learning path</h2><ul><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li><li><a href=\"/data-engineering/incremental-watermark-and-ties\">Incremental extraction: advance a compound watermark without losing ties</a></li><li><a href=\"/data-engineering/cdc-replay-and-deletes\">Change data capture: apply updates and deletes by source order</a></li><li><a href=\"/data-engineering/idempotent-load-and-checkpoint\">Idempotent loads: commit target rows and extraction progress together</a></li><li><a href=\"/data-engineering/event-time-and-late-arrivals\">Event time and late arrivals: close windows with an explicit correction policy</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-engineering/warehouse-history-asof-join\">Warehouse history: join facts to the dimension version valid at event time</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li><li><a href=\"/data-engineering/receipt-pipeline-replay-project\">Project: build a replayable receipt pipeline with an atomic publish gate</a></li></ul><h2>Connected foundation</h2><p>Bring the earlier analysis and evaluation contracts into this subject.</p><ul><li><a href=\"/data-science/data-science-for-beginners\">Data Science for Beginners</a></li><li><a href=\"/data-science/reproducible-analysis-snapshot\">Reproducible analysis snapshots: pin data, code and cutoff together</a></li></ul><h2>Practice</h2><p>Complete the project with its failure-case evidence.</p><ul><li><a href=\"/data-engineering/data-engineering-tutorial/project\">Data Engineering: Projects</a></li></ul><p><strong>Continue into another subject:</strong> <a href=\"/streaming-analytics/streaming-analytics-tutorial\">Streaming Analytics Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/feature-stores/feature-stores-tutorial\">Feature Stores Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/knowledge-graphs/knowledge-graphs-tutorial\">Knowledge Graphs Tutorial</a>.</p><p><strong>Continue into another subject:</strong> <a href=\"/synthetic-data/synthetic-data-tutorial\">Synthetic Data &amp; Simulation Tutorial</a>.</p><h2>Storage contracts and table design</h2><ul><li><a href=\"/data-engineering/schema-compatibility-and-consumer-rollout\">Schema compatibility and consumer rollout</a></li><li><a href=\"/data-engineering/parquet-row-groups-and-column-pruning\">Parquet row groups, projection and scan cost</a></li><li><a href=\"/data-engineering/partition-planning-and-skew\">Partition planning, pruning and skew</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li></ul><h2>Versioned order-lake release project</h2><ul><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li></ul><h2>Orchestration and production operations</h2><ul><li><a href=\"/data-engineering/dag-intervals-and-idempotent-tasks\">DAG intervals and idempotent task outputs</a></li><li><a href=\"/data-engineering/dependency-readiness-and-source-freshness\">Dependency readiness and source freshness</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li><li><a href=\"/data-engineering/failure-classification-and-retry-budget\">Failure classification and retry budgets</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul><h2>Daily billing operations project</h2><ul><li><a href=\"/data-engineering/billing-pipeline-operations-project\">Project: operate a daily billing pipeline</a></li></ul><h2>Distributed execution and data movement</h2><ul><li><a href=\"/data-engineering/shuffle-boundaries-and-local-combiners\">Shuffle boundaries and local combiners</a></li><li><a href=\"/data-engineering/broadcast-join-and-build-side-limits\">Broadcast joins and build-side limits</a></li><li><a href=\"/data-engineering/skewed-keys-and-salted-aggregation\">Skewed keys and salted aggregation</a></li><li><a href=\"/data-engineering/task-retries-and-atomic-partition-output\">Task retries and atomic partition output</a></li></ul><h2>Distributed invoice rollup</h2><ul><li><a href=\"/data-engineering/distributed-invoice-rollup-project\">Project: release a distributed invoice rollup</a></li></ul><h2>Warehouse models and metric contracts</h2><ul><li><a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain and measure additivity</a></li><li><a href=\"/data-engineering/conformed-dimensions-and-surrogate-keys\">Conformed dimensions and surrogate keys</a></li><li><a href=\"/data-engineering/late-arriving-dimensions-and-fact-repair\">Late-arriving dimensions and fact repair</a></li><li><a href=\"/data-engineering/semantic-metric-contract-and-reconciliation\">Semantic metric contracts and reconciliation</a></li></ul><h2>Revenue mart release</h2><ul><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li></ul><h2>Streaming state and recovery</h2><ul><li><a href=\"/data-engineering/keyed-state-checkpoints-and-recovery\">Keyed state, checkpoints and recovery</a></li><li><a href=\"/data-engineering/watermark-retention-and-late-corrections\">Watermark retention and late corrections</a></li><li><a href=\"/data-engineering/stream-table-join-and-reference-versions\">Stream-table joins and reference versions</a></li><li><a href=\"/data-engineering/stream-backpressure-and-catch-up-budget\">Stream backpressure and catch-up budget</a></li></ul><h2>Streaming risk ledger</h2><ul><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li></ul><h2>Governance, access and cost</h2><ul><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a></li><li><a href=\"/data-engineering/pipeline-cost-attribution-and-right-sizing\">Pipeline cost attribution and right-sizing</a></li></ul><h2>Governed customer mart</h2><ul><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li></ul><h2>Event contracts and concurrent tables</h2><ul><li><a href=\"/data-engineering/schema-registry-transitive-compatibility\">Schema registry and transitive compatibility</a></li><li><a href=\"/data-engineering/event-envelope-identity-and-tombstones\">Event envelopes, identity and tombstones</a></li><li><a href=\"/data-engineering/optimistic-table-commits-and-conflicts\">Optimistic table commits and write conflicts</a></li></ul><h2>Order event migration</h2><ul><li><a href=\"/data-engineering/order-event-migration-project\">Project: migrate an order event contract safely</a></li></ul><h2>Regional recovery and query serving</h2><ul><li><a href=\"/data-engineering/data-pipeline-rpo-rto-and-replication-lag\">Pipeline RPO, RTO and replication lag</a></li><li><a href=\"/data-engineering/failover-writer-fencing-and-source-positions\">Failover writer fencing and source positions</a></li><li><a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a></li></ul><h2>Regional analytics recovery</h2><ul><li><a href=\"/data-engineering/regional-analytics-recovery-project\">Project: recover a regional analytics mart</a></li></ul><h2>Runtime lineage and incident evidence</h2><ul><li><a href=\"/data-engineering/run-scoped-lineage-and-release-evidence\">Run-scoped lineage and release evidence</a></li><li><a href=\"/data-engineering/telemetry-correlation-and-cardinality-budget\">Telemetry correlation and cardinality budgets</a></li></ul><h2>Incident evidence project</h2><ul><li><a href=\"/data-engineering/revenue-incident-evidence-project\">Project: trace a missing revenue slice to one release</a></li></ul><h2>Residency and replica erasure</h2><ul><li><a href=\"/data-engineering/regional-data-boundary-and-egress-gates\">Regional data boundaries and egress gates</a></li><li><a href=\"/data-engineering/replica-version-erasure-and-restore-guard\">Replica version erasure and restore guards</a></li></ul><h2>Replica erasure project</h2><ul><li><a href=\"/data-engineering/replica-erasure-proof-project\">Project: prove erasure after a regional restore</a></li></ul><h2>Statistical quality and correction windows</h2><ul><li><a href=\"/data-engineering/cohort-baselines-and-denominator-drift\">Cohort baselines and denominator drift</a></li><li><a href=\"/data-engineering/correction-aware-quality-alerts\">Correction-aware quality alerts</a></li></ul><h2>Quality release project</h2><ul><li><a href=\"/data-engineering/payment-quality-release-project\">Project: gate a payment mart on quality evidence</a></li></ul><h2>Query admission and tenant isolation</h2><ul><li><a href=\"/data-engineering/query-admission-queues-and-deadlines\">Query admission queues and deadlines</a></li><li><a href=\"/data-engineering/tenant-query-budgets-and-fairness\">Tenant query budgets and fairness</a></li></ul><h2>Burst isolation project</h2><ul><li><a href=\"/data-engineering/analytics-burst-isolation-project\">Project: protect analytics reads during a tenant burst</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7600,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Source and replay",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "data-engineering/source-contract-and-raw-landing",
+            "data-engineering/incremental-watermark-and-ties",
+            "data-engineering/cdc-replay-and-deletes",
+            "data-engineering/idempotent-load-and-checkpoint"
+          ]
+        },
+        {
+          "title": "Time, quality and publication",
+          "summary": "Read in order and run the stated failure checks.",
+          "lessons": [
+            "data-engineering/event-time-and-late-arrivals",
+            "data-engineering/quality-quarantine-and-reconciliation",
+            "data-engineering/warehouse-history-asof-join",
+            "data-engineering/backfill-publication-boundary"
+          ]
+        },
+        {
+          "title": "Storage contracts and table design",
+          "summary": "A connected release path from contract to verified operation.",
+          "lessons": [
+            "data-engineering/schema-compatibility-and-consumer-rollout",
+            "data-engineering/parquet-row-groups-and-column-pruning",
+            "data-engineering/partition-planning-and-skew",
+            "data-engineering/lakehouse-snapshot-and-atomic-commit",
+            "data-engineering/compaction-retention-and-replay-horizon",
+            "data-engineering/deletion-propagation-and-erasure-proof"
+          ]
+        },
+        {
+          "title": "Orchestration and production operations",
+          "summary": "A connected release path from contract to verified operation.",
+          "lessons": [
+            "data-engineering/dag-intervals-and-idempotent-tasks",
+            "data-engineering/dependency-readiness-and-source-freshness",
+            "data-engineering/pipeline-lineage-and-impact-analysis",
+            "data-engineering/pipeline-slos-and-error-budgets",
+            "data-engineering/failure-classification-and-retry-budget",
+            "data-engineering/replay-manifest-and-audit-trail"
+          ]
+        },
+        {
+          "title": "Distributed execution and data movement",
+          "summary": "Run the implementation and failure checks before the project.",
+          "lessons": [
+            "data-engineering/shuffle-boundaries-and-local-combiners",
+            "data-engineering/broadcast-join-and-build-side-limits",
+            "data-engineering/skewed-keys-and-salted-aggregation",
+            "data-engineering/task-retries-and-atomic-partition-output"
+          ]
+        },
+        {
+          "title": "Warehouse models and metric contracts",
+          "summary": "Run the implementation and failure checks before the project.",
+          "lessons": [
+            "data-engineering/fact-grain-and-measure-additivity",
+            "data-engineering/conformed-dimensions-and-surrogate-keys",
+            "data-engineering/late-arriving-dimensions-and-fact-repair",
+            "data-engineering/semantic-metric-contract-and-reconciliation"
+          ]
+        },
+        {
+          "title": "Streaming state and recovery",
+          "summary": "Work through the failure and release checks, then complete the project.",
+          "lessons": [
+            "data-engineering/keyed-state-checkpoints-and-recovery",
+            "data-engineering/watermark-retention-and-late-corrections",
+            "data-engineering/stream-table-join-and-reference-versions",
+            "data-engineering/stream-backpressure-and-catch-up-budget"
+          ]
+        },
+        {
+          "title": "Governance, access and cost",
+          "summary": "Work through the failure and release checks, then complete the project.",
+          "lessons": [
+            "data-engineering/data-classification-and-access-boundaries",
+            "data-engineering/row-policy-and-column-mask-tests",
+            "data-engineering/dataset-ownership-and-change-approval",
+            "data-engineering/pipeline-cost-attribution-and-right-sizing"
+          ]
+        },
+        {
+          "title": "Event contracts and concurrent tables",
+          "summary": "Verify the migration or recovery contract before completing the project.",
+          "lessons": [
+            "data-engineering/schema-registry-transitive-compatibility",
+            "data-engineering/event-envelope-identity-and-tombstones",
+            "data-engineering/optimistic-table-commits-and-conflicts"
+          ]
+        },
+        {
+          "title": "Regional recovery and query serving",
+          "summary": "Verify the migration or recovery contract before completing the project.",
+          "lessons": [
+            "data-engineering/data-pipeline-rpo-rto-and-replication-lag",
+            "data-engineering/failover-writer-fencing-and-source-positions",
+            "data-engineering/serving-index-and-freshness-contract"
+          ]
+        },
+        {
+          "title": "Runtime lineage and incident evidence",
+          "summary": "Follow the evidence chain, then test the release gate.",
+          "lessons": [
+            "data-engineering/run-scoped-lineage-and-release-evidence",
+            "data-engineering/telemetry-correlation-and-cardinality-budget"
+          ]
+        },
+        {
+          "title": "Residency and replica erasure",
+          "summary": "Follow the evidence chain, then test the release gate.",
+          "lessons": [
+            "data-engineering/regional-data-boundary-and-egress-gates",
+            "data-engineering/replica-version-erasure-and-restore-guard"
+          ]
+        },
+        {
+          "title": "Statistical quality and correction windows",
+          "summary": "Check the failure boundary, then complete the release exercise.",
+          "lessons": [
+            "data-engineering/cohort-baselines-and-denominator-drift",
+            "data-engineering/correction-aware-quality-alerts"
+          ]
+        },
+        {
+          "title": "Query admission and tenant isolation",
+          "summary": "Check the failure boundary, then complete the release exercise.",
+          "lessons": [
+            "data-engineering/query-admission-queues-and-deadlines",
+            "data-engineering/tenant-query-budgets-and-fairness"
+          ]
+        },
+        {
+          "title": "Apply your knowledge",
+          "lessons": [
+            "data-engineering/receipt-pipeline-replay-project",
+            "data-engineering/versioned-order-lake-release-project",
+            "data-engineering/billing-pipeline-operations-project",
+            "data-engineering/distributed-invoice-rollup-project",
+            "data-engineering/revenue-mart-release-project",
+            "data-engineering/streaming-risk-ledger-project",
+            "data-engineering/governed-customer-mart-project",
+            "data-engineering/order-event-migration-project",
+            "data-engineering/regional-analytics-recovery-project",
+            "data-engineering/revenue-incident-evidence-project",
+            "data-engineering/replica-erasure-proof-project",
+            "data-engineering/payment-quality-release-project",
+            "data-engineering/analytics-burst-isolation-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Data Engineering",
+          "path": "data-engineering/data-engineering-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "data-engineering/data-engineering-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "c712b504-52c2-5860-ba39-b408de5247cb",
+    "type": "subject",
+    "path": "data-engineering/data-engineering-tutorial/project",
+    "title": "Data Engineering: Projects",
+    "summary": "A checked project for the Data Engineering curriculum.",
+    "body": "<p>Build and review a complete Data Engineering project.</p><h2>Project brief</h2><ul><li><a href=\"/data-engineering/receipt-pipeline-replay-project\">Project: build a replayable receipt pipeline with an atomic publish gate</a></li></ul><h2>Required concepts</h2><ul><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li><li><a href=\"/data-engineering/incremental-watermark-and-ties\">Incremental extraction: advance a compound watermark without losing ties</a></li><li><a href=\"/data-engineering/cdc-replay-and-deletes\">Change data capture: apply updates and deletes by source order</a></li><li><a href=\"/data-engineering/idempotent-load-and-checkpoint\">Idempotent loads: commit target rows and extraction progress together</a></li><li><a href=\"/data-engineering/event-time-and-late-arrivals\">Event time and late arrivals: close windows with an explicit correction policy</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-engineering/warehouse-history-asof-join\">Warehouse history: join facts to the dimension version valid at event time</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li></ul><h2>Completion standard</h2><p>Submit inputs, runnable work, measured output, failure-case results and a short decision note.</p><h2>Versioned order-lake release project</h2><ul><li><a href=\"/data-engineering/versioned-order-lake-release-project\">Project: release a versioned order lake</a></li></ul><h2>Daily billing operations project</h2><ul><li><a href=\"/data-engineering/billing-pipeline-operations-project\">Project: operate a daily billing pipeline</a></li></ul><h2>Distributed invoice rollup</h2><ul><li><a href=\"/data-engineering/distributed-invoice-rollup-project\">Project: release a distributed invoice rollup</a></li></ul><h2>Revenue mart release</h2><ul><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li></ul><h2>Streaming risk ledger</h2><ul><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li></ul><h2>Governed customer mart</h2><ul><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li></ul><h2>Order event migration</h2><ul><li><a href=\"/data-engineering/order-event-migration-project\">Project: migrate an order event contract safely</a></li></ul><h2>Regional analytics recovery</h2><ul><li><a href=\"/data-engineering/regional-analytics-recovery-project\">Project: recover a regional analytics mart</a></li></ul><h2>Runtime lineage and incident evidence</h2><ul><li><a href=\"/data-engineering/revenue-incident-evidence-project\">Project: trace a missing revenue slice to one release</a></li></ul><h2>Residency and replica erasure</h2><ul><li><a href=\"/data-engineering/replica-erasure-proof-project\">Project: prove erasure after a regional restore</a></li></ul><h2>Statistical quality and correction windows</h2><ul><li><a href=\"/data-engineering/payment-quality-release-project\">Project: gate a payment mart on quality evidence</a></li></ul><h2>Query admission and tenant isolation</h2><ul><li><a href=\"/data-engineering/analytics-burst-isolation-project\">Project: protect analytics reads during a tenant burst</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering-project"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7601,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "modules": [
+        {
+          "title": "Projects",
+          "lessons": [
+            "data-engineering/receipt-pipeline-replay-project",
+            "data-engineering/versioned-order-lake-release-project",
+            "data-engineering/billing-pipeline-operations-project",
+            "data-engineering/distributed-invoice-rollup-project",
+            "data-engineering/revenue-mart-release-project",
+            "data-engineering/streaming-risk-ledger-project",
+            "data-engineering/governed-customer-mart-project",
+            "data-engineering/order-event-migration-project",
+            "data-engineering/regional-analytics-recovery-project",
+            "data-engineering/revenue-incident-evidence-project",
+            "data-engineering/replica-erasure-proof-project",
+            "data-engineering/payment-quality-release-project",
+            "data-engineering/analytics-burst-isolation-project"
+          ]
+        }
+      ],
+      "resource_tabs": [
+        {
+          "title": "Data Engineering",
+          "path": "data-engineering/data-engineering-tutorial"
+        },
+        {
+          "title": "Projects",
+          "path": "data-engineering/data-engineering-tutorial/project"
+        }
+      ]
+    }
+  },
+  {
+    "id": "a220620c-2cd7-5ff1-844b-4f97bd31f9e9",
+    "type": "article",
+    "path": "data-engineering/fact-grain-and-measure-additivity",
+    "title": "Fact grain and measure additivity",
+    "summary": "A fact grain states what one row represents; a measure is additive only across dimensions where summing preserves its business meaning.",
+    "body": "<p>A fact grain states what one row represents; a measure is additive only across dimensions where summing preserves its business meaning.</p><h2>Declare a row before the schema</h2><p>A payment fact may be one row per captured payment, not per order or customer. An order with two captures must therefore have two payment rows. Store the stable capture ID and test its uniqueness. Joining order lines directly to captures creates a many-to-many multiplication unless each side is reduced to a compatible grain. <a href=\"/data-science/dataset-grain-and-join-cardinality\">Join cardinality</a> is an executable contract.</p><h2>Classify measures by direction</h2><p>Captured cents can be summed across customers and days if corrections and currency are handled consistently. An end-of-day account balance can be summed across accounts for one day, but summing balances across days double-counts the same money; it is semi-additive. A conversion rate is a ratio and cannot be summed at all. Store numerator and denominator at a clear grain.</p><h2>Separate transactions from snapshots</h2><p>An event fact records that something happened at a time. A periodic snapshot records state at a cutoff. Mixing them in one table invites a dashboard to add balances to transaction amounts. If both are needed, publish separate fact tables with distinct names, keys and time columns. <a href=\"/data-engineering/replay-manifest-and-audit-trail\">The run manifest</a> should name the cutoff for each snapshot.</p><h2>Handle corrections explicitly</h2><p>A captured payment may later be reversed. Choose whether the fact contains a signed reversal event or a mutable current status, and define how finance totals use it. A silent overwrite can make last month change with no trace. A new correcting event retains the transaction trail but demands a clear netting rule. <a href=\"/data-engineering/cdc-replay-and-deletes\">CDC</a> carries the source mutation; the mart defines its analytical meaning.</p><h2>Prove totals at two grains</h2><p>Reconcile source captures to fact rows by capture ID, then aggregate fact cents by day and compare with the authorized ledger for the same cutoff and currency. Test a split capture, a reversal and a zero-activity day. A row-count match alone cannot detect duplicated amounts or wrong signs.</p><h2>Implementation</h2><pre><code class=\"language-python\">captures = [\n    {&quot;capture_id&quot;: &quot;cap-47&quot;, &quot;order_id&quot;: &quot;ord-9&quot;, &quot;day&quot;: 47, &quot;cents&quot;: 4200},\n    {&quot;capture_id&quot;: &quot;cap-48&quot;, &quot;order_id&quot;: &quot;ord-9&quot;, &quot;day&quot;: 47, &quot;cents&quot;: 1700},\n    {&quot;capture_id&quot;: &quot;rev-49&quot;, &quot;order_id&quot;: &quot;ord-9&quot;, &quot;day&quot;: 48, &quot;cents&quot;: -900},\n]\n\ndef net_cents_by_day(rows):\n    if len({row[&quot;capture_id&quot;] for row in rows}) != len(rows):\n        raise ValueError(&quot;capture grain violated&quot;)\n    totals = {}\n    for row in rows:\n        totals[row[&quot;day&quot;]] = totals.get(row[&quot;day&quot;], 0) + row[&quot;cents&quot;]\n    return totals\n\nassert net_cents_by_day(captures) == {47: 5900, 48: -900}</code></pre><h2>Performance and operating cost</h2><p>One pass over N captures takes O(N) expected time and O(D + N) memory for D days plus the uniqueness set. Warehouse aggregation may push this work into the query engine, but a badly chosen grain creates incorrect results regardless of compute speed.</p><h3>Common Mistakes</h3><ul><li>Do not sum periodic balances across dates.</li><li>Do not join facts at incompatible grains without a cardinality rule.</li><li>Do not call a rate an additive fact or average rates without denominators.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/conformed-dimensions-and-surrogate-keys\">Conformed dimensions and surrogate keys</a></li><li><a href=\"/data-engineering/late-arriving-dimensions-and-fact-repair\">Late-arriving dimensions and fact repair</a></li><li><a href=\"/data-engineering/semantic-metric-contract-and-reconciliation\">Semantic metric contracts and reconciliation</a></li><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li><li><a href=\"/data-science/dataset-grain-and-join-cardinality\">Dataset grain and join cardinality: protect the unit of analysis</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/cohort-baselines-and-denominator-drift\">Cohort baselines and denominator drift</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7845,
+    "status": "published",
+    "published_at": "2026-10-06T05:28:49.615773+00:00",
+    "created_at": "2026-10-06T05:28:49.615773+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/conformed-dimensions-and-surrogate-keys",
+          "title": "Conformed dimensions and surrogate keys"
+        },
+        {
+          "path": "data-engineering/late-arriving-dimensions-and-fact-repair",
+          "title": "Late-arriving dimensions and fact repair"
+        },
+        {
+          "path": "data-engineering/semantic-metric-contract-and-reconciliation",
+          "title": "Semantic metric contracts and reconciliation"
+        },
+        {
+          "path": "data-engineering/revenue-mart-release-project",
+          "title": "Project: release a reconciled revenue mart"
+        },
+        {
+          "path": "data-science/dataset-grain-and-join-cardinality",
+          "title": "Dataset grain and join cardinality: protect the unit of analysis"
+        },
+        {
+          "path": "data-engineering/cohort-baselines-and-denominator-drift",
+          "title": "Cohort baselines and denominator drift"
+        }
+      ]
+    }
+  },
+  {
+    "id": "509e306b-c1ee-5847-b8a7-57c2e72ce668",
+    "type": "article",
+    "path": "data-engineering/governed-customer-mart-project",
+    "title": "Project: release a governed customer mart",
+    "summary": "Release a customer analytics mart with declared field sensitivity, tested row policies, named approvals and measurable cost per published row.",
+    "body": "<p>Release a customer analytics mart with declared field sensitivity, tested row policies, named approvals and measurable cost per published row.</p><h2>Specify the product boundary</h2><p>The mart has one row per customer and reporting day, with region, eligible-order count and net captured cents. Raw landing retains namespaced customer IDs under a restricted role; analysts see regional aggregates and masked tokens. Record field classifications, allowed uses, retention, consumer roles and the business owner before creating the serving view.</p><h2>Build and reconcile the release</h2><p>Pin source snapshots, deduplicate captures by stable ID, resolve the dimension version valid at event time and aggregate at the declared grain. Reconcile source and mart cents by day, then publish one immutable snapshot. <a href=\"/data-engineering/fact-grain-and-measure-additivity\">Grain rules</a> prevent capture multiplication. Keep quarantine counts and unresolved customer keys visible to the operator.</p><h2>Test permissions as consumers</h2><p>Query the actual serving view as north-region analyst, west-region analyst, finance service and an unauthorized identity. Assert exact allowed row IDs, masked token values and denied access to raw landing. Try a join and export path available to each role. <a href=\"/data-engineering/row-policy-and-column-mask-tests\">Policy tests</a> must fail when a new sensitive field appears without an explicit allowlist decision.</p><h2>Approve and cost the change</h2><p>Introduce a new postal-zone field and run classification review before exposing it. The business owner approves its meaning; the steward and security approver decide access. Compare old and new output on the same input and retain a rollback pointer. Attribute compute attempts, storage generations and validation scans to this release, then report cost per accepted million rows.</p><h2>Deliver audit evidence</h2><p>Provide the source contract, data classification matrix, role-query transcript, field lineage, signed change record, reconciliation report, cost attribution and snapshot manifest. Simulate a denied analyst query and a failed compute attempt; neither should leak raw data or disappear from the cost ledger. Record who can authorize a repair or rollback.</p><h2>Implementation</h2><pre><code class=\"language-python\">captures = [\n    {&quot;id&quot;: &quot;cap-47&quot;, &quot;customer&quot;: &quot;cust-7&quot;, &quot;region&quot;: &quot;north&quot;, &quot;cents&quot;: 5200},\n    {&quot;id&quot;: &quot;cap-48&quot;, &quot;customer&quot;: &quot;cust-8&quot;, &quot;region&quot;: &quot;west&quot;, &quot;cents&quot;: 1700},\n]\n\ndef regional_mart(rows):\n    identities = set()\n    totals = {}\n    for row in rows:\n        if row[&quot;id&quot;] in identities:\n            raise ValueError(&quot;duplicate capture&quot;)\n        identities.add(row[&quot;id&quot;])\n        totals[row[&quot;region&quot;]] = totals.get(row[&quot;region&quot;], 0) + row[&quot;cents&quot;]\n    return totals\n\nassert regional_mart(captures) == {&quot;north&quot;: 5200, &quot;west&quot;: 1700}</code></pre><h2>Performance and operating cost</h2><p>The reference aggregation takes O(N) expected time and O(N + G) memory for N captures and G regions because it checks identities. Production cost includes versioned joins, access-policy evaluation, release validation, retained snapshots and failed attempts. Report cost against accepted output and keep policy tests in the release gate even when their scans add expense.</p><h3>Common Mistakes</h3><ul><li>Do not publish a new derived identifier before classifying it.</li><li>Do not validate permissions with an administrator account.</li><li>Do not price only the final successful compute attempt.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a></li><li><a href=\"/data-engineering/pipeline-cost-attribution-and-right-sizing\">Pipeline cost attribution and right-sizing</a></li><li><a href=\"/data-engineering/revenue-mart-release-project\">Project: release a reconciled revenue mart</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/replica-erasure-proof-project\">Project: prove erasure after a regional restore</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/analytics-burst-isolation-project\">Project: protect analytics reads during a tenant burst</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7869,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        },
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/dataset-ownership-and-change-approval",
+          "title": "Dataset ownership and change approval"
+        },
+        {
+          "path": "data-engineering/pipeline-cost-attribution-and-right-sizing",
+          "title": "Pipeline cost attribution and right-sizing"
+        },
+        {
+          "path": "data-engineering/revenue-mart-release-project",
+          "title": "Project: release a reconciled revenue mart"
+        },
+        {
+          "path": "data-engineering/serving-index-and-freshness-contract",
+          "title": "Serving indexes and freshness contracts"
+        },
+        {
+          "path": "data-engineering/replica-erasure-proof-project",
+          "title": "Project: prove erasure after a regional restore"
+        },
+        {
+          "path": "data-engineering/analytics-burst-isolation-project",
+          "title": "Project: protect analytics reads during a tenant burst"
+        }
+      ]
+    }
+  },
+  {
+    "id": "62d1e54c-d2d1-54db-9462-7d870c551d5f",
+    "type": "article",
+    "path": "data-engineering/payment-quality-release-project",
+    "title": "Project: gate a payment mart on quality evidence",
+    "summary": "Publish a payment mart only when cohort drift, source completeness and late-correction evidence agree with the release contract.",
+    "body": "<p>Publish a payment mart only when cohort drift, source completeness and late-correction evidence agree with the release contract.</p><h2>Freeze the source controls</h2><p>Create one payment-day interval with 470 eligible attempts and a control count for each region. Keep the source snapshot and schema ID in the manifest. The candidate mart initially contains 423 records because one shard was delayed. A global success rate may still look plausible; <a href=\"/data-engineering/cohort-baselines-and-denominator-drift\">cohort baselines</a> and input coverage must be checked separately.</p><h2>Build a provisional candidate</h2><p>Calculate per-region success rates from deduplicated payment attempts, label the interval provisional and keep it off the final reader pointer. Record numerator, denominator, cohort size and reference window. A cohort below its minimum sample size yields insufficient evidence, not pass. Allow a dated last-good mart to serve while the candidate is quarantined.</p><h2>Replay corrections once</h2><p>Deliver 31 delayed records, retry the same correction message, then deliver 16 more. Use correction IDs or source positions so the retry has no effect. <a href=\"/data-engineering/correction-aware-quality-alerts\">The incident</a> remains open after the first correction and closes only after the source count reaches 470 and regional totals reconcile. Keep all candidate attempts in the run manifest.</p><h2>Commit and check the consumer</h2><p>Publish a new table snapshot and its serving index as one release generation. Query payment success rate and count through the consumer route; verify both refer to that generation. Run a rollback simulation that restores the previous pointer without deleting evidence. A correction that passes warehouse checks but never reaches the index is not a successful release.</p><h2>Submit the evidence package</h2><p>Include source controls, candidate and final row counts, cohort baseline version, two correction IDs, duplicate replay result, incident timeline, committed snapshot and query output. Add a deliberately missing shard test and a legitimate high-volume promotion test. They should not be confused merely because each changes the raw transaction count.</p><h2>Implementation</h2><pre><code class=\"language-python\">source_control = {&quot;north&quot;: 230, &quot;south&quot;: 240}\ncandidate = {&quot;north&quot;: 230, &quot;south&quot;: 193}\ncorrection_batches = [(&quot;batch-72&quot;, &quot;south&quot;, 31), (&quot;batch-73&quot;, &quot;south&quot;, 16),\n                      (&quot;batch-72&quot;, &quot;south&quot;, 31)]\n\ndef reconcile(rows, changes, expected):\n    result, seen = dict(rows), set()\n    for correction_id, region, count in changes:\n        if correction_id not in seen:\n            result[region] += count\n            seen.add(correction_id)\n    return result == expected\n\nassert not reconcile(candidate, correction_batches[:1], source_control)\nassert reconcile(candidate, correction_batches, source_control)</code></pre><h2>Performance and operating cost</h2><p>Reconciliation is O(R + C) expected time for R regions and C correction messages, with O(R + C) state. The project also retains candidate snapshots and a last-good serving generation; these add storage but make rejected releases inspectable. A full regional baseline scan costs more than one global aggregate, so schedule it at the release boundary rather than on every query.</p><h3>Common Mistakes</h3><ul><li>Do not pass a cohort check when its source denominator is incomplete.</li><li>Do not treat a duplicate correction as new revenue.</li><li>Do not publish a corrected table while the serving index still points at stale data.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/cohort-baselines-and-denominator-drift\">Cohort baselines and denominator drift</a></li><li><a href=\"/data-engineering/correction-aware-quality-alerts\">Correction-aware quality alerts</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li><li><a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7902,
+    "status": "published",
+    "published_at": "2026-10-06T06:58:43.308049+00:00",
+    "created_at": "2026-10-06T06:58:43.308049+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/cohort-baselines-and-denominator-drift",
+          "title": "Cohort baselines and denominator drift"
+        },
+        {
+          "path": "data-engineering/correction-aware-quality-alerts",
+          "title": "Correction-aware quality alerts"
+        },
+        {
+          "path": "data-engineering/quality-quarantine-and-reconciliation",
+          "title": "Data quality gates: quarantine bad rows and reconcile complete batches"
+        },
+        {
+          "path": "data-engineering/serving-index-and-freshness-contract",
+          "title": "Serving indexes and freshness contracts"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        }
+      ]
+    }
+  },
+  {
+    "id": "703a86e0-d676-502b-b4d6-0792317e5721",
+    "type": "article",
+    "path": "data-engineering/pipeline-cost-attribution-and-right-sizing",
+    "title": "Pipeline cost attribution and right-sizing",
+    "summary": "Cost attribution ties compute, storage, transfer and retries to a dataset release so a faster pipeline is not mistaken for a cheaper one.",
+    "body": "<p>Cost attribution ties compute, storage, transfer and retries to a dataset release so a faster pipeline is not mistaken for a cheaper one.</p><h2>Define a unit of work</h2><p>For a daily customer mart, cost per accepted million rows or per published partition is more useful than a monthly warehouse bill. Capture input bytes, output bytes, worker time, storage generations, network transfer and reruns by job and dataset ID. A large cost can be justified when data volume rises; a rising unit cost with stable volume signals inefficiency.</p><h2>Separate baseline from incident spend</h2><p>A retry storm can double compute while producing one release. Attribute all attempts to that release rather than charging only the successful run. Include quarantine reprocessing, backfills and retained snapshots. <a href=\"/data-engineering/failure-classification-and-retry-budget\">Retry budgets</a> prevent transient faults from silently becoming the main cost driver.</p><h2>Locate the expensive boundary</h2><p>Column pruning can avoid reading unused Parquet fields; partition pruning avoids irrelevant time ranges; a local combiner reduces shuffle bytes. Each changes a different bill component. <a href=\"/data-engineering/parquet-row-groups-and-column-pruning\">Read pruning</a> and <a href=\"/data-engineering/shuffle-boundaries-and-local-combiners\">shuffle reduction</a> should be measured on the same pinned input and query plan. Buying more workers before locating the bottleneck may only make the mistake more expensive.</p><h2>Right-size without missing the deadline</h2><p>Downsizing a job may cut hourly compute but extend runtime beyond an agreed freshness SLO, while extreme parallelism can raise setup, shuffle and sink contention. Compare cost, p95 completion and largest task memory over several representative intervals. Keep a capacity margin for a backfill or a larger day. The cheapest successful run is not always the cheapest reliable service.</p><h2>Verify bill-to-release mapping</h2><p>Require every billable job and storage prefix to carry a dataset or shared-platform tag. Reconcile tagged cost with provider totals and track an unattributed bucket. A tag on the coordinator alone misses workers and intermediate storage. Review estimates against bills, then revise the per-unit model; it is an instrument, not an invoice.</p><h2>Implementation</h2><pre><code class=\"language-python\">runs = [\n    {&quot;release&quot;: &quot;mart-47&quot;, &quot;attempt&quot;: 1, &quot;compute_cents&quot;: 390, &quot;rows&quot;: 0},\n    {&quot;release&quot;: &quot;mart-47&quot;, &quot;attempt&quot;: 2, &quot;compute_cents&quot;: 470, &quot;rows&quot;: 240_000},\n]\n\ndef cost_per_million_accepted(rows):\n    spent = sum(row[&quot;compute_cents&quot;] for row in rows)\n    accepted = sum(row[&quot;rows&quot;] for row in rows)\n    if accepted &lt;= 0:\n        raise ValueError(&quot;no accepted output&quot;)\n    return spent * 1_000_000 / accepted\n\nassert round(cost_per_million_accepted(runs), 2) == 3583.33</code></pre><h2>Performance and operating cost</h2><p>Aggregating R run records takes O(R) time and O(1) additional memory. The larger cost model needs provider billing exports, storage inventory and usage tags, which can lag real time. Sample query and task metrics at a resolution that explains the bill, and avoid retaining high-cardinality telemetry indefinitely merely to optimize a small pipeline.</p><h3>Common Mistakes</h3><ul><li>Do not ignore failed attempts when pricing one successful release.</li><li>Do not optimize hourly rate while freshness and catch-up fail.</li><li>Do not treat untagged spend as zero.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/parquet-row-groups-and-column-pruning\">Parquet row groups, projection and scan cost</a></li><li><a href=\"/data-engineering/shuffle-boundaries-and-local-combiners\">Shuffle boundaries and local combiners</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li><li><a href=\"/data-engineering/failure-classification-and-retry-budget\">Failure classification and retry budgets</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/query-admission-queues-and-deadlines\">Query admission queues and deadlines</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7868,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/parquet-row-groups-and-column-pruning",
+          "title": "Parquet row groups, projection and scan cost"
+        },
+        {
+          "path": "data-engineering/shuffle-boundaries-and-local-combiners",
+          "title": "Shuffle boundaries and local combiners"
+        },
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        },
+        {
+          "path": "data-engineering/failure-classification-and-retry-budget",
+          "title": "Failure classification and retry budgets"
+        },
+        {
+          "path": "data-engineering/query-admission-queues-and-deadlines",
+          "title": "Query admission queues and deadlines"
+        }
+      ]
+    }
+  },
+  {
+    "id": "dad2d780-79e2-557e-a5fb-21d8fbf7f508",
+    "type": "article",
+    "path": "data-engineering/pipeline-slos-and-error-budgets",
+    "title": "Pipeline SLOs, freshness and error budgets",
+    "summary": "A pipeline service-level objective states the measurable share of intervals whose usable data arrives before a consumer deadline with the required quality.",
+    "body": "<p>A pipeline service-level objective states the measurable share of intervals whose usable data arrives before a consumer deadline with the required quality.</p><h2>Define a good interval</h2><p>For the finance daily table, define success as a committed day partition by 08:30 local time, all required source manifests complete, accepted plus quarantined count equal to extracted count, and no critical quality violation. A scheduler&#x27;s green task status is not enough. The user-facing unit is a usable interval, so measure it from the consumer&#x27;s query path.</p><h2>Calculate the budget</h2><p>An objective of 99% good daily intervals over a 100-day rolling window permits one bad interval. A target of 99.9% on only 30 daily intervals is hard to interpret because one failure moves the observed rate by more than three percentage points. Select a window and unit with enough opportunities, or use a weekly or per-run target with clear meaning.</p><h2>Separate symptoms</h2><p>Track source lag, processing duration, quality rejection rate and publication delay alongside the final good-interval indicator. A late source and a slow transform require different owners. <a href=\"/data-engineering/dependency-readiness-and-source-freshness\">Readiness</a> tells whether the source delivered; <a href=\"/data-engineering/failure-classification-and-retry-budget\">failure classification</a> tells whether retrying helps.</p><h2>Alert for action</h2><p>Page a human when the consumer deadline is at risk and the team can act, not on every transient task retry. A warning can trigger at 07:50 when the source is missing; an incident can trigger at 08:30 when no valid snapshot is published. Include affected dataset, interval, run ID, last good snapshot and runbook path in the alert.</p><h2>Use the budget in release decisions</h2><p>If recent intervals exhausted the failure budget, postpone a risky schema change and repair the unstable pipeline first. The budget is not a reason to hide bad intervals or lower quality gates. A data product with a strict deletion or financial correctness requirement may need a separate zero-tolerance guardrail even when its freshness objective permits rare lateness.</p><h2>Implementation</h2><pre><code class=\"language-python\">daily_intervals = [\n    {&quot;day&quot;: 47, &quot;ready&quot;: True, &quot;quality_ok&quot;: True, &quot;published_minute&quot;: 506},\n    {&quot;day&quot;: 48, &quot;ready&quot;: True, &quot;quality_ok&quot;: True, &quot;published_minute&quot;: 518},\n    {&quot;day&quot;: 49, &quot;ready&quot;: False, &quot;quality_ok&quot;: False, &quot;published_minute&quot;: None},\n]\n\ndef good_interval_rate(records, deadline_minute=510):\n    if not records:\n        raise ValueError(&quot;no intervals&quot;)\n    good = sum(record[&quot;ready&quot;] and record[&quot;quality_ok&quot;]\n               and record[&quot;published_minute&quot;] is not None\n               and record[&quot;published_minute&quot;] &lt;= deadline_minute\n               for record in records)\n    return good / len(records)\n\nassert good_interval_rate(daily_intervals) == 1 / 3</code></pre><h2>Performance and operating cost</h2><p>Aggregating N intervals is O(N) time and O(1) extra space. Monitoring cost comes from trustworthy source and publication timestamps, retention of interval outcomes, and alerts with enough context to act. A small denominator can make percentage targets misleading.</p><h3>Common Mistakes</h3><ul><li>Do not measure only task success when the published table is unusable.</li><li>Do not set an SLO without a consumer deadline and quality condition.</li><li>Do not treat a freshness allowance as permission to publish wrong financial data.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/dependency-readiness-and-source-freshness\">Dependency readiness and source freshness</a></li><li><a href=\"/data-engineering/failure-classification-and-retry-budget\">Failure classification and retry budgets</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li><li><a href=\"/data-engineering/billing-pipeline-operations-project\">Project: operate a daily billing pipeline</a></li><li><a href=\"/data-engineering/quality-quarantine-and-reconciliation\">Data quality gates: quarantine bad rows and reconcile complete batches</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/stream-backpressure-and-catch-up-budget\">Stream backpressure and catch-up budget</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/telemetry-correlation-and-cardinality-budget\">Telemetry correlation and cardinality budgets</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/payment-quality-release-project\">Project: gate a payment mart on quality evidence</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7830,
+    "status": "published",
+    "published_at": "2026-10-06T05:13:39.978254+00:00",
+    "created_at": "2026-10-06T05:13:39.978254+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/dependency-readiness-and-source-freshness",
+          "title": "Dependency readiness and source freshness"
+        },
+        {
+          "path": "data-engineering/failure-classification-and-retry-budget",
+          "title": "Failure classification and retry budgets"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        },
+        {
+          "path": "data-engineering/billing-pipeline-operations-project",
+          "title": "Project: operate a daily billing pipeline"
+        },
+        {
+          "path": "data-engineering/quality-quarantine-and-reconciliation",
+          "title": "Data quality gates: quarantine bad rows and reconcile complete batches"
+        },
+        {
+          "path": "data-engineering/stream-backpressure-and-catch-up-budget",
+          "title": "Stream backpressure and catch-up budget"
+        },
+        {
+          "path": "data-engineering/serving-index-and-freshness-contract",
+          "title": "Serving indexes and freshness contracts"
+        },
+        {
+          "path": "data-engineering/telemetry-correlation-and-cardinality-budget",
+          "title": "Telemetry correlation and cardinality budgets"
+        },
+        {
+          "path": "data-engineering/payment-quality-release-project",
+          "title": "Project: gate a payment mart on quality evidence"
+        }
+      ]
+    }
+  },
+  {
+    "id": "65e3e5a1-dafe-50b2-968b-12c699e92c39",
+    "type": "article",
+    "path": "data-engineering/quality-quarantine-and-reconciliation",
+    "title": "Data quality gates: quarantine bad rows and reconcile complete batches",
+    "summary": "A quality gate checks both individual records and batch-level invariants, retaining rejected rows for diagnosis rather than silently shrinking the dataset.",
+    "body": "<p>A quality gate checks both individual records and batch-level invariants, retaining rejected rows for diagnosis rather than silently shrinking the dataset.</p><h2>Use two levels of checks</h2><p>A row rule rejects a missing receipt ID, invalid currency or negative amount. A batch rule checks source count, accepted count, rejected count, unique keys and expected partitions. A file can have valid rows but still be incomplete because the transfer stopped halfway. Therefore a row parser alone is not a release gate. <a href=\"/data-engineering/source-contract-and-raw-landing\">The source contract</a>] defines which failures are fatal and which may be quarantined.</p><h2>Keep the rejected record recoverable</h2><p>Store a bounded copy of the raw record, source position, rule version and reason in an access-controlled quarantine. Redact sensitive fields from alert messages. If the producer fixes the record, replay it with its original identity; do not assign a new identity that could double count it. Expire quarantine data according to retention policy, but first preserve aggregate failure counts for trend analysis.</p><h2>Reconcile before publish</h2><p>Assert source_rows = accepted_rows + rejected_rows + intentionally_skipped_rows. Count distinct keys and compare totals that should be conserved, such as amount in cents, only when transformation semantics permit it. Pause publication when a required partition is missing or rejection rate crosses an agreed threshold. A warning alone can allow an incomplete dashboard to look authoritative.</p><h2>Run failure drills</h2><p>Test a truncated input, duplicate key, malformed timestamp and a whole missing partition. Verify which cases stop publication and which go to quarantine. Check that a retry does not duplicate accepted rows. <a href=\"/data-engineering/idempotent-load-and-checkpoint\">Idempotent loads</a>] keep repair from creating a second failure.</p><h2>Implementation</h2><pre><code class=\"language-python\">def reconcile_batch(source_count, accepted_count, rejected_count, skipped_count):\n    accounted = accepted_count + rejected_count + skipped_count\n    if accounted != source_count:\n        raise ValueError(f&quot;unaccounted records: {source_count - accounted}&quot;)\n    if source_count and rejected_count / source_count &gt; 0.02:\n        raise ValueError(&quot;receipt rejection budget exceeded&quot;)\n    return {&quot;source&quot;: source_count, &quot;accepted&quot;: accepted_count,\n            &quot;rejected&quot;: rejected_count, &quot;skipped&quot;: skipped_count}</code></pre><h2>Performance and operating cost</h2><p>Row checks are O(N); distinct-key checks use O(K) memory for K keys in a local hash set or an indexed database. Quarantine storage and review effort grow with failure volume.</p><h3>Common Mistakes</h3><ul><li>Do not assume valid rows imply a complete file.</li><li>Do not discard invalid rows before recording why they failed.</li><li>Do not publish a partially reconciled batch as a normal update.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/source-contract-and-raw-landing\">Data source contracts: preserve raw records before transformation</a></li><li><a href=\"/data-engineering/idempotent-load-and-checkpoint\">Idempotent loads: commit target rows and extraction progress together</a></li><li><a href=\"/data-engineering/backfill-publication-boundary\">Backfills: rebuild history without exposing a half-written result</a></li><li><a href=\"/data-science/missing-data-policy\">Missing data policy: distinguish absence from a measured zero</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/geospatial-analytics/geometry-validation-and-spatial-joins\">Spatial joins: polygons, boundaries and duplicate matches</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/synthetic-data/schema-and-relational-integrity\">Synthetic relational data: keys, chronology and integrity</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-science/outlier-investigation-and-quarantine\">Outlier investigation: impossible values, rare events and quarantines</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-science/sql-reconciliation-and-query-cost\">SQL reconciliation: prove the cohort survived each transformation</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/dependency-readiness-and-source-freshness\">Dependency readiness and source freshness</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/semantic-metric-contract-and-reconciliation\">Semantic metric contracts and reconciliation</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/cohort-baselines-and-denominator-drift\">Cohort baselines and denominator drift</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Intermediate",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7805,
+    "status": "published",
+    "published_at": "2026-10-04T20:48:47.337706+00:00",
+    "created_at": "2026-10-04T20:48:47.337706+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial and syntax review; project data needed for runtime checks",
+      "related": [
+        {
+          "path": "data-engineering/source-contract-and-raw-landing",
+          "title": "Data source contracts: preserve raw records before transformation"
+        },
+        {
+          "path": "data-engineering/idempotent-load-and-checkpoint",
+          "title": "Idempotent loads: commit target rows and extraction progress together"
+        },
+        {
+          "path": "data-engineering/backfill-publication-boundary",
+          "title": "Backfills: rebuild history without exposing a half-written result"
+        },
+        {
+          "path": "data-science/missing-data-policy",
+          "title": "Missing data policy: distinguish absence from a measured zero"
+        },
+        {
+          "path": "geospatial-analytics/geometry-validation-and-spatial-joins",
+          "title": "Spatial joins: polygons, boundaries and duplicate matches"
+        },
+        {
+          "path": "synthetic-data/schema-and-relational-integrity",
+          "title": "Synthetic relational data: keys, chronology and integrity"
+        },
+        {
+          "path": "data-science/outlier-investigation-and-quarantine",
+          "title": "Outlier investigation: impossible values, rare events and quarantines"
+        },
+        {
+          "path": "data-science/sql-reconciliation-and-query-cost",
+          "title": "SQL reconciliation: prove the cohort survived each transformation"
+        },
+        {
+          "path": "data-engineering/dependency-readiness-and-source-freshness",
+          "title": "Dependency readiness and source freshness"
+        },
+        {
+          "path": "data-engineering/semantic-metric-contract-and-reconciliation",
+          "title": "Semantic metric contracts and reconciliation"
+        },
+        {
+          "path": "data-engineering/cohort-baselines-and-denominator-drift",
+          "title": "Cohort baselines and denominator drift"
+        }
+      ]
+    }
+  },
+  {
+    "id": "89f5c753-022f-5658-ab78-5a43ea6f16cf",
+    "type": "article",
+    "path": "data-engineering/query-admission-queues-and-deadlines",
+    "title": "Query admission queues and deadlines",
+    "summary": "Query admission decides whether a request runs, waits or fails before it consumes scarce memory and worker capacity.",
+    "body": "<p>Query admission decides whether a request runs, waits or fails before it consumes scarce memory and worker capacity.</p><h2>Put a bound on waiting</h2><p>A BI dashboard may issue dozens of interactive queries while a batch analyst starts a broad scan. If all run immediately, memory pressure can slow or fail everyone. Give each workload a concurrency limit and a queue limit. When the queue is full, reject with a clear retry response rather than accumulating unbounded requests. <a href=\"/data-engineering/serving-index-and-freshness-contract\">A serving index</a> helps only the queries it was built for; admission still protects shared compute.</p><h2>Treat deadline as an end-to-end budget</h2><p>A 12-second query target includes queue wait, execution and result delivery. A query that waited 11 seconds should not start a 30-second scan merely because a worker became free. Record enqueue time and absolute deadline; expire stale work before starting. This prevents old dashboard refreshes from crowding out the user’s latest request.</p><h2>Reserve capacity for critical reads</h2><p>Separate interactive serving, scheduled extracts and exploratory scans into workload groups. A reserved slice protects critical reads during a batch burst, while controlled borrowing can use idle capacity when policy allows. Avoid a single high-priority queue that permanently starves maintenance work. Define minimum progress or maximum wait for every accepted class.</p><h2>Account for cost before admission</h2><p>Estimate scanned bytes, memory and partition breadth using the query plan or a coarse request class. An estimate is imperfect, so combine it with runtime caps and cancellation. Reject a query that exceeds a tenant or class budget even when the cluster is idle; otherwise one expensive request can consume the next interval’s allowance. <a href=\"/data-engineering/pipeline-cost-attribution-and-right-sizing\">Cost attribution</a> closes the loop after execution.</p><h2>Test a burst and recovery</h2><p>Queue five interactive requests behind two running slots, add one batch scan and then cancel the oldest interactive request. Verify that no more than two run, the expired request never starts, and an admitted batch request eventually progresses. Report queue time and execution time separately. A low execution p95 can hide users waiting in admission.</p><h2>Implementation</h2><pre><code class=\"language-python\">from collections import deque\n\nqueue = deque([{&quot;id&quot;: &quot;q-47&quot;, &quot;deadline&quot;: 52},\n               {&quot;id&quot;: &quot;q-48&quot;, &quot;deadline&quot;: 61},\n               {&quot;id&quot;: &quot;q-49&quot;, &quot;deadline&quot;: 58}])\n\ndef admit_ready(waiting, now, free_slots):\n    started = []\n    while waiting and len(started) &lt; free_slots:\n        request = waiting.popleft()\n        if request[&quot;deadline&quot;] &gt; now:\n            started.append(request[&quot;id&quot;])\n    return started\n\nassert admit_ready(queue, 55, 2) == [&quot;q-48&quot;, &quot;q-49&quot;]</code></pre><h2>Performance and operating cost</h2><p>Admission is O(Q) time in the worst case when Q expired entries must be removed and O(Q) memory for a bounded queue. Executing a query can be much more expensive than this control path. A strict queue limit protects coordinator memory; deadlines prevent stale work from occupying future capacity. Measure rejection, wait and runtime by workload class.</p><h3>Common Mistakes</h3><ul><li>Do not measure only execution time while ignoring queue delay.</li><li>Do not start a request whose end-to-end deadline has already passed.</li><li>Do not allow an unbounded queue to masquerade as capacity.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a></li><li><a href=\"/data-engineering/tenant-query-budgets-and-fairness\">Tenant query budgets and fairness</a></li><li><a href=\"/data-engineering/analytics-burst-isolation-project\">Project: protect analytics reads during a tenant burst</a></li><li><a href=\"/data-engineering/pipeline-cost-attribution-and-right-sizing\">Pipeline cost attribution and right-sizing</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7903,
+    "status": "published",
+    "published_at": "2026-10-06T06:58:43.308049+00:00",
+    "created_at": "2026-10-06T06:58:43.308049+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/serving-index-and-freshness-contract",
+          "title": "Serving indexes and freshness contracts"
+        },
+        {
+          "path": "data-engineering/tenant-query-budgets-and-fairness",
+          "title": "Tenant query budgets and fairness"
+        },
+        {
+          "path": "data-engineering/analytics-burst-isolation-project",
+          "title": "Project: protect analytics reads during a tenant burst"
+        },
+        {
+          "path": "data-engineering/pipeline-cost-attribution-and-right-sizing",
+          "title": "Pipeline cost attribution and right-sizing"
+        },
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        }
+      ]
+    }
+  },
+  {
+    "id": "506ba1e5-26da-5c96-bb96-9791c4eed752",
+    "type": "article",
+    "path": "data-engineering/regional-analytics-recovery-project",
+    "title": "Project: recover a regional analytics mart",
+    "summary": "Recover a customer-day mart in a secondary region while preserving source position, writer ownership and the serving view’s generation.",
+    "body": "<p>Recover a customer-day mart in a secondary region while preserving source position, writer ownership and the serving view’s generation.</p><h2>Set measurable recovery targets</h2><p>The product publishes a customer-day count and net cents every 24 minutes. Set an RPO of 36 minutes and an RTO of 68 minutes for the exercise, then define which consumer query proves recovery. The manifest must name source positions, table snapshot, schema versions, index generation and access-policy revision. <a href=\"/data-engineering/data-pipeline-rpo-rto-and-replication-lag\">The RPO/RTO contract</a> applies to that complete set.</p><h2>Prepare the replica</h2><p>Copy data files and table metadata to the secondary region, verify checksums, and retain the source log past the worst expected outage and catch-up duration. Build an index generation from each complete table snapshot. Do not publish a replica merely because files arrived; the metadata pointer and access policy must agree with them.</p><h2>Force a clean promotion</h2><p>Stop primary writes at a chosen source position, simulate its loss and grant the secondary a higher writer epoch. Restore from the newest complete generation, replay missing source records and atomically publish the next table and index pointers. <a href=\"/data-engineering/failover-writer-fencing-and-source-positions\">Fencing</a> must reject a delayed primary commit after promotion.</p><h2>Test the consumer path</h2><p>Run account-day queries before failure, during last-good serving and after recovery. Every answer should name one index generation and its source cutoff. Compare aggregate cents and unique account-day keys with the source manifest; verify access roles still filter rows and mask fields correctly in the second region.</p><h2>Record the incident evidence</h2><p>Deliver timestamps for failure detection, last recoverable generation and first successful query; calculate actual RPO and RTO. Include rejected old-writer attempt, replayed source interval, orphan candidates, index switch and cost of the drill. Reconcile the returning primary before any failback. A green infrastructure dashboard is not sufficient evidence of correct answers.</p><h2>Implementation</h2><pre><code class=\"language-python\">from datetime import datetime, timezone\n\nfailure = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)\ncomplete = datetime(2026, 10, 6, 11, 35, tzinfo=timezone.utc)\nquery_ready = datetime(2026, 10, 6, 12, 54, tzinfo=timezone.utc)\ntarget_rpo_minutes = 36\ntarget_rto_minutes = 68\n\nactual_rpo = (failure - complete).total_seconds() / 60\nactual_rto = (query_ready - failure).total_seconds() / 60\nassert actual_rpo == 25 and actual_rto == 54\nassert actual_rpo &lt;= target_rpo_minutes\nassert actual_rto &lt;= target_rto_minutes</code></pre><h2>Performance and operating cost</h2><p>The objective calculation is O(1), while the release costs include cross-region transfer, retained snapshots, replay compute, standby serving capacity and periodic drills. A full index rebuild is O(N) in customer-day rows and can dominate the measured RTO, so include it in the timed exercise rather than declaring recovery after the table alone opens.</p><h3>Common Mistakes</h3><ul><li>Do not report RPO from the newest copied file instead of a complete generation.</li><li>Do not let the old region resume writes after secondary promotion.</li><li>Do not count a restored table as recovered while the consumer index or access policy is missing.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/data-pipeline-rpo-rto-and-replication-lag\">Pipeline RPO, RTO and replication lag</a></li><li><a href=\"/data-engineering/failover-writer-fencing-and-source-positions\">Failover writer fencing and source positions</a></li><li><a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/replica-erasure-proof-project\">Project: prove erasure after a regional restore</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/analytics-burst-isolation-project\">Project: protect analytics reads during a tenant burst</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7887,
+    "status": "published",
+    "published_at": "2026-10-06T05:58:36.102579+00:00",
+    "created_at": "2026-10-06T05:58:36.102579+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/data-pipeline-rpo-rto-and-replication-lag",
+          "title": "Pipeline RPO, RTO and replication lag"
+        },
+        {
+          "path": "data-engineering/failover-writer-fencing-and-source-positions",
+          "title": "Failover writer fencing and source positions"
+        },
+        {
+          "path": "data-engineering/serving-index-and-freshness-contract",
+          "title": "Serving indexes and freshness contracts"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        },
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/replica-erasure-proof-project",
+          "title": "Project: prove erasure after a regional restore"
+        },
+        {
+          "path": "data-engineering/analytics-burst-isolation-project",
+          "title": "Project: protect analytics reads during a tenant burst"
+        }
+      ]
+    }
+  },
+  {
+    "id": "e496d17c-0160-5761-970b-ed5c640bd7f8",
+    "type": "article",
+    "path": "data-engineering/revenue-mart-release-project",
+    "title": "Project: release a reconciled revenue mart",
+    "summary": "Build an invoice and payment mart with declared fact grain, versioned customer identities, late-dimension repair and one metric contract.",
+    "body": "<p>Build an invoice and payment mart with declared fact grain, versioned customer identities, late-dimension repair and one metric contract.</p><h2>Write the contract</h2><p>Use one fact row per capture event and a stable capture ID. Carry signed cents, event time, source position, customer source namespace and natural key. A customer dimension has a durable identity plus surrogate keys for historical versions. State which time the revenue report uses and whether reversal events net against the original day or the reversal day.</p><h2>Build the load</h2><p>Land raw captures, deduplicate by capture ID and source position, resolve the dimension version valid at capture time, and stage the fact table. Use an explicit unknown member for late customers. Reconcile accepted plus quarantined records with the source interval and compare signed cents before publication. <a href=\"/data-engineering/fact-grain-and-measure-additivity\">The grain contract</a> prevents many-to-many joins from inflating revenue.</p><h2>Define a consumer metric</h2><p>Publish net captured cents and eligible attempt counts as components, then calculate payment success rate from those components. Keep metric version, source snapshot, cutoff and currency rule beside the release. <a href=\"/data-engineering/semantic-metric-contract-and-reconciliation\">The metric contract</a> should identify a reversal and an ineligible test event unambiguously.</p><h2>Inject change and lateness</h2><p>Create two captures for one order, reverse part of one capture, then deliver a customer region change whose effective time falls between the two. Delay the customer dimension for one capture. Verify that its fact remains visible under unknown, a later repair changes only its dimension key, and the total cents remain identical.</p><h2>Prove the release</h2><p>Supply source and target schemas, grain and key assertions, as-of lookup tests, the unresolved-member queue, reconciliation by day and currency, a metric fixture, and two versioned snapshots before and after repair. The consumer should see one complete version at a time. Record an operator path for a source correction that arrives after the normal window.</p><h2>Implementation</h2><pre><code class=\"language-python\">captures = [\n    {&quot;capture_id&quot;: &quot;cap-47&quot;, &quot;customer&quot;: &quot;cust-7&quot;, &quot;day&quot;: 47, &quot;cents&quot;: 6100},\n    {&quot;capture_id&quot;: &quot;cap-48&quot;, &quot;customer&quot;: &quot;cust-7&quot;, &quot;day&quot;: 47, &quot;cents&quot;: 2400},\n    {&quot;capture_id&quot;: &quot;rev-49&quot;, &quot;customer&quot;: &quot;cust-7&quot;, &quot;day&quot;: 48, &quot;cents&quot;: -1100},\n]\n\ndef revenue_release(rows):\n    if len({row[&quot;capture_id&quot;] for row in rows}) != len(rows):\n        raise ValueError(&quot;capture grain violated&quot;)\n    by_day = {}\n    for row in rows:\n        by_day[row[&quot;day&quot;]] = by_day.get(row[&quot;day&quot;], 0) + row[&quot;cents&quot;]\n    assert sum(by_day.values()) == sum(row[&quot;cents&quot;] for row in rows)\n    return by_day\n\nassert revenue_release(captures) == {47: 8500, 48: -1100}</code></pre><h2>Performance and operating cost</h2><p>The reference aggregation is O(N) expected time and O(N + D) memory for N captures and D days. A production mart also pays for version-aware dimension lookups, validation, retained snapshots and restatements. Fast queries do not compensate for an undefined grain or unreconciled source.</p><h3>Common Mistakes</h3><ul><li>Do not collapse two captures into one order row without a written measure rule.</li><li>Do not overwrite old region history when the customer moves.</li><li>Do not silently suppress a fact just because its dimension is late.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain and measure additivity</a></li><li><a href=\"/data-engineering/conformed-dimensions-and-surrogate-keys\">Conformed dimensions and surrogate keys</a></li><li><a href=\"/data-engineering/late-arriving-dimensions-and-fact-repair\">Late-arriving dimensions and fact repair</a></li><li><a href=\"/data-engineering/semantic-metric-contract-and-reconciliation\">Semantic metric contracts and reconciliation</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/revenue-incident-evidence-project\">Project: trace a missing revenue slice to one release</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/payment-quality-release-project\">Project: gate a payment mart on quality evidence</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering-project",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7849,
+    "status": "published",
+    "published_at": "2026-10-06T05:28:49.615773+00:00",
+    "created_at": "2026-10-06T05:28:49.615773+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial/project",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "project",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/fact-grain-and-measure-additivity",
+          "title": "Fact grain and measure additivity"
+        },
+        {
+          "path": "data-engineering/conformed-dimensions-and-surrogate-keys",
+          "title": "Conformed dimensions and surrogate keys"
+        },
+        {
+          "path": "data-engineering/late-arriving-dimensions-and-fact-repair",
+          "title": "Late-arriving dimensions and fact repair"
+        },
+        {
+          "path": "data-engineering/semantic-metric-contract-and-reconciliation",
+          "title": "Semantic metric contracts and reconciliation"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        },
+        {
+          "path": "data-engineering/revenue-incident-evidence-project",
+          "title": "Project: trace a missing revenue slice to one release"
+        },
+        {
+          "path": "data-engineering/payment-quality-release-project",
+          "title": "Project: gate a payment mart on quality evidence"
+        }
+      ]
+    }
+  },
+  {
+    "id": "22cc3150-2866-5190-9150-0fb3d7298580",
+    "type": "article",
+    "path": "data-engineering/row-policy-and-column-mask-tests",
+    "title": "Row policy and column mask tests",
+    "summary": "A row policy limits which records an identity can read; a column mask changes the value it sees, so both need tests at the consumer query boundary.",
+    "body": "<p>A row policy limits which records an identity can read; a column mask changes the value it sees, so both need tests at the consumer query boundary.</p><h2>State the intended visibility</h2><p>A regional support analyst may see only customers assigned to their region, with account token masked. A finance service may read all regions but only the aggregate billing amount. Write this as an identity-by-field matrix, including null and unknown region cases. An unassigned customer should not become visible merely because the policy comparison returns an unexpected null value.</p><h2>Test through the same query path</h2><p>A unit test of a masking expression cannot prove the BI connection, view ownership and role mapping apply it. Execute representative SELECTs as each real role against the published view. Verify allowed row IDs, denied row IDs and exact masked values. Then try a join, export and materialized copy if those paths are available to the role.</p><h2>Guard policy inputs</h2><p>If an administrator can edit the analyst-to-region mapping, that mapping is part of the security boundary. Version it, review changes and test a user moved between regions. Default-deny when membership is absent or ambiguous. A policy that reads a mutable lookup can produce different historical query results; retain audit evidence of the mapping used.</p><h2>Account for derived exposure</h2><p>Masking a direct account token is insufficient if a combination of postal code, event time and rare merchant makes the person identifiable. Review derived columns and small cohorts under the same classification rules. <a href=\"/data-engineering/data-classification-and-access-boundaries\">The classification contract</a> decides which joins and exports are allowed, while the row and mask policies enforce the resulting boundary.</p><h2>Recheck after schema changes</h2><p>Adding a new sensitive column can bypass an explicit mask list if the view uses wildcard selection. Require an allowlist of exposed fields and run policy tests as part of the release gate. Confirm that an authorized role still sees the values it needs; over-masking can break operations and create unsafe workarounds.</p><h2>Implementation</h2><pre><code class=\"language-python\">customers = [\n    {&quot;id&quot;: &quot;cust-47&quot;, &quot;region&quot;: &quot;north&quot;, &quot;token&quot;: &quot;tok-4731&quot;},\n    {&quot;id&quot;: &quot;cust-83&quot;, &quot;region&quot;: &quot;west&quot;, &quot;token&quot;: &quot;tok-8394&quot;},\n]\n\ndef support_view(rows, assigned_region):\n    return [{&quot;id&quot;: row[&quot;id&quot;], &quot;region&quot;: row[&quot;region&quot;], &quot;token&quot;: &quot;[masked]&quot;}\n            for row in rows if assigned_region is not None\n            and row[&quot;region&quot;] == assigned_region]\n\nassert support_view(customers, &quot;north&quot;) == [\n    {&quot;id&quot;: &quot;cust-47&quot;, &quot;region&quot;: &quot;north&quot;, &quot;token&quot;: &quot;[masked]&quot;}]\nassert support_view(customers, None) == []</code></pre><h2>Performance and operating cost</h2><p>A full in-memory scan is O(N) time and O(R) output for N rows and R authorized rows. A database may push row filters into indexed access, but complex policy functions can prevent pruning or add per-row work. Benchmark the authorized query plan without weakening the policy, and test the actual database role rather than only this reference function.</p><h3>Common Mistakes</h3><ul><li>Do not test masking only through an administrator connection.</li><li>Do not make unknown region membership mean all regions.</li><li>Do not expose newly added columns through wildcard views.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/data-classification-and-access-boundaries\">Data classification and access boundaries</a></li><li><a href=\"/data-engineering/dataset-ownership-and-change-approval\">Dataset ownership and change approval</a></li><li><a href=\"/data-engineering/governed-customer-mart-project\">Project: release a governed customer mart</a></li><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/deletion-propagation-and-erasure-proof\">Deletion propagation and erasure proof</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/regional-analytics-recovery-project\">Project: recover a regional analytics mart</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/tenant-query-budgets-and-fairness\">Tenant query budgets and fairness</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7866,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/data-classification-and-access-boundaries",
+          "title": "Data classification and access boundaries"
+        },
+        {
+          "path": "data-engineering/dataset-ownership-and-change-approval",
+          "title": "Dataset ownership and change approval"
+        },
+        {
+          "path": "data-engineering/governed-customer-mart-project",
+          "title": "Project: release a governed customer mart"
+        },
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/deletion-propagation-and-erasure-proof",
+          "title": "Deletion propagation and erasure proof"
+        },
+        {
+          "path": "data-engineering/regional-analytics-recovery-project",
+          "title": "Project: recover a regional analytics mart"
+        },
+        {
+          "path": "data-engineering/tenant-query-budgets-and-fairness",
+          "title": "Tenant query budgets and fairness"
+        }
+      ]
+    }
+  },
+  {
+    "id": "987789b5-a56d-5ef5-bfbd-60bcc640474c",
+    "type": "article",
+    "path": "data-engineering/run-scoped-lineage-and-release-evidence",
+    "title": "Run-scoped lineage and release evidence",
+    "summary": "Run-scoped lineage records the exact input and output generations used by one execution, rather than only a planned table dependency.",
+    "body": "<p>Run-scoped lineage records the exact input and output generations used by one execution, rather than only a planned table dependency.</p><h2>Distinguish design from execution</h2><p>A planned DAG says that the revenue job reads orders and rates. It cannot prove which order snapshot or rate revision produced a specific published total. Record a run ID, code release, named input generations, output generation and final status for every publish attempt. <a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Static lineage</a> still helps estimate impact, but runtime evidence answers what actually happened.</p><h2>Capture the committed boundary</h2><p>An attempt may read data, write candidate files and then fail. Its lineage is useful for debugging, yet it must not be labelled as the lineage of a published dataset. Attach the output generation only after the atomic commit succeeds. Keep failed attempts under their own run IDs. A consumer should be able to follow the current table pointer to one successful run and then to its exact inputs.</p><h2>Avoid false many-to-many edges</h2><p>A job that reads customer and invoice tables may write separate customer and invoice summaries. Treating every input as the parent of every output invents dependencies. Capture edges at the output or transform level, including filtered partitions when practical. If the implementation cannot prove a column-level edge, label it as unknown rather than presenting an inferred edge as certain.</p><h2>Preserve identity across retries</h2><p>A retry of the same interval is a new attempt under a stable logical run key. Pin source generations or record that inputs changed before retry; otherwise two attempts with the same scheduled time can calculate different answers. <a href=\"/data-engineering/replay-manifest-and-audit-trail\">The replay manifest</a> should retain both attempts and name the winning publication. This also makes a rollback reviewable.</p><h2>Query backward from an answer</h2><p>Given a suspicious dashboard total, start with its serving generation, find the table snapshot and successful run, then inspect input versions and source positions. Test the chain with a deliberately failed attempt between two successful releases: the failed candidate must appear in diagnostics but never in the published answer. Keep access controls on lineage metadata because identifiers and partition values can reveal sensitive activity.</p><h2>Implementation</h2><pre><code class=\"language-python\">runs = [\n    {&quot;id&quot;: &quot;run-71&quot;, &quot;status&quot;: &quot;failed&quot;, &quot;inputs&quot;: (&quot;orders-47&quot;, &quot;rates-8&quot;), &quot;output&quot;: None},\n    {&quot;id&quot;: &quot;run-72&quot;, &quot;status&quot;: &quot;committed&quot;, &quot;inputs&quot;: (&quot;orders-48&quot;, &quot;rates-8&quot;), &quot;output&quot;: &quot;revenue-49&quot;},\n]\n\ndef published_parents(releases, output_generation):\n    matches = [run for run in releases if run[&quot;output&quot;] == output_generation\n               and run[&quot;status&quot;] == &quot;committed&quot;]\n    if len(matches) != 1:\n        raise ValueError(&quot;output has no unique committed run&quot;)\n    return matches[0][&quot;inputs&quot;]\n\nassert published_parents(runs, &quot;revenue-49&quot;) == (&quot;orders-48&quot;, &quot;rates-8&quot;)</code></pre><h2>Performance and operating cost</h2><p>The direct lookup above scans R runs in O(R) time and stores O(R) records. Indexing committed output generation reduces expected lookup to O(1), while recording partition or column edges increases metadata volume. Retain evidence at least as long as the snapshots and audit period it must explain; sampling away successful release events destroys the proof chain.</p><h3>Common Mistakes</h3><ul><li>Do not label a failed candidate as the parent of a published snapshot.</li><li>Do not infer all-to-all edges from a multi-input, multi-output job.</li><li>Do not identify a run solely by its scheduled timestamp.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/pipeline-lineage-and-impact-analysis\">Pipeline lineage and impact analysis</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li><li><a href=\"/data-engineering/telemetry-correlation-and-cardinality-budget\">Telemetry correlation and cardinality budgets</a></li><li><a href=\"/data-engineering/revenue-incident-evidence-project\">Project: trace a missing revenue slice to one release</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/correction-aware-quality-alerts\">Correction-aware quality alerts</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7890,
+    "status": "published",
+    "published_at": "2026-10-06T06:45:48.420862+00:00",
+    "created_at": "2026-10-06T06:45:48.420862+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/pipeline-lineage-and-impact-analysis",
+          "title": "Pipeline lineage and impact analysis"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        },
+        {
+          "path": "data-engineering/telemetry-correlation-and-cardinality-budget",
+          "title": "Telemetry correlation and cardinality budgets"
+        },
+        {
+          "path": "data-engineering/revenue-incident-evidence-project",
+          "title": "Project: trace a missing revenue slice to one release"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/correction-aware-quality-alerts",
+          "title": "Correction-aware quality alerts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "43a4bc2b-3f59-5817-87b0-21cf1776b4c2",
+    "type": "article",
+    "path": "data-engineering/serving-index-and-freshness-contract",
+    "title": "Serving indexes and freshness contracts",
+    "summary": "A serving index organizes released data for specific queries; its freshness contract states which published generation each answer represents.",
+    "body": "<p>A serving index organizes released data for specific queries; its freshness contract states which published generation each answer represents.</p><h2>Start from a measured query</h2><p>An operations dashboard needs account-day totals by account ID and recent day. A columnar fact table may scan efficiently for broad analytics but still be slow for one account. Build a keyed serving index or materialized view for that access pattern, and preserve the source snapshot ID with each indexed row. <a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain</a> determines whether one key maps to one result or many.</p><h2>Publish index generations together</h2><p>Loading an index record by record exposes mixed snapshots while the warehouse table stays atomic. Build a new index generation from one table snapshot, validate count and digest, then switch one reader pointer. During rebuild, the previous generation can continue serving with an explicit as-of time. <a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Snapshot publication</a> supplies the underlying transaction boundary.</p><h2>Define acceptable staleness</h2><p>Freshness is not simply job success. Measure source event time, table publish time, index publish time and query time. A dashboard may promise data no more than 18 minutes behind the latest accepted source interval. If that target fails, show the last-good timestamp or stop the query according to its use. <a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs</a> need the consumer-visible age.</p><h2>Plan update and repair paths</h2><p>Late corrections and dimension repairs can change prior account-day results. The index must replace the same logical key using a higher source generation, not append a second amount. Keep a reverse map or partition manifest to target affected keys. When a full rebuild is cheaper or safer, publish it atomically and compare a sample of queries against the warehouse snapshot.</p><h2>Budget the extra copy</h2><p>An index speeds selected queries at the cost of storage, refresh compute and another failure surface. Watch write amplification, hot keys, p95 query latency and index lag. If all consumers perform broad scans, a specialized index may add cost without benefit. The serving design should be justified by the actual read workload, not by a generic low-latency goal.</p><h2>Implementation</h2><pre><code class=\"language-python\">warehouse_rows = [\n    {&quot;account&quot;: &quot;acct-47&quot;, &quot;day&quot;: 47, &quot;cents&quot;: 5200},\n    {&quot;account&quot;: &quot;acct-83&quot;, &quot;day&quot;: 47, &quot;cents&quot;: 1800},\n]\n\ndef build_index(rows, snapshot_id):\n    index = {}\n    for row in rows:\n        key = (row[&quot;account&quot;], row[&quot;day&quot;])\n        if key in index:\n            raise ValueError(&quot;account-day grain violated&quot;)\n        index[key] = {&quot;cents&quot;: row[&quot;cents&quot;], &quot;snapshot&quot;: snapshot_id}\n    return index\n\nserving = build_index(warehouse_rows, &quot;snap-47&quot;)\nassert serving[(&quot;acct-47&quot;, 47)] == {&quot;cents&quot;: 5200, &quot;snapshot&quot;: &quot;snap-47&quot;}</code></pre><h2>Performance and operating cost</h2><p>Building a keyed index is O(N) expected time and O(N) extra storage for N warehouse rows; lookup is O(1) expected locally, subject to network and backend latency in production. Refresh work may duplicate the entire index per generation. Incremental updates reduce that cost but require stronger ordering and repair validation.</p><h3>Common Mistakes</h3><ul><li>Do not serve a mixture of warehouse snapshot generations.</li><li>Do not claim freshness from a green job status alone.</li><li>Do not append a corrected key beside its old value.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/fact-grain-and-measure-additivity\">Fact grain and measure additivity</a></li><li><a href=\"/data-engineering/lakehouse-snapshot-and-atomic-commit\">Table snapshots and atomic publication</a></li><li><a href=\"/data-engineering/pipeline-slos-and-error-budgets\">Pipeline SLOs, freshness and error budgets</a></li><li><a href=\"/data-engineering/regional-analytics-recovery-project\">Project: recover a regional analytics mart</a></li><li><a href=\"/data-engineering/data-pipeline-rpo-rto-and-replication-lag\">Pipeline RPO, RTO and replication lag</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/revenue-incident-evidence-project\">Project: trace a missing revenue slice to one release</a>.</p><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/query-admission-queues-and-deadlines\">Query admission queues and deadlines</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7886,
+    "status": "published",
+    "published_at": "2026-10-06T05:58:36.102579+00:00",
+    "created_at": "2026-10-06T05:58:36.102579+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/fact-grain-and-measure-additivity",
+          "title": "Fact grain and measure additivity"
+        },
+        {
+          "path": "data-engineering/lakehouse-snapshot-and-atomic-commit",
+          "title": "Table snapshots and atomic publication"
+        },
+        {
+          "path": "data-engineering/pipeline-slos-and-error-budgets",
+          "title": "Pipeline SLOs, freshness and error budgets"
+        },
+        {
+          "path": "data-engineering/regional-analytics-recovery-project",
+          "title": "Project: recover a regional analytics mart"
+        },
+        {
+          "path": "data-engineering/data-pipeline-rpo-rto-and-replication-lag",
+          "title": "Pipeline RPO, RTO and replication lag"
+        },
+        {
+          "path": "data-engineering/revenue-incident-evidence-project",
+          "title": "Project: trace a missing revenue slice to one release"
+        },
+        {
+          "path": "data-engineering/query-admission-queues-and-deadlines",
+          "title": "Query admission queues and deadlines"
+        }
+      ]
+    }
+  },
+  {
+    "id": "e6388ba4-3022-5fd9-b3f8-ce0119d9fd2c",
+    "type": "article",
+    "path": "data-engineering/tenant-query-budgets-and-fairness",
+    "title": "Tenant query budgets and fairness",
+    "summary": "A tenant query budget limits one tenant’s concurrent work and cumulative resource use so a shared analytics service can preserve latency for others.",
+    "body": "<p>A tenant query budget limits one tenant’s concurrent work and cumulative resource use so a shared analytics service can preserve latency for others.</p><h2>Identify the tenant at the trusted edge</h2><p>The tenant key must come from authenticated request context, not a user-editable SQL comment. Enforce row access separately from compute limits: a fair scheduler does not stop a query from reading another tenant’s rows. <a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy tests</a> must still run under every service identity and job type.</p><h2>Cap active and queued work</h2><p>Give each tenant a maximum running count, waiting count and query deadline. A single large tenant should not fill the global queue while smaller tenants wait. Use per-tenant queues or weighted scheduling with an explicit minimum share. A tenant at its cap can wait within its own bound, but should not consume another tenant’s reserved slot.</p><h2>Track usage over a window</h2><p>Concurrency alone does not stop a tenant from submitting one expensive scan after another. Record bytes scanned, CPU time or charged work units against a rolling budget. Decide whether unused allowance carries over; an unlimited rollover creates a future burst. Include retries and cancelled work according to a written billing and abuse policy. <a href=\"/data-engineering/query-admission-queues-and-deadlines\">Admission</a> should check the budget before work begins.</p><h2>Avoid false precision in estimates</h2><p>A query planner can underestimate skew, cache misses and join expansion. Treat estimates as admission hints and enforce runtime limits. When the actual cost exceeds the estimate, charge the measured usage and stop or throttle according to contract. Keep the reason visible to the user; an opaque timeout makes it impossible to distinguish fairness from a broken query.</p><h2>Validate isolation with contention</h2><p>Start two expensive scans for tenant North, one dashboard read for tenant South and a maintenance job. The South read should meet its queue target even when North reaches its cap. Verify global memory stays bounded and that maintenance eventually runs. Observe both per-tenant and total utilization; a reservation that stays idle during a heavy burst may waste capacity unless safe borrowing is defined.</p><h2>Implementation</h2><pre><code class=\"language-python\">limits = {&quot;north&quot;: 2, &quot;south&quot;: 1}\nrunning = {&quot;north&quot;: 2, &quot;south&quot;: 0}\nremaining_units = {&quot;north&quot;: 16, &quot;south&quot;: 47}\n\ndef may_start(tenant, estimated_units):\n    return (tenant in limits and running[tenant] &lt; limits[tenant]\n            and estimated_units &lt;= remaining_units[tenant])\n\nassert not may_start(&quot;north&quot;, 8)\nassert may_start(&quot;south&quot;, 8)\nassert not may_start(&quot;south&quot;, 52)</code></pre><h2>Performance and operating cost</h2><p>The reference checks use O(1) expected map lookups and O(T) stored policy state for T tenants. A scheduler needs bounded queues and accounting for active requests; its runtime cost is usually small beside query execution. Reserved capacity raises predictable cost, while controlled borrowing improves utilization. Keep authorization enforcement separate from this resource policy.</p><h3>Common Mistakes</h3><ul><li>Do not accept a tenant identifier supplied only in query text.</li><li>Do not mistake compute fairness for row-level access control.</li><li>Do not rely solely on estimated cost without runtime limits.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/query-admission-queues-and-deadlines\">Query admission queues and deadlines</a></li><li><a href=\"/data-engineering/row-policy-and-column-mask-tests\">Row policy and column mask tests</a></li><li><a href=\"/data-engineering/analytics-burst-isolation-project\">Project: protect analytics reads during a tenant burst</a></li><li><a href=\"/data-engineering/pipeline-cost-attribution-and-right-sizing\">Pipeline cost attribution and right-sizing</a></li><li><a href=\"/data-engineering/serving-index-and-freshness-contract\">Serving indexes and freshness contracts</a></li></ul>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7904,
+    "status": "published",
+    "published_at": "2026-10-06T06:58:43.308049+00:00",
+    "created_at": "2026-10-06T06:58:43.308049+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/query-admission-queues-and-deadlines",
+          "title": "Query admission queues and deadlines"
+        },
+        {
+          "path": "data-engineering/row-policy-and-column-mask-tests",
+          "title": "Row policy and column mask tests"
+        },
+        {
+          "path": "data-engineering/analytics-burst-isolation-project",
+          "title": "Project: protect analytics reads during a tenant burst"
+        },
+        {
+          "path": "data-engineering/pipeline-cost-attribution-and-right-sizing",
+          "title": "Pipeline cost attribution and right-sizing"
+        },
+        {
+          "path": "data-engineering/serving-index-and-freshness-contract",
+          "title": "Serving indexes and freshness contracts"
+        }
+      ]
+    }
+  },
+  {
+    "id": "3471eae7-f16c-524b-afdd-c3b5b53dc9f6",
+    "type": "article",
+    "path": "data-engineering/watermark-retention-and-late-corrections",
+    "title": "Watermark retention and late corrections",
+    "summary": "A watermark states how far event time has probably advanced; retention defines when an old window can no longer accept ordinary corrections.",
+    "body": "<p>A watermark states how far event time has probably advanced; retention defines when an old window can no longer accept ordinary corrections.</p><h2>Use event time as the grouping key</h2><p>A card authorization created on day 47 may reach the processor on day 49. Grouping by arrival day changes the question the metric answers. Keep event time, arrival time and source identity separately. <a href=\"/data-engineering/event-time-and-late-arrivals\">Event-time policy</a> defines when a window first emits, but that first result need not be final.</p><h2>Choose allowed lateness from evidence</h2><p>Measure the distribution of arrival delay by source and incident class. A watermark lag of 36 hours could cover routine network delays but not a three-day source outage. State the promise: routine updates before the cutoff, explicit correction after it. A larger delay reduces ordinary restatements but holds more open state and delays final reporting.</p><h2>Retain enough to make corrections coherent</h2><p>Window state, deduplication IDs and source positions need compatible horizons. If window state lasts 60 hours but event IDs expire after 24, a retransmitted record can be counted again while the window is still open. <a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Retention planning</a> must include recovery, replay and legal boundaries, not only the dashboard delay.</p><h2>Publish revisions with identity</h2><p>A correction after a provisional result should replace the same account-window key with a higher revision or publish a versioned snapshot. Appending a second total without a revision contract makes readers sum both. Keep prior and revised totals, reason, source event ID and publication time in the audit record. Send very late events to a repair path rather than discarding them silently.</p><h2>Test the edge of the cutoff</h2><p>Build fixtures for an on-time event, one just before the watermark, one just after it and a duplicate. Assert the expected revision number and exact cents. Then restore from a checkpoint before the late record and replay; the published revision must be the same. A test that only checks aggregate totals misses duplicate revision rows.</p><h2>Implementation</h2><pre><code class=\"language-python\">from collections import defaultdict\n\nrecords = [\n    {&quot;id&quot;: &quot;auth-47&quot;, &quot;account&quot;: &quot;acct-47&quot;, &quot;event_hour&quot;: 47, &quot;arrival_hour&quot;: 48, &quot;cents&quot;: 3100},\n    {&quot;id&quot;: &quot;auth-48&quot;, &quot;account&quot;: &quot;acct-47&quot;, &quot;event_hour&quot;: 47, &quot;arrival_hour&quot;: 50, &quot;cents&quot;: 700},\n]\n\ndef window_total(events, cutoff_hour):\n    accepted = [row for row in events if row[&quot;arrival_hour&quot;] &lt;= cutoff_hour]\n    if len({row[&quot;id&quot;] for row in accepted}) != len(accepted):\n        raise ValueError(&quot;duplicate authorization identity&quot;)\n    totals = defaultdict(int)\n    for row in accepted:\n        totals[(row[&quot;account&quot;], row[&quot;event_hour&quot;])] += row[&quot;cents&quot;]\n    return dict(totals)\n\nassert window_total(records, 49) == {(&quot;acct-47&quot;, 47): 3100}\nassert window_total(records, 50) == {(&quot;acct-47&quot;, 47): 3800}</code></pre><h2>Performance and operating cost</h2><p>A keyed pass costs O(N) expected time and O(K + N) memory here, including duplicate validation. In production, open windows and retained identities scale with throughput multiplied by the retention horizon. Extending the watermark by one day can materially increase state, checkpoint bytes and recovery time; measure each before changing the promise.</p><h3>Common Mistakes</h3><ul><li>Do not treat a first window emission as immutable unless the contract says so.</li><li>Do not expire deduplication state before a window can still be corrected.</li><li>Do not append a revised total as a second additive fact.</li></ul><h2>Read next</h2><ul><li><a href=\"/data-engineering/event-time-and-late-arrivals\">Event time and late arrivals: close windows with an explicit correction policy</a></li><li><a href=\"/data-engineering/keyed-state-checkpoints-and-recovery\">Keyed state, checkpoints and recovery</a></li><li><a href=\"/data-engineering/compaction-retention-and-replay-horizon\">Compaction, retention and the replay horizon</a></li><li><a href=\"/data-engineering/streaming-risk-ledger-project\">Project: release a recoverable streaming risk ledger</a></li><li><a href=\"/data-engineering/replay-manifest-and-audit-trail\">Replay manifests and audit trails</a></li></ul><p><strong>Continue the workflow:</strong> <a href=\"/data-engineering/correction-aware-quality-alerts\">Correction-aware quality alerts</a>.</p>",
+    "category": "AI & Data",
+    "subject": "data-engineering",
+    "difficulty": "Advanced",
+    "tags": [
+      "ai-data",
+      "data-engineering"
+    ],
+    "potd_date": null,
+    "featured": false,
+    "sort_order": 7861,
+    "status": "published",
+    "published_at": "2026-10-06T05:43:04.999578+00:00",
+    "created_at": "2026-10-06T05:43:04.999578+00:00",
+    "updated_at": "2026-10-06T06:58:43.308049+00:00",
+    "data": {
+      "subject_root": "data-engineering/data-engineering-tutorial",
+      "section_path": "data-engineering/data-engineering-tutorial",
+      "content_format": "html",
+      "seo_ready": true,
+      "kind": "tutorial",
+      "reading_minutes": 5,
+      "author_path": "authors/aitrove-editorial",
+      "verification_suite": "Editorial, code and internal-link checks",
+      "related": [
+        {
+          "path": "data-engineering/event-time-and-late-arrivals",
+          "title": "Event time and late arrivals: close windows with an explicit correction policy"
+        },
+        {
+          "path": "data-engineering/keyed-state-checkpoints-and-recovery",
+          "title": "Keyed state, checkpoints and recovery"
+        },
+        {
+          "path": "data-engineering/compaction-retention-and-replay-horizon",
+          "title": "Compaction, retention and the replay horizon"
+        },
+        {
+          "path": "data-engineering/streaming-risk-ledger-project",
+          "title": "Project: release a recoverable streaming risk ledger"
+        },
+        {
+          "path": "data-engineering/replay-manifest-and-audit-trail",
+          "title": "Replay manifests and audit trails"
+        },
+        {
+          "path": "data-engineering/correction-aware-quality-alerts",
+          "title": "Correction-aware quality alerts"
+        }
+      ]
+    }
+  }
+]
