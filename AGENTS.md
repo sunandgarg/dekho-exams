@@ -37,3 +37,5 @@
 - Research may verify technical facts against official documentation. Write fresh explanations, programs, exercises, and diagrams; changing identifiers or values in a copied example is not an originality workflow. Keep research URLs in the editorial handoff, not in public tutorial bodies. Internal lesson links must resolve to published routes.
 - Do not promise exclusive ownership of Java facts, API syntax, third-party logos, or open-source dependencies. Preserve required third-party licences.
 - Question bank data lives in `src/lib/question-bank.ts` (stable question IDs and versions); keep `year`/`shift` null unless the question comes from a verified, rights-cleared past paper. Why: practice questions must never pass as past papers.
+
+- Tailwind must not scan `src/data` (`@source not "./data"` in styles.css): its multi-MB fixtures stall the dev server CSS transform.
