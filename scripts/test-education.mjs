@@ -7,10 +7,7 @@ import { readFileSync } from "node:fs";
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier.startsWith("@/") && specifier.endsWith(".json"))
-      return nextResolve(new URL(`../src/${specifier.slice(2)}`, import.meta.url).href, {
-        ...context,
-        importAttributes: { type: "json" },
-      });
+      return nextResolve(new URL(`../src/${specifier.slice(2)}`, import.meta.url).href, context);
     if (
       specifier.startsWith("./") &&
       !/\.[a-z]+$/.test(specifier) &&
@@ -18,6 +15,12 @@ registerHooks({
     )
       return nextResolve(`${specifier}.ts`, context);
     return nextResolve(specifier, context);
+  },
+  // App code imports JSON through Vite without an import attribute; Node needs one.
+  load(url, context, nextLoad) {
+    if (url.endsWith(".json"))
+      return nextLoad(url, { ...context, importAttributes: { type: "json" } });
+    return nextLoad(url, context);
   },
 });
 const catalog = await import("../src/lib/education-catalog.ts");
