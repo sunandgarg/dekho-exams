@@ -25,13 +25,12 @@ export function Crumbs({ items }: { items: [label: string, to?: ReactNode][] }) 
 }
 
 const pill = "inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm font-medium hover:bg-accent";
-const btn = "flex h-10 items-center justify-center rounded-lg border bg-card text-sm font-semibold hover:bg-accent";
 
 function ExamCard({ exam }: { exam: Exam }) {
   const n = questionsFor(exam.slug).length;
   const papers = papersFor(exam.slug).length;
   return (
-    <article className="flex flex-col rounded-xl border bg-card p-5 text-card-foreground">
+    <article className="exam-card text-card-foreground" data-cat={exam.category}>
       <div className="flex gap-3">
         <ExamLogo exam={exam} />
         <div>
@@ -42,8 +41,8 @@ function ExamCard({ exam }: { exam: Exam }) {
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <Link to="/questions/$exam" params={{ exam: exam.slug }} className={btn}>Chapter-wise</Link>
-        <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className={btn}>Paper-wise</Link>
+        <Link to="/questions/$exam" params={{ exam: exam.slug }} className="exam-btn exam-btn-solid">Chapter-wise</Link>
+        <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="exam-btn">Paper-wise</Link>
       </div>
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t pt-3 text-sm">
         <Link to="/questions/$exam/practice" params={{ exam: exam.slug }} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
@@ -62,19 +61,21 @@ function ExamCard({ exam }: { exam: Exam }) {
 export function ExamDirectory() {
   return (
     <div className="exam-wrap">
-      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Dekhoexams Questions</p>
-      <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Exam questions with solutions</h1>
-      <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
+      <header className="exam-hero">
+      <span className="exam-sticker">✦ Dekhoexams Questions</span>
+      <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight sm:text-6xl">Crack your exam, one chapter at a time.</h1>
+      <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
         JEE, NEET, GATE, UPSC, NDA, SSC and CBSE, organised chapter-wise and paper-wise. Questions here are
         original Dekhoexams practice questions; verified past papers will be marked with their year and shift.
       </p>
-      <div className="mt-5 flex flex-wrap gap-2">
+      </header>
+      <div className="exam-chipbar">
         {CATEGORIES.map((c) => (
-          <a key={c.slug} href={`#${c.slug}`} className={pill}>
-            {c.short} <span className="text-muted-foreground">{examsIn(c.slug).length}</span>
+          <a key={c.slug} href={`#${c.slug}`} className="exam-chip">
+            {c.short} <b>{examsIn(c.slug).length}</b>
           </a>
         ))}
-        <Link to="/questions/bookmarks" className={pill}>Bookmarks</Link>
+        <Link to="/questions/bookmarks" className="exam-chip">🔖 Bookmarks</Link>
       </div>
       {CATEGORIES.map((c) => (
         <section key={c.slug} id={c.slug} className="mt-10 scroll-mt-28" aria-labelledby={`${c.slug}-h`}>
@@ -96,7 +97,7 @@ export function ChapterCard({ exam, subject, slug, name }: { exam: string; subje
     <Link
       to="/questions/$exam/$subject/$chapter"
       params={{ exam, subject, chapter: slug }}
-      className="group flex min-h-[84px] flex-col justify-between rounded-xl border bg-card p-4 hover:border-primary"
+      className="chapter-card group flex min-h-[84px] flex-col justify-between rounded-xl border bg-card p-4 hover:border-primary"
     >
       <span className="flex items-start justify-between gap-2 font-semibold leading-6">
         {name}
