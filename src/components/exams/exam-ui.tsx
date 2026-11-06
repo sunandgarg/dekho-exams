@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, ChevronRight, FileText } from "lucide-react";
 import type { ReactNode } from "react";
-import { CATEGORIES, examsIn, papersFor, questionsFor, type Exam } from "@/lib/question-bank";
+import { CATEGORIES, examsIn, jeeMainPublicChapterSlug, papersFor, questionsFor, type Exam } from "@/lib/question-bank";
 import logoSources from "@/data/exam-logo-sources.json";
 
 export function ExamLogo({ exam }: { exam: Exam }) {
@@ -94,26 +94,25 @@ export function ExamDirectory() {
 
 export function ChapterCard({ exam, subject, slug, name }: { exam: string; subject: string; slug: string; name: string }) {
   const qs = questionsFor(exam, subject, slug);
+  const publicSlug = exam === "jee-main" ? jeeMainPublicChapterSlug(subject, slug) : null;
+  const content = <>
+    <span className="flex items-start justify-between gap-2 font-semibold leading-6">
+      {name}
+      <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground group-hover:text-primary" />
+    </span>
+    <span className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+      {qs.length > 0 ? <><span className="rounded bg-muted px-2 py-0.5 text-xs font-semibold">Practice</span><span><b className="text-foreground">{qs.length}</b> {qs.length === 1 ? "question" : "questions"}</span></> : <span className="text-xs">Coming soon</span>}
+    </span>
+  </>;
+  const className = "chapter-card group flex min-h-[84px] flex-col justify-between rounded-xl border bg-card p-4 hover:border-primary";
+  if (publicSlug) return <Link to="/past-years/jee/jee-main/$subject/$chapter" params={{ subject, chapter: publicSlug }} className={className}>{content}</Link>;
   return (
     <Link
       to="/questions/$exam/$subject/$chapter"
       params={{ exam, subject, chapter: slug }}
-      className="chapter-card group flex min-h-[84px] flex-col justify-between rounded-xl border bg-card p-4 hover:border-primary"
+      className={className}
     >
-      <span className="flex items-start justify-between gap-2 font-semibold leading-6">
-        {name}
-        <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground group-hover:text-primary" />
-      </span>
-      <span className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        {qs.length > 0 ? (
-          <>
-            <span className="rounded bg-muted px-2 py-0.5 text-xs font-semibold">Practice</span>
-            <span><b className="text-foreground">{qs.length}</b> {qs.length === 1 ? "question" : "questions"}</span>
-          </>
-        ) : (
-          <span className="text-xs">Coming soon</span>
-        )}
-      </span>
+      {content}
     </Link>
   );
 }

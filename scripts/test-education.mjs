@@ -35,7 +35,18 @@ const { default: directoryReference } = await import("../src/data/khan-course-re
 });
 const { parseProgress } = await import("../src/lib/learning-progress.ts");
 const { EXAM_GUIDES } = await import("../src/lib/exam-update-guides.ts");
-const { EXAMS } = await import("../src/lib/question-bank.ts");
+const { EXAMS, jeeMainPublicChapterSlug } = await import("../src/lib/question-bank.ts");
+test("JEE Main public chapter slugs keep verified paths and stable internal IDs", () => {
+  const exam = EXAMS.find((e) => e.slug === "jee-main");
+  assert.ok(exam);
+  for (const subject of exam.subjects) {
+    const publicSlugs = subject.chapters.map(([slug]) => jeeMainPublicChapterSlug(subject.slug, slug)).filter(Boolean);
+    assert.equal(new Set(publicSlugs).size, publicSlugs.length, subject.slug);
+  }
+  assert.equal(jeeMainPublicChapterSlug("physics", "units-and-measurements"), "units-and-measurements");
+  assert.equal(jeeMainPublicChapterSlug("physics", "center-of-mass-and-collision"), "center-of-mass");
+  assert.equal(jeeMainPublicChapterSlug("chemistry", "states-of-matter"), null);
+});
 const { default: examLogos } = await import("../src/data/exam-logo-sources.json", {
   with: { type: "json" },
 });

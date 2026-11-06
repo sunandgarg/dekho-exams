@@ -27,6 +27,7 @@ import { Route as QuestionsExamPracticeRouteImport } from './routes/questions.$e
 import { Route as QuestionsExamSubjectChapterRouteImport } from './routes/questions.$exam.$subject.$chapter'
 import { Route as QuestionsExamPapersIndexRouteImport } from './routes/questions.$exam.papers.index'
 import { Route as QuestionsExamPapersPaperRouteImport } from './routes/questions.$exam.papers.$paper'
+import { Route as PastYearsJeeJeeMainSubjectChapterRouteImport } from './routes/past-years.jee.jee-main.$subject.$chapter'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -121,6 +122,12 @@ const QuestionsExamPapersPaperRoute =
     path: '/questions/$exam/papers/$paper',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PastYearsJeeJeeMainSubjectChapterRoute =
+  PastYearsJeeJeeMainSubjectChapterRouteImport.update({
+    id: '/past-years/jee/jee-main/$subject/$chapter',
+    path: '/past-years/jee/jee-main/$subject/$chapter',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
   '/questions/$exam/papers/$paper': typeof QuestionsExamPapersPaperRoute
   '/questions/$exam/papers/': typeof QuestionsExamPapersIndexRoute
+  '/past-years/jee/jee-main/$subject/$chapter': typeof PastYearsJeeJeeMainSubjectChapterRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -160,6 +168,7 @@ export interface FileRoutesByTo {
   '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
   '/questions/$exam/papers/$paper': typeof QuestionsExamPapersPaperRoute
   '/questions/$exam/papers': typeof QuestionsExamPapersIndexRoute
+  '/past-years/jee/jee-main/$subject/$chapter': typeof PastYearsJeeJeeMainSubjectChapterRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -181,6 +190,7 @@ export interface FileRoutesById {
   '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
   '/questions/$exam/papers/$paper': typeof QuestionsExamPapersPaperRoute
   '/questions/$exam/papers/': typeof QuestionsExamPapersIndexRoute
+  '/past-years/jee/jee-main/$subject/$chapter': typeof PastYearsJeeJeeMainSubjectChapterRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/questions/$exam/$subject/$chapter'
     | '/questions/$exam/papers/$paper'
     | '/questions/$exam/papers/'
+    | '/past-years/jee/jee-main/$subject/$chapter'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/questions/$exam/$subject/$chapter'
     | '/questions/$exam/papers/$paper'
     | '/questions/$exam/papers'
+    | '/past-years/jee/jee-main/$subject/$chapter'
   id:
     | '__root__'
     | '/'
@@ -242,6 +254,7 @@ export interface FileRouteTypes {
     | '/questions/$exam/$subject/$chapter'
     | '/questions/$exam/papers/$paper'
     | '/questions/$exam/papers/'
+    | '/past-years/jee/jee-main/$subject/$chapter'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -260,6 +273,7 @@ export interface RootRouteChildren {
   QuestionsExamSubjectChapterRoute: typeof QuestionsExamSubjectChapterRoute
   QuestionsExamPapersPaperRoute: typeof QuestionsExamPapersPaperRoute
   QuestionsExamPapersIndexRoute: typeof QuestionsExamPapersIndexRoute
+  PastYearsJeeJeeMainSubjectChapterRoute: typeof PastYearsJeeJeeMainSubjectChapterRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -390,6 +404,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuestionsExamPapersPaperRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/past-years/jee/jee-main/$subject/$chapter': {
+      id: '/past-years/jee/jee-main/$subject/$chapter'
+      path: '/past-years/jee/jee-main/$subject/$chapter'
+      fullPath: '/past-years/jee/jee-main/$subject/$chapter'
+      preLoaderRoute: typeof PastYearsJeeJeeMainSubjectChapterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -423,6 +444,8 @@ const rootRouteChildren: RootRouteChildren = {
   QuestionsExamSubjectChapterRoute: QuestionsExamSubjectChapterRoute,
   QuestionsExamPapersPaperRoute: QuestionsExamPapersPaperRoute,
   QuestionsExamPapersIndexRoute: QuestionsExamPapersIndexRoute,
+  PastYearsJeeJeeMainSubjectChapterRoute:
+    PastYearsJeeJeeMainSubjectChapterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

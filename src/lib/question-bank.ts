@@ -231,6 +231,14 @@ const RAW: Q[] = [
   num("cbse-10", "mathematics", "arithmetic-progressions", "easy", "Find the sum of the first 10 terms of the AP 1, 3, 5, …", 100, "Sum of the first n odd numbers is n² = 100."),
   mcq("cbse-10", "science", "electricity", "easy", "The SI unit of electric current is:", ["Volt", "Ohm", "Ampere", "Watt"], 2, "Current is measured in amperes."),
   num("icse-10", "physics", "light", "easy", "The refractive index of glass is 1.5. Find the speed of light in glass in units of 10⁸ m/s (c = 3 × 10⁸ m/s).", 2, "v = c/n = 3/1.5 = 2 × 10⁸ m/s."),
+  // Original Units & Measurements practice; append to preserve all existing question IDs.
+  mcq("jee-main", "physics", "units-and-measurements", "easy", "Which dimensional formula represents pressure?", ["[MLT⁻²]", "[ML⁻¹T⁻²]", "[ML²T⁻²]", "[M⁻¹LT⁻²]"], 1, "Pressure is force per area: [MLT⁻²]/[L²] = [ML⁻¹T⁻²]."),
+  mcq("jee-main", "physics", "units-and-measurements", "medium", "The dimensions of Planck's constant h are:", ["[MLT⁻¹]", "[ML²T⁻¹]", "[ML²T⁻²]", "[M⁰L²T⁻¹]"], 1, "E = hν, so [h] = [energy]/[frequency] = [ML²T⁻²]/[T⁻¹] = [ML²T⁻¹]."),
+  mcq("jee-main", "physics", "units-and-measurements", "easy", "A circle's radius has a maximum percentage error of 3%. What is the approximate maximum percentage error in its calculated area?", ["3%", "6%", "9%", "12%"], 1, "Area A = πr². For small measurement errors, percentage error in A is approximately 2 times that in r: 2 × 3% = 6%."),
+  mcq("jee-main", "physics", "units-and-measurements", "easy", "Two measured lengths are 12.31 cm and 0.4 cm. Report their sum using the correct decimal-place rule.", ["12.71 cm", "12.7 cm", "13 cm", "12.710 cm"], 1, "The second measurement has one decimal place, so 12.31 + 0.4 = 12.71 cm is reported as 12.7 cm."),
+  num("jee-main", "physics", "units-and-measurements", "easy", "A vernier scale has 10 divisions equal to 9 main-scale divisions. If one main-scale division is 1 mm, find the least count in mm.", 0.1, "One vernier division is 0.9 mm. Least count = 1.0 − 0.9 = 0.1 mm."),
+  num("jee-main", "physics", "units-and-measurements", "easy", "Convert 54 km/h to m/s. Enter the numerical value.", 15, "Multiply by 1000/3600: 54 × 5/18 = 15 m/s."),
+  num("jee-main", "physics", "units-and-measurements", "medium", "A wire's density is calculated from its mass m, radius r and length L using ρ = m/(πr²L). If their maximum percentage errors are 1%, 2% and 1%, find the approximate maximum percentage error in ρ.", 6, "For products and powers, maximum fractional errors add: Δρ/ρ ≈ Δm/m + 2Δr/r + ΔL/L = 1% + 4% + 1% = 6%."),
 ];
 
 export const QUESTIONS: Question[] = RAW.map((q, i) => ({
@@ -246,6 +254,25 @@ export const examsIn = (category: string) => EXAMS.filter((e) => e.category === 
 export const examBySlug = (s: string) => EXAMS.find((e) => e.slug === s);
 export const subjectOf = (e: Exam, s: string) => e.subjects.find((x) => x.slug === s);
 export const chapterName = (sub: Subject, c: string) => sub.chapters.find(([slug]) => slug === c)?.[1];
+
+// Verified against the JEE Main chapter links on ExamSIDE; keep internal IDs stable.
+const JEE_MAIN_SLUGS: Record<string, Record<string, string>> = {
+  physics: {
+    "center-of-mass-and-collision": "center-of-mass",
+    "mechanical-properties-of-solids": "elasticity",
+    "mechanical-properties-of-fluids": "fluid-mechanics",
+    "magnetic-effect-of-current": "magnetics",
+    "semiconductor-devices": "electronic-devices",
+  },
+  mathematics: {
+    "trigonometric-ratio-and-identities": "trigonometric-ratio-and-identites",
+    "trigonometric-equations": "trigonometric-functions-and-equations",
+  },
+};
+const JEE_MAIN_UNMATCHED = new Set(["chemistry/states-of-matter", "chemistry/chemical-kinetics", "mathematics/application-of-integration"]);
+export function jeeMainPublicChapterSlug(subject: string, internal: string): string | null {
+  return JEE_MAIN_UNMATCHED.has(`${subject}/${internal}`) ? null : JEE_MAIN_SLUGS[subject]?.[internal] ?? internal;
+}
 export const questionsFor = (exam: string, subject?: string, chapter?: string) =>
   QUESTIONS.filter((q) => q.exam === exam && (!subject || q.subject === subject) && (!chapter || q.chapter === chapter));
 export const questionById = (id: string) => QUESTIONS.find((q) => q.id === id);
