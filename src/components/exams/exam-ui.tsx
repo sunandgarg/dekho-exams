@@ -2,11 +2,13 @@ import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, ChevronRight, FileText } from "lucide-react";
 import type { ReactNode } from "react";
 import { CATEGORIES, examsIn, papersFor, questionsFor, type Exam } from "@/lib/question-bank";
+import logoSources from "@/data/exam-logo-sources.json";
 
 export function ExamLogo({ exam }: { exam: Exam }) {
+  const logo = logoSources[exam.slug as keyof typeof logoSources];
   return (
-    <span className="exam-logo" data-cat={exam.category} aria-hidden="true">
-      {exam.short}
+    <span className="exam-logo" data-cat={exam.category} data-has-logo={!!logo} aria-hidden="true">
+      {logo ? <img src={`/exam-logos/${logo.file}`} alt="" width="64" height="52" loading="lazy" decoding="async" /> : exam.short}
     </span>
   );
 }

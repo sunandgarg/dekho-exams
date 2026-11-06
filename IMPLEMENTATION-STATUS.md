@@ -1,10 +1,11 @@
 # Dekhoexams Implementation Status
 
-## WordPress migration in progress (2026-11-06)
+## Dekhoexams migration (2026-11-06)
 
 - Removed the Supabase client, auth middleware, Lovable project metadata and build packages. The public frontend still uses local browser progress; student login remains unavailable.
-- Added a Hostinger WordPress plugin for published school lesson text and a validated Cloudflare server fetch with local fallback. Stable resource IDs, routes and practice questions stay in the frontend. The plugin still needs a separate Hostinger WordPress install and a published test lesson before live CMS behavior can be claimed. The existing `cms.pencil2pen.com` must remain untouched.
-- Local preview, TypeScript, PHP syntax, education catalog tests and production build pass. Cloudflare deployment remains pending CMS installation, a smaller Worker bundle and a Cloudflare token with Worker write access.
+- Created a separate Hostinger WordPress install at `https://linen-mandrill-402101.hostingersite.com`, activated the School content plugin and published `pp-0001` through its public API. The frontend fetches published lesson text with validated local fallback; the other 13 lessons remain in code. The existing `cms.pencil2pen.com` remains untouched.
+- Added local exam logo assets for 27 of 29 exams, with source URLs in `src/data/exam-logo-sources.json`. IAT and ICSE Class 10 still use text badges because no verified source image was found.
+- Local preview, TypeScript, PHP syntax, education catalog tests and production build pass. Cloudflare deployment to the new Bevory account is pending Worker write access.
 
 Updated 2026-10-17. The frontend is serving from Cloudflare at https://pencil2pen.com/ as a noindex preview. This is not a full SelfStudys/Khan Academy content library or a traffic-ready production launch. No GitHub push, bulk textbook import or automatic traffic-generation service was performed.
 
@@ -86,4 +87,4 @@ The latest local HTTP suite passed 20 tests across all 2,338 catalog routes, che
 ## Exam directory (2026-11-05)
 - Home page `/` and `/questions` now show the ExamSide-style exam directory: 7 groups (JEE, Medical, GATE, Civil Services, Defence, SSC, CBSE), 29 exams, Chapter-wise / Paper-wise per exam.
 - Chapter-wise (`/questions/$exam`) groups chapters by subject and unit. Paper-wise (`/questions/$exam/papers`) lists verified past papers (none yet) and original practice sets; each set has a printable paper view with answer key.
-- Exam badges are Dekhoexams initials, not official exam-body logos. 99 original practice questions across all 29 exams (each has a printable practice set); no past papers yet. Dekhoexams eye-and-tick icon and share image added.
+- Exam cards use local logos where sourced; IAT and ICSE Class 10 use initials. 99 original practice questions across all 29 exams (each has a printable practice set); no past papers yet. Dekhoexams eye-and-tick icon and share image added.

@@ -35,6 +35,10 @@ const { default: directoryReference } = await import("../src/data/khan-course-re
 });
 const { parseProgress } = await import("../src/lib/learning-progress.ts");
 const { EXAM_GUIDES } = await import("../src/lib/exam-update-guides.ts");
+const { EXAMS } = await import("../src/lib/question-bank.ts");
+const { default: examLogos } = await import("../src/data/exam-logo-sources.json", {
+  with: { type: "json" },
+});
 const { default: languageArt } = await import("../src/data/language-art.json", {
   with: { type: "json" },
 });
@@ -50,6 +54,15 @@ test("all class and language discovery artwork exists at stable image dimensions
     assert.equal(image.readUInt32BE(16), 192, name);
     assert.equal(image.readUInt32BE(20), 192, name);
     assert.ok(image.length < 25000, `${name}: artwork should stay lightweight`);
+  }
+});
+test("exam logos have local files and traceable source images", () => {
+  const known = new Set(EXAMS.map((exam) => exam.slug));
+  for (const [slug, source] of Object.entries(examLogos)) {
+    assert.ok(known.has(slug), slug);
+    assert.ok(source.sourceUrl.startsWith("https://"), slug);
+    const image = readFileSync(new URL(`../public/exam-logos/${source.file}`, import.meta.url));
+    assert.ok(image.subarray(0, 4).toString() === "RIFF" || image.subarray(1, 4).toString() === "PNG", slug);
   }
 });
 const {
