@@ -106,6 +106,11 @@ function cacheablePublicPage(request: Request): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      if (new URL(request.url).hostname === "www.dekhoexams.com") {
+        const canonical = new URL(request.url);
+        canonical.hostname = "dekhoexams.com";
+        return Response.redirect(canonical.href, 308);
+      }
       const redirect = contentAliasRedirect(request);
       if (redirect) return withPublicHeaders(redirect, request);
       const seoFile = await seoFileResponse(request);
