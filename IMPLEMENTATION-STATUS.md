@@ -87,4 +87,5 @@ The latest local HTTP suite passed 20 tests across all 2,338 catalog routes, che
 ## Exam directory (2026-11-05)
 - Home page `/` and `/questions` now show the ExamSide-style exam directory: 7 groups (JEE, Medical, GATE, Civil Services, Defence, SSC, CBSE), 29 exams, Chapter-wise / Paper-wise per exam.
 - Chapter-wise (`/questions/$exam`) groups chapters by subject and unit. Paper-wise (`/questions/$exam/papers`) lists verified past papers (none yet) and original practice sets; each set has a printable paper view with answer key.
+- JEE Main chapter-wise now has a focused practice overview and direct entry to its original question set. The reference page's past-paper counts, weightages and PDFs are not mirrored because this bank has no verified past papers.
 - Exam cards use local logos where sourced; IAT and ICSE Class 10 use initials. 99 original practice questions across all 29 exams (each has a printable practice set); no past papers yet. Dekhoexams eye-and-tick icon and share image added.
