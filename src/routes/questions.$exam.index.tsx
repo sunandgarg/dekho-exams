@@ -25,7 +25,7 @@ function ExamPage() {
   const cat = categoryOf(exam);
   const jeeMain = exam.slug === "jee-main";
   return (
-    <div className="exam-wrap">
+    <div className={`exam-wrap${jeeMain ? " exam-jee-page" : ""}`}>
       <Crumbs items={[["Home", <Link to="/">Home</Link>], [cat.short, <a href={`/#${cat.slug}`}>{cat.short}</a>], [exam.name]]} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex gap-3">
@@ -46,7 +46,7 @@ function ExamPage() {
         ))}
       </div>
       {jeeMain ? (
-        <section className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-card p-5 shadow-sm" aria-label="JEE Main practice bank">
+        <section className="exam-pastel-panel mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 shadow-sm" aria-label="JEE Main practice bank">
           <div>
             <h2 className="text-base font-bold">Chapter-wise JEE Main practice</h2>
             <p className="mt-1 text-sm text-muted-foreground">{questionsFor(exam.slug).length} original questions with solutions across Physics, Chemistry and Mathematics.</p>
