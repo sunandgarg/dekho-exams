@@ -11,6 +11,14 @@ npm run dev -- --host 127.0.0.1
 
 Open the URL reported by Vite (currently `http://127.0.0.1:3001/`). Leave `WORDPRESS_URL` unset for the local content fixtures. The school lessons are in `src/lib/school-content.ts`; `/classes` is the class hub and `/study` redirects permanently. All new education routes are registered in `src/lib/education-catalog.ts`. Preview mode stays `noindex` until the content, domain and legal pages are reviewed for launch. Canonicals use `https://pencil2pen.com`.
 
+## Hostinger WordPress and Cloudflare
+
+The student frontend runs as the `pencil2pen-frontend` Cloudflare Worker. The school editorial backend is the separate Hostinger WordPress site at `https://cms.pencil2pen.com`. Install `wordpress/dekhoexams-school-content` in WordPress, activate it, then publish a School lesson using a stable resource ID from `src/lib/education-catalog.ts`. The public endpoint is `/wp-json/dekhoexams/v1/lesson?id=pp-0001`; drafts return 404. Set `SCHOOL_WORDPRESS_URL=https://cms.pencil2pen.com` in the Worker environment and set `VITE_WORDPRESS_URL` to the same URL at build time so `/admin` opens WordPress. The frontend validates the WordPress response and falls back to the local lesson if the CMS is unavailable. Practice questions, progress and route ownership stay in code/browser storage.
+
+This checkout has no Supabase or Lovable runtime or build dependency. Its school content API uses WordPress; learner accounts and server-saved attempts are not implemented. Do not enable signup or claim cross-device progress until those services are built. Keep `VITE_PREVIEW_MODE=true` and the site `noindex` while content is under review.
+
+The legacy computing content has a separate `wordpress/aitrove-cms` plugin and `WORDPRESS_URL` setting. Leave `WORDPRESS_URL` unset unless that plugin and its reviewed content are installed on the target CMS. The current Hostinger site does not yet serve that endpoint.
+
 Use Node 22.18+ (or a current Node LTS). `npm run test:education` runs before every production build. With the preview running, `PENPENCIL_TEST_URL=http://127.0.0.1:3001 npm run test:education` also checks every catalog URL over HTTP, all legacy redirects, preview sitemaps and unknown-route 404s. Never deploy to the inherited AITrove Cloudflare project for a Dekhoexams launch.
 
 ## Legacy AITrove integration
@@ -25,7 +33,7 @@ The `aitrove` Pages project serves the same TanStack Start routes as the Worker 
 VITE_SITE_URL=https://aitrove.pages.dev VITE_PREVIEW_MODE=true npm run build:pages
 ```
 
-This writes static assets and a bundled server entry to `dist/pages`. The production site uses `aitrove.in`; run `npm run deploy` to build with its canonical URL and publish to the `aitrove` Pages project. The project needs `WORDPRESS_URL=https://cms.aitrove.in` in its production environment. The `pages.dev` address is an alternate host for this project.
+This writes static assets and a bundled server entry to `dist/pages` for the inherited AITrove project only. Do not use it for Dekhoexams.
 
 Bookmarks, lesson/path completion, quiz scores, assignment drafts, display name and learning goals stay in browser local storage. They are not an authenticated account or an enrollment. Quiz attempts and result reviews work locally. Code judging, payments, authentication, application delivery, contest scores, contact delivery and notifications are not connected. Forms validate inputs and clearly report that nothing was sent. Editors use `/admin`; learners use `/login` and `/account`.
 
@@ -36,7 +44,7 @@ Bookmarks, lesson/path completion, quiz scores, assignment drafts, display name 
 3. Add content under **Learning Content**. Choose its template and unique public path, then fill its title, summary, Markdown body and structured data. The template data guide explains all new families. WordPress handles editorial login, roles, drafts and publishing.
 4. Import example entries with `wp aitrove import /absolute/path/to/src/data/fixtures.json`. Import is idempotent by path. **Review all sample lessons, prices, metrics, companies, events and legal/contact copy before publishing a public site.** These are preview examples.
 5. Set server-side `WORDPRESS_URL` to your CMS origin and build-time `VITE_WORDPRESS_URL` to the same origin so `/admin` opens WordPress administration. Use HTTPS.
-6. Run `npm run deploy` after checking the WordPress API and DNS.
+6. Deploy only after checking the WordPress API and DNS. The inherited AITrove Pages deploy command has been removed to prevent publishing Dekhoexams changes to the wrong project.
 
 The frontend reads published entries through `/wp-json/aitrove/v1/entry?path=...` and `/entries`. Server functions perform the API reads, so browser CORS is unnecessary. Company, author and problem-company filters have matching WordPress metadata indexes. Save existing entries again or reimport to populate new indexes when upgrading the plugin.
 
@@ -64,6 +72,7 @@ npx tsc --noEmit
 npm run lint
 npm run build
 php -l wordpress/aitrove-cms/aitrove-cms.php
+php -l wordpress/dekhoexams-school-content/dekhoexams-school-content.php
 ```
 
 `scripts/check-preview.mjs` crawls seeded/reference/application routes, checks internal page links, captures 1440px and 390px screenshots and tests menus, bookmarks, quiz retries/results, lesson progress, themes and 404 behavior. It requires a running server and Playwright. Set `PLAYWRIGHT_MODULE` to a Playwright module path when using a bundled runtime. Its report and screenshots are written to the task's outputs directory by default. The script is local verification tooling, not a production dependency.

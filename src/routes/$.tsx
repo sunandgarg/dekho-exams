@@ -13,6 +13,7 @@ import {
   resourceById,
 } from "@/lib/education-catalog";
 import { canonicalUrl } from "@/lib/seo";
+import { getSchoolLesson } from "@/lib/school-cms.functions";
 
 const searchSchema = z.object({
   q: z.preprocess(
@@ -53,8 +54,18 @@ export const Route = createFileRoute("/$")({
   loaderDeps: ({ search }) => search,
   loader: async ({ params, deps, context }) => {
     const educationPath = `/${params._splat ?? ""}`;
-    if (educationPage(educationPath))
-      return { plan: { kind: "education" as const, path: educationPath }, entry: null };
+    const page = educationPage(educationPath);
+    if (page)
+      return {
+        plan: {
+          kind: "education" as const,
+          path: educationPath,
+          lesson: page.resourceId
+            ? await getSchoolLesson({ data: { id: page.resourceId } })
+            : null,
+        },
+        entry: null,
+      };
     if (ownsEducationPath(educationPath)) throw notFound();
     if (!isPublicPath(params._splat ?? "")) throw notFound();
     const plan = planPath(params._splat ?? "", deps);
@@ -134,11 +145,12 @@ export const Route = createFileRoute("/$")({
     if (loaderData?.plan.kind === "education") {
       const page = educationPage(loaderData.plan.path)!;
       const resource = page.resourceId ? resourceById(page.resourceId) : undefined;
+      const lesson = loaderData.plan.lesson;
       return seoHead({
         title: resource
-          ? `Class ${resource.lesson.grade} ${resource.lesson.subject}: ${page.title}`
+          ? `Class ${resource.lesson.grade} ${resource.lesson.subject}: ${lesson?.title ?? page.title}`
           : page.title,
-        description: page.description,
+        description: lesson?.summary ?? page.description,
         path: page.path,
         noindex:
           !educationIndexable(page) ||
@@ -227,6 +239,7 @@ function CatchAllPage() {
         query={search.q ?? ""}
         grade={search.grade ?? ""}
         topic={search.topic ?? ""}
+        lessonOverride={plan.lesson}
       />
     );
   return <CmsView plan={plan} search={search} fallback={null} />;

@@ -17,6 +17,7 @@ import {
 import { updateProgress, useLearningProgress } from "@/lib/learning-progress";
 import { directoryGroup, directoryItem } from "@/lib/subject-directory";
 import { examGuide } from "@/lib/exam-update-guides";
+import type { SchoolLesson } from "@/lib/school-content";
 
 function ownedChildren(page: Page) {
   return page.children
@@ -80,17 +81,22 @@ export function EducationPage({
   query = "",
   grade = "",
   topic = "",
+  lessonOverride = null,
 }: {
   path: string;
   query?: string;
   grade?: string;
   topic?: string;
+  lessonOverride?: Partial<SchoolLesson> | null;
 }) {
   const page = educationPage(path)!;
   const guide = examGuide(page.path);
   const syllabus = syllabusGrade(page.path);
   const classDirectory = /(?:^|\/)class-\d+$/.test(page.path);
-  const resource = page.resourceId ? resourceById(page.resourceId) : undefined;
+  const original = page.resourceId ? resourceById(page.resourceId) : undefined;
+  const resource = original && lessonOverride
+    ? { ...original, lesson: { ...original.lesson, ...lessonOverride } }
+    : original;
   const utility = page.family === "utility";
   const relatedPages = utility ? [] : relatedEducationPages(page);
   const group = directoryGroup(page.path);

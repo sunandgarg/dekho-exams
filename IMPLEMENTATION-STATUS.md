@@ -1,5 +1,11 @@
 # Dekhoexams Implementation Status
 
+## WordPress migration in progress (2026-11-06)
+
+- Removed the Supabase client, auth middleware, Lovable project metadata and build packages. The public frontend still uses local browser progress; student login remains unavailable.
+- Added a Hostinger WordPress plugin for published school lesson text and a validated Cloudflare server fetch with local fallback. Stable resource IDs, routes and practice questions stay in the frontend. The plugin still needs installation and a published test lesson on `cms.pencil2pen.com` before live CMS behavior can be claimed.
+- Local preview, TypeScript, PHP syntax, education catalog tests and production build pass. Cloudflare deployment remains pending CMS installation, a smaller Worker bundle and a Cloudflare token with Worker write access.
+
 Updated 2026-10-17. The frontend is serving from Cloudflare at https://pencil2pen.com/ as a noindex preview. This is not a full SelfStudys/Khan Academy content library or a traffic-ready production launch. No GitHub push, bulk textbook import or automatic traffic-generation service was performed.
 
 ## Hosting Preview

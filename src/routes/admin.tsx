@@ -5,7 +5,7 @@ export const Route = createFileRoute("/admin")({
   head: () =>
     seoHead({
       title: "WordPress editor",
-      description: "AI Trove editorial workspace.",
+      description: "Dekhoexams editorial workspace on Hostinger WordPress.",
       path: "admin",
       noindex: true,
     }),

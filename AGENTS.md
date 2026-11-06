@@ -1,14 +1,3 @@
-<!-- LOVABLE:BEGIN -->
-> [!IMPORTANT]
-> This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
-> published git history — force pushing, or rebasing/amending/squashing commits
-> that are already pushed — as it rewrites history on Lovable's side and the
-> user will likely lose their project history.
->
-> Commits you push to the connected branch sync back to Lovable and show up in
-> the editor, so keep the branch in a working state.
-<!-- LOVABLE:END -->
-
 ## Project architecture
 
 - For all Dekhoexams education work, follow `SITE-ARCHITECTURE.md` and keep `IMPLEMENTATION-STATUS.md` honest. Preserve the current Dekhoexams shell and typography. The user-approved October 1 refresh uses six saturated-color shortcuts and an 18-group subject directory; keep this design unless explicitly asked to redesign.
@@ -21,7 +10,7 @@
 - Keep reusable page templates in `src/components/cms`; one published WordPress entry maps to one URL through the TanStack catch-all route.
 - Use Dekhoexams branding for the public interface. Legacy AITrove CMS/API and content assets are migration details, not public branding.
 - The inherited WordPress integration owns computing-library editorial login, drafts, and publishing; review it before using it for Dekhoexams school content.
-- For verified site changes, commit on `main`, merge newer `origin/main` without force-pushing or discarding remote work, push to `sunandgarg/lovable-2025-standard`, deploy the existing `pencil2pen-frontend` Worker, and check the changed route at `https://pencil2pen.com`. Keep preview `noindex` until the user explicitly approves an indexed launch. Do not deploy to the inherited AITrove project.
+- For verified site changes, commit on `main`, merge newer `origin/main` without force-pushing or discarding remote work, push to `sunandgarg/dekho-exams`, deploy the existing `pencil2pen-frontend` Worker, and check the changed route at `https://pencil2pen.com`. Keep preview `noindex` until the user explicitly approves an indexed launch. Do not deploy to the inherited AITrove project.
 - Keep sample fixtures for local preview. Do not use the former Lovable Cloud database or first-admin signup flow.
 - Gated, judged, paid, submitted, or authenticated features need real backend services before being presented as functional.
 
