@@ -9,7 +9,7 @@ npm install
 npm run dev -- --host 127.0.0.1
 ```
 
-Open the URL reported by Vite (currently `http://127.0.0.1:3001/`). Leave `WORDPRESS_URL` unset for the local content fixtures. The school lessons are in `src/lib/school-content.ts`; `/classes` is the class hub and `/study` redirects permanently. All new education routes are registered in `src/lib/education-catalog.ts`. Preview mode stays `noindex` until the content, domain and legal pages are reviewed for launch. Canonicals use `https://pencil2pen.com`.
+Open the URL reported by Vite (currently `http://127.0.0.1:3001/`). Leave `WORDPRESS_URL` unset to use the bundled published-content snapshot. The school lessons are in `src/lib/school-content.ts`; `/classes` is the class hub and `/study` redirects permanently. All new education routes are registered in `src/lib/education-catalog.ts`. Preview mode stays `noindex` until the content, domain and legal pages are reviewed for launch. Canonicals use `https://pencil2pen.com`.
 
 ## Hostinger WordPress and Cloudflare
 

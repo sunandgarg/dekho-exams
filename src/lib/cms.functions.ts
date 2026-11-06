@@ -65,8 +65,8 @@ export const getEntryByPath = createServerFn({ method: "GET" })
       return snapshotEntry(path);
     }
     if (!cmsBaseUrl()) {
-      const { fixtureEntry } = await import("./fixtures.server");
-      return fixtureEntry(path);
+      const { snapshotEntry } = await import("./cms-snapshot.server");
+      return snapshotEntry(path);
     }
     try {
       const entry = await wordpressGet<Entry>("entry", { path });
@@ -91,8 +91,8 @@ export const listEntries = createServerFn({ method: "GET" })
         return snapshotList(data);
       }
       if (!cmsBaseUrl()) {
-        const { fixtureList } = await import("./fixtures.server");
-        return fixtureList(data);
+        const { snapshotList } = await import("./cms-snapshot.server");
+        return snapshotList(data);
       }
       const params: Record<string, string> = {};
       for (const [key, value] of Object.entries(data)) {

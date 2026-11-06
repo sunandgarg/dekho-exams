@@ -54,35 +54,8 @@ async function metadataPage(page: number): Promise<MetadataPage> {
   }
   const base = process.env["WORDPRESS_URL"]?.trim();
   if (!base) {
-    const { default: fixtures } = await import("@/data/fixtures.json");
-    const ready = (fixtures as Entry[])
-      .filter(
-        (item) =>
-          isSeoReady(item) &&
-          !ownsEducationPath(`/${item.path}`) &&
-          !EDUCATION_ALIASES[`/${item.path}`],
-      )
-      .sort((a, b) => a.path.localeCompare(b.path));
-    return {
-      items: ready
-        .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-        .map(({ path, type, status, data, updated_at }) => ({
-          path,
-          type,
-          status,
-          data: {
-            seo_ready:
-              !!data &&
-              !Array.isArray(data) &&
-              typeof data === "object" &&
-              data["seo_ready"] === true,
-          },
-          updated_at,
-        })),
-      total: ready.length,
-      page,
-      per_page: PAGE_SIZE,
-    };
+    const { snapshotSitemapPage } = await import("./cms-snapshot.server");
+    return snapshotSitemapPage(page, PAGE_SIZE);
   }
   const cms = new URL(base);
   if (cms.protocol !== "https:" && cms.hostname !== "localhost" && cms.hostname !== "127.0.0.1")
