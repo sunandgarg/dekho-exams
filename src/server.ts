@@ -90,6 +90,8 @@ function contentAliasRedirect(request: Request): Response | null {
 }
 
 function cacheablePublicPage(request: Request): boolean {
+  // shortcut: preview HTML skips edge caching to keep hashed asset links current; version cache keys before enabling it.
+  if (IS_PREVIEW) return false;
   if (request.method !== "GET" || request.headers.has("authorization") || request.headers.has("cookie"))
     return false;
   const url = new URL(request.url);
