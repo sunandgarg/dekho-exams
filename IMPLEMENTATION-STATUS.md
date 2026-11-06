@@ -5,7 +5,7 @@
 - Removed the Supabase client, auth middleware, Lovable project metadata and build packages. The public frontend still uses local browser progress; student login remains unavailable.
 - Created a separate Hostinger WordPress install at `https://linen-mandrill-402101.hostingersite.com`, activated the School content plugin and published `pp-0001` through its public API. The frontend fetches published lesson text with validated local fallback; the other 13 lessons remain in code. The existing `cms.pencil2pen.com` remains untouched.
 - Added local exam logo assets for 27 of 29 exams, with source URLs in `src/data/exam-logo-sources.json`. IAT and ICSE Class 10 still use text badges because no verified source image was found.
-- Local preview, TypeScript, PHP syntax, education catalog tests and production build pass. Cloudflare deployment to the new Bevory account is pending Worker write access.
+- Local preview, TypeScript, PHP syntax, education catalog tests and production build pass. `dekhoexams-frontend` is deployed in the Bevory account at `https://dekhoexams-frontend.bevory-main.workers.dev`; key pages and logo assets return 200 and pages remain noindex. The future `dekhoexams.com` domain is not yet purchased or connected.
 
 Updated 2026-10-17. The frontend is serving from Cloudflare at https://pencil2pen.com/ as a noindex preview. This is not a full SelfStudys/Khan Academy content library or a traffic-ready production launch. No GitHub push, bulk textbook import or automatic traffic-generation service was performed.
 
