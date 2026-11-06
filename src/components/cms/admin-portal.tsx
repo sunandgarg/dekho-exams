@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-const cmsUrl = import.meta.env["VITE_WORDPRESS_URL"]?.replace(/\/$/, "") || "https://cms.pencil2pen.com";
+const cmsUrl = import.meta.env["VITE_WORDPRESS_URL"]?.replace(/\/$/, "");
 
 export function AdminPortal() {
   useEffect(() => {
@@ -8,6 +8,6 @@ export function AdminPortal() {
   }, []);
   return <div className="mx-auto max-w-xl px-5 py-24 text-center">
     <h1 className="font-display text-3xl font-bold">WordPress editor</h1>
-    <p className="mt-4">Opening the WordPress dashboard… <a className="text-primary underline" href={`${cmsUrl}/wp-admin/`}>Open it now</a>.</p>
+    <p className="mt-4">{cmsUrl ? <>Opening the WordPress dashboard… <a className="text-primary underline" href={`${cmsUrl}/wp-admin/`}>Open it now</a>.</> : "The Dekhoexams WordPress editor is not connected yet."}</p>
   </div>;
 }

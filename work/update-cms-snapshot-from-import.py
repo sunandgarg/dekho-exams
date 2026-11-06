@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SNAPSHOT = ROOT / "src/data/cms-snapshot.txt"
+SNAPSHOT = ROOT / "public/__data/cms-snapshot.txt"
 
 
 def main() -> None:

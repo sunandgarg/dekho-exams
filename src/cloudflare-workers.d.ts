@@ -1,3 +1,6 @@
 declare module "cloudflare:workers" {
-  export const env: Record<string, string>;
+  export const env: {
+    SCHOOL_WORDPRESS_URL?: string;
+    ASSETS: { fetch(request: Request): Promise<Response> };
+  };
 }

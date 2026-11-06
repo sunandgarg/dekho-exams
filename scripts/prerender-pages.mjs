@@ -4,20 +4,21 @@ import { dirname, resolve } from "node:path";
 
 process.env.AITROVE_STATIC_EXPORT = "1";
 const output = resolve("dist/client/__prerender");
-const rows = JSON.parse(gunzipSync(Buffer.from(await readFile("src/data/cms-snapshot.txt", "utf8"), "base64")));
+const rows = JSON.parse(gunzipSync(Buffer.from(await readFile("public/__data/cms-snapshot.txt", "utf8"), "base64")));
 const paths = [...new Set(rows
   .filter((row) => row[1] !== "course" && /^[a-z0-9]+(?:[/-][a-z0-9]+)*$/.test(row[2]))
   .map((row) => row[2]))];
 const app = (await import("../dist/server/index.js")).default;
 const context = { waitUntil() {} };
+const env = { ASSETS: { fetch: async () => new Response(await readFile("public/__data/cms-snapshot.txt", "utf8")) } };
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 
 async function render(path, destination) {
-  const response = await app.fetch(new Request(`https://aitrove.in/${path}`), {}, context);
+  const response = await app.fetch(new Request(`https://dekhoexams.com/${path}`), env, context);
   if (response.status !== 200) throw new Error(`${path || "/"} rendered HTTP ${response.status}`);
   const body = await response.text();
-  if (path && destination.endsWith(".html") && !body.includes(`href="https://aitrove.in/${path}"`))
+  if (path && destination.endsWith(".html") && !body.includes(`href="https://dekhoexams.com/${path}"`))
     throw new Error(`${path} has no matching canonical URL`);
   const target = resolve(output, destination);
   await mkdir(dirname(target), { recursive: true });

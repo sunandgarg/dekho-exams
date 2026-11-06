@@ -291,7 +291,7 @@ test("all 18 reference dropdowns retain every option and valid local destination
     );
     assert.ok(educationPage(group.path), group.path);
     for (const item of group.items) {
-      const href = new URL(item.href, "https://pencil2pen.com");
+      const href = new URL(item.href, "https://dekhoexams.com");
       assert.equal(href.pathname, group.path);
       assert.ok(directoryItem(href.pathname, href.searchParams.get("topic")));
       assert.equal(new URL(item.referenceUrl).origin, "https://www.khanacademy.org");
@@ -309,7 +309,7 @@ if (process.env.PENPENCIL_TEST_URL) {
       assert.equal(response.status, 200, page.path);
       const html = await response.text();
       assert.match(html, /<h1[^>]*>/, page.path);
-      assert.ok(html.includes(`href="https://pencil2pen.com${page.path}"`), page.path);
+      assert.ok(html.includes(`href="https://dekhoexams.com${page.path}"`), page.path);
       assert.equal((html.match(/rel="canonical"/g) ?? []).length, 1, page.path);
       assert.match(html, /name="robots" content="noindex,follow"/, page.path);
     }
@@ -415,7 +415,7 @@ if (process.env.PENPENCIL_TEST_URL) {
           item.href,
         );
         assert.ok(html.includes(`href="${item.referenceUrl}"`), item.href);
-        assert.ok(html.includes(`href="https://pencil2pen.com${group.path}"`), item.href);
+        assert.ok(html.includes(`href="https://dekhoexams.com${group.path}"`), item.href);
         assert.match(html, /name="robots" content="noindex,follow"/);
       }
     }

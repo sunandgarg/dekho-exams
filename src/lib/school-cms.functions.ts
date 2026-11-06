@@ -16,7 +16,7 @@ const lessonSchema = z.object({
 export const getSchoolLesson = createServerFn({ method: "GET" })
   .validator((data) => z.object({ id: z.string().regex(/^pp-\d{4}$/) }).parse(data))
   .handler(async ({ data }) => {
-    const origin = (env as Record<string, string>)["SCHOOL_WORDPRESS_URL"]?.trim();
+    const origin = env.SCHOOL_WORDPRESS_URL?.trim();
     if (!origin) return null;
     const base = new URL(origin);
     if (base.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(base.hostname))

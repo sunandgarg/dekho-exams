@@ -1,7 +1,7 @@
 import type { Entry, EntryListItem } from "./content-types";
 import { isPublicEntryType, isPublicPath } from "./features";
 
-const DEFAULT_SITE_URL = "https://pencil2pen.com";
+const DEFAULT_SITE_URL = "https://dekhoexams.com";
 
 export function validatedSiteOrigin(value?: string): string {
   const url = new URL(value?.trim() || DEFAULT_SITE_URL);

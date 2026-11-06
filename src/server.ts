@@ -109,6 +109,8 @@ export default {
       const seoFile = await seoFileResponse(request);
       if (seoFile) return withPublicHeaders(seoFile, request);
       const path = new URL(request.url).pathname;
+      if (path === "/__data/cms-snapshot.txt")
+        return withPublicHeaders(new Response("Not found", { status: 404 }), request);
       if (
         ["/java-coverage.html", "/learning-coverage.html"].includes(path) ||
         path.startsWith("/downloads/")

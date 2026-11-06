@@ -1,4 +1,4 @@
-import packedSnapshot from "@/data/cms-snapshot.txt?raw";
+import { env } from "cloudflare:workers";
 import { isPublicEntryType, publicCopy } from "./features";
 import type { Entry, EntryListItem } from "./content-types";
 import type { ListInput } from "./cms.functions";
@@ -11,6 +11,9 @@ type PackedRow = [
 let loaded: Promise<Entry[]> | undefined;
 function entries(): Promise<Entry[]> {
   loaded ??= (async () => {
+    const response = await env.ASSETS.fetch(new Request(`${import.meta.env.DEV ? "http://127.0.0.1:3001" : "https://dekhoexams.com"}/__data/cms-snapshot.txt`));
+    if (!response.ok) throw new Error(`Published content snapshot returned HTTP ${response.status}.`);
+    const packedSnapshot = await response.text();
     const binary = atob(packedSnapshot);
     const bytes = new Uint8Array(binary.length);
     for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);

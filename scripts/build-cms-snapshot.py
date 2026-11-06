@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 WP = "{http://wordpress.org/export/1.2/}"
-OUTPUT = Path(__file__).resolve().parents[1] / "src/data/cms-snapshot.txt"
+OUTPUT = Path(__file__).resolve().parents[1] / "public/__data/cms-snapshot.txt"
 
 
 def stamp(value: str | None) -> str:
