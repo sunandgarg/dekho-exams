@@ -1,5 +1,12 @@
 # Dekhoexams Implementation Status
 
+## JEE Main archive (2026-11-08)
+
+- The chapter directory has Physics, Chemistry and Mathematics, 95 chapters and 18,006 question listings. Chapter pages preserve question types, historical counts and annual weightages. The year-wise archive contains 202 papers and 15,280 paper positions, ordered by subject. Chapter and paper totals overlap.
+- All 18,006 questions have English detail and explanation records; 18,004 also have verified Hindi content. Explicit numerical keys are available for 3,592 questions and explicit final choice keys for 1,808. Question readers retain the canonical chapter slug, the paper-specific ID, options, mathematical notation, available English/Hindi editions and published explanations. Numerical or multiple-choice responses are scored only against an explicit published key. Bookmarks are local to the browser.
+- The public PDF catalog lists 830 paper editions and 380 chapter editions. The original PDF files and some diagrams are served externally. Dekhoexams also supplies its own printable views. The JEE dataset is versioned on GitHub and served by Cloudflare; it is separate from the Hostinger WordPress lesson editor. All JEE routes remain noindex during preview.
+- Coverage checks: `npm run test:education` checks the chapter order against the directory; `python3 scripts/jee/verify.py` checks every question, neighbor, paper association and mathematical glyph.
+
 ## Dekhoexams migration (2026-11-06)
 
 - Removed the Supabase client, auth middleware, Lovable project metadata and build packages. The public frontend still uses local browser progress; student login remains unavailable.
@@ -79,15 +86,13 @@ The latest local HTTP suite passed 20 tests across all 2,338 catalog routes, che
 
 ## Question Bank (added 2026-11-05)
 
-- `/questions` exam-wise question bank modelled on the exam → subject → chapter layout used by sites like ExamSide. No ExamSide content or design was copied. 19 exams (JEE Main/Advanced, BITSAT, WB JEE, MHT CET, KCET, COMEDK, VITEEE, NEET, GATE CSE/ECE/EE/ME/CE, CBSE 10/12, ICSE 10, NDA) with syllabus-style chapter lists.
+- `/questions` original practice bank uses an exam → subject → chapter layout. 19 exams (JEE Main/Advanced, BITSAT, WB JEE, MHT CET, KCET, COMEDK, VITEEE, NEET, GATE CSE/ECE/EE/ME/CE, CBSE 10/12, ICSE 10, NDA) with syllabus-style chapter lists.
 - Only 29 original practice questions exist (single-correct and numerical, with solutions). None are past-paper questions, so year/shift are null and the year filter stays disabled. Solutions are not academically reviewed. Every page is noindex.
 - Chapter filters (year, difficulty, type, status), show/hide solutions, bookmarks and attempt progress (this browser only), and a short timed practice set with practice marking. This is not a full mock test and nothing is saved server-side.
 - Remaining: rights-cleared past papers with year/shift, many more questions per chapter, academic review, account-synced progress, and exams ExamSide lists that are not added here yet.
 
 ## Exam directory (2026-11-05)
 - Home page `/` and `/questions` now show the ExamSide-style exam directory: 7 groups (JEE, Medical, GATE, Civil Services, Defence, SSC, CBSE), 29 exams, Chapter-wise / Paper-wise per exam.
-- Chapter-wise (`/questions/$exam`) groups chapters by subject and unit. Paper-wise (`/questions/$exam/papers`) lists verified past papers (none yet) and original practice sets; each set has a printable paper view with answer key.
-- JEE Main chapter-wise now has a focused practice overview and direct entry to its original question set. The reference page's past-paper counts, weightages and PDFs are not mirrored because this bank has no verified past papers.
-- JEE Main paper-wise now highlights its available original set, answer key and print flow. Both JEE Main listing pages use a 2% pastel tint on overview panels and cards. No year or shift filter is shown until verified papers exist.
-- JEE Main chapter detail pages now use verified matching `/past-years/jee/jee-main/{subject}/{chapter}` paths where equivalent. Old `/questions/jee-main/{subject}/{chapter}` paths redirect; chapters without a verified equivalent retain their prior paths. The Units & Measurements detail page has 8 original practice questions, filters, a question-type summary and responsive chapter navigation. Past-paper statistics/PDFs are absent and the pages remain noindex pending academic review.
+- Chapter-wise (`/questions/$exam`) groups chapters by subject and unit. JEE Main uses the chapter and year-wise archive paths above. The other exam directories list their available original practice sets; each original set has a printable view with an answer key.
+- JEE Main now opens the archive described above. Earlier practice links still resolve; original practice questions retain their existing IDs and separate labels.
 - Exam cards use local logos where sourced; IAT and ICSE Class 10 use initials. 106 original practice questions across all 29 exams (each has a printable practice set); no past papers yet. Dekhoexams eye-and-tick icon and share image added.

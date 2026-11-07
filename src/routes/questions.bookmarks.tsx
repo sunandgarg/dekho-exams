@@ -23,7 +23,8 @@ function BookmarksPage() {
       <p className="text-sm"><Link to="/questions">Question Bank</Link> / Bookmarks</p>
       <h1>Bookmarked questions</h1>
       <p className="study-intro">Bookmarks and progress are saved in this browser only. They don't sync across devices.</p>
-      {qs.length === 0 ? <p>No bookmarks yet. Use the Bookmark button on any question.</p> : (
+      {p.state.pyqs.length>0&&<ul className="my-4 grid gap-2">{p.state.pyqs.map(x=><li key={x.href} className="flex items-center justify-between gap-3 rounded-lg border p-3"><a href={x.href} className="text-primary">{x.title}</a><button type="button" className="text-sm" onClick={()=>p.togglePyq(x)}>Remove</button></li>)}</ul>}
+      {qs.length===0 && p.state.pyqs.length===0 ? <p>No bookmarks yet. Use the Bookmark button on any question.</p> : (
         <div className="grid gap-4">
           {qs.map((q, i) => (
             <div key={q.id}>

@@ -1,0 +1,499 @@
+import chapterOrder from "@/data/jee-main-chapters.json";
+import chapterMeta from "@/data/jee-main-chapter-meta.json";
+import { useState } from "react";
+import hindiPrint from "@/data/jee-main-hindi-print.json";
+import { useQuestionProgress } from "@/lib/question-progress";
+import papers from "@/data/jee-main-papers.json";
+import type { ArchiveQuestion, ArchiveRow } from "@/lib/jee-archive.functions";
+
+export const jeeHub = "/past-years/jee/jee-main",
+  paperHub = "/past-years/year-wise/jee/jee-main",
+  pdfHub = "/pyq-pdfs/past-years/year-wise/jee/jee-main";
+const btn =
+  "inline-flex items-center rounded-lg border bg-card px-3 py-2 text-sm font-semibold hover:bg-accent";
+const label = (s: string) =>
+  ({ mcq: "Single correct", mcqm: "Multiple correct", integer: "Numerical" })[s] ??
+  s.replaceAll("-", " ");
+const title = (s: string) => s.replaceAll("-", " ").replace(/(^|\s)\w/g, (c) => c.toUpperCase());
+export function ArchiveNav() {
+  return (
+    <nav className="my-4 flex flex-wrap gap-2" aria-label="JEE Main library">
+      <a className={btn} href={jeeHub}>
+        Chapter-wise
+      </a>
+      <a className={btn} href={paperHub}>
+        Paper-wise
+      </a>
+      <a className={btn} href={pdfHub}>
+        PYQ PDFs
+      </a>
+    </nav>
+  );
+}
+export function ArchiveRows({
+  rows,
+  paper,
+  filter,
+}: {
+  rows: ArchiveRow[];
+  paper?: string;
+  filter?: string;
+}) {
+  const [group, setGroup] = useState(filter ?? ""),
+    [year, setYear] = useState("");
+  const selected = rows.filter(
+    (x) => (!group || x.group === group) && (!year || x.paper.includes(year)),
+  );
+  const years = [
+    ...new Set(rows.map((x) => x.paper.match(/\b(?:19|20)\d{2}\b/)?.[0]).filter(Boolean)),
+  ];
+  return (
+    <section className="my-6">
+      <h2 className="text-xl font-bold">
+        Previous-year questions{" "}
+        <small className="text-sm text-muted-foreground">{rows.length}</small>
+      </h2>
+      <div className="my-3 flex flex-wrap items-center gap-3">
+        {!filter && (
+          <select
+            className={btn}
+            value={group}
+            aria-label={paper ? "Subject" : "Question type"}
+            onChange={(e) => setGroup(e.target.value)}
+          >
+            <option value="">{paper ? "All subjects" : "All types"}</option>
+            {[...new Set(rows.map((x) => x.group))].map((g) => (
+              <option key={g} value={g}>
+                {title(label(g))}
+              </option>
+            ))}
+          </select>
+        )}
+        {!paper && (
+          <select
+            className={btn}
+            value={year}
+            aria-label="Exam year"
+            onChange={(e) => setYear(e.target.value)}
+          >
+            <option value="">All years</option>
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        )}
+        <small>{selected.length} shown</small>
+      </div>
+      <ol className="grid gap-2">
+        {selected.map((r, i) => (
+          <li key={r.id}>
+            <a
+              className="exam-pastel-card flex items-start gap-3 rounded-xl border px-4 py-3 hover:border-primary"
+              href={
+                paper ? paperHub + "/" + paper + "/" + r.id : "/past-years/jee/question/" + r.id
+              }
+            >
+              <span aria-hidden="true" className="mt-0.5 text-xs text-muted-foreground">
+                {i + 1}.
+              </span>
+              <span className="min-w-0">
+                <small className="block font-semibold text-primary">
+                  {paper ? title(r.group) : r.paper}
+                </small>
+                <span className="line-clamp-2 break-words">{r.teaser}</span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ol>
+      {!selected.length && <p>No questions match these filters.</p>}
+    </section>
+  );
+}
+function PdfLinks({ paper }: { paper: (typeof papers)[number] }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      <a className={btn} href={"/pyq-pdfs/print/" + paper.slug + "/en"}>
+        Print English edition
+      </a>
+      {hindiPrint.includes(paper.slug) && (
+        <a className={btn} href={"/pyq-pdfs/print/" + paper.slug + "/hi"}>
+          Print Hindi edition
+        </a>
+      )}
+      {paper.variants.map((v) => (
+        <a
+          className={btn}
+          key={v}
+          href={
+            "https://pdf.questions.examgoal.com/download/paper/jee/jee-main/" + paper.slug + "/" + v
+          }
+          target="_blank"
+          rel="nofollow noreferrer"
+        >
+          {{ en: "English", hi: "Hindi", gu: "Gujarati" }[v.split(/[.-]/)[0]!] ??
+            v.split(/[.-]/)[0]!.toUpperCase()}
+          {v.includes("-dark") ? " · Dark" : ""} PDF ↗
+        </a>
+      ))}
+    </div>
+  );
+}
+export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
+  const years = [
+    ...new Set(papers.map((p) => p.date.match(/\d{4}/)?.[0] ?? p.title.match(/\d{4}/)![0])),
+  ];
+  const [year, setYear] = useState(""),
+    [query, setQuery] = useState("");
+  return (
+    <main className="exam-wrap exam-jee-page">
+      <ArchiveNav />
+      <header className="exam-pastel-panel rounded-2xl border p-5">
+        <h1 className="text-3xl font-extrabold">
+          JEE Main {pdf ? "PYQ PDFs" : "previous-year papers"}
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          {papers.length} papers by year and shift.{" "}
+          {pdf
+            ? "Choose a language and edition to open the external PDF."
+            : "Choose a paper to practise its questions in order."}
+        </p>
+      </header>
+      {pdf && (
+        <a className={btn + " mt-4"} href={"/pyq-pdfs" + jeeHub}>
+          Browse chapter PDFs →
+        </a>
+      )}
+      <div className="my-5 flex flex-wrap gap-3">
+        <select
+          className={btn}
+          aria-label="Exam year"
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+        >
+          <option value="">All years</option>
+          {years.map((y) => (
+            <option key={y}>{y}</option>
+          ))}
+        </select>
+        <input
+          className={btn}
+          aria-label="Search papers"
+          placeholder="Find a date or shift"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+      {(year ? [year] : years).map((y) => {
+        const items = papers.filter(
+          (p) =>
+            (p.date.includes(y) || p.title.includes(y)) &&
+            p.title.toLowerCase().includes(query.toLowerCase()),
+        );
+        return (
+          items.length > 0 && (
+            <section key={y} className="mb-6">
+              <h2 className="mb-3 text-xl font-bold">
+                {y} <small className="text-sm text-muted-foreground">{items.length} papers</small>
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {items.map((p) => (
+                  <article key={p.slug} className="exam-pastel-card rounded-xl border p-4">
+                    <small>{p.date}</small>
+                    <h3 className="font-semibold">
+                      <a href={paperHub + "/" + p.slug}>{p.title}</a>
+                    </h3>
+                    {pdf && <PdfLinks paper={p} />}
+                  </article>
+                ))}
+              </div>
+            </section>
+          )
+        );
+      })}
+      {!papers.some(
+        (p) =>
+          (!year || p.date.includes(year) || p.title.includes(year)) &&
+          p.title.toLowerCase().includes(query.toLowerCase()),
+      ) && <p>No papers match this search.</p>}
+      {!pdf && (
+        <a className={btn} href="/questions/jee-main/papers/practice-set-1">
+          Original printable practice set
+        </a>
+      )}
+    </main>
+  );
+}
+export function PaperPage({ paper, rows }: { paper: (typeof papers)[number]; rows: ArchiveRow[] }) {
+  return (
+    <main className="exam-wrap exam-jee-page">
+      <ArchiveNav />
+      <header className="exam-pastel-panel rounded-2xl border p-5">
+        <p className="text-sm text-muted-foreground">
+          {paper.date} · {rows.length} questions
+        </p>
+        <h1 className="my-2 text-3xl font-bold">{paper.title}</h1>
+        {rows[0] && (
+          <a className={btn} href={paperHub + "/" + paper.slug + "/" + rows[0].id}>
+            Start paper practice →
+          </a>
+        )}
+        <PdfLinks paper={paper} />
+      </header>
+      <ArchiveRows rows={rows} paper={paper.slug} />
+    </main>
+  );
+}
+export function QuestionView({
+  q,
+  inPaper = false,
+  language = "en",
+}: {
+  q: ArchiveQuestion;
+  inPaper?: boolean;
+  language?: "en" | "hi";
+}) {
+  const [choices, setChoices] = useState<number[]>([]),
+    [revealed, setRevealed] = useState(false),
+    [numeric, setNumeric] = useState(""),
+    [checked, setChecked] = useState(false);
+  const paper = papers.find((p) => p.slug === q.paper);
+  const content = language === "hi" && q.hi ? q.hi : q;
+  const progress = useQuestionProgress();
+  const bookmarkHref = q.canonical
+    ? "/past-years/jee/question/" + q.canonical
+    : q.chapter
+      ? "/past-years/jee/question/" + q.slug
+      : paperHub + "/" + q.paper + "/" + q.slug;
+  const saved = progress.state.pyqs.some((x) => x.href === bookmarkHref);
+  const [saveError, setSaveError] = useState(false);
+  const suffix = language === "hi" ? "?lang=hi" : "";
+  const prefix = inPaper ? paperHub + "/" + q.paper + "/" : "/past-years/jee/question/";
+  return (
+    <main className="exam-wrap exam-jee-page">
+      <ArchiveNav />
+      <article className="exam-pastel-card mx-auto max-w-4xl rounded-2xl border p-5 sm:p-8">
+        <p className="text-sm font-semibold text-primary">
+          {paper ? <a href={paperHub + "/" + q.paper}>{paper.title}</a> : q.paperTitle}
+        </p>
+        <h1 className="mt-2 text-2xl font-extrabold">{title(q.chapter || q.subject)} question</h1>
+        <p className="mb-5 text-sm text-muted-foreground">{title(label(q.kind))}</p>
+        <div className="mb-4 flex items-center gap-3">
+          <button
+            className={btn}
+            aria-pressed={saved}
+            onClick={() =>
+              setSaveError(
+                !progress.togglePyq({
+                  href: bookmarkHref,
+                  title:
+                    (paper?.title || q.paperTitle || "JEE Main") +
+                    " · " +
+                    title(q.chapter || q.subject),
+                }),
+              )
+            }
+          >
+            {saved ? "Bookmarked" : "Bookmark"}
+          </button>
+          <a className="text-sm text-primary" href="/questions/bookmarks">
+            My bookmarks
+          </a>
+          {saveError && <small role="status">Your browser could not save this bookmark.</small>}
+        </div>
+        {q.hi && (
+          <nav aria-label="Question language" className="mb-4 flex gap-2">
+            <a
+              className={btn}
+              aria-current={language === "en" ? "page" : undefined}
+              href="?lang=en"
+            >
+              English
+            </a>
+            <a
+              className={btn}
+              aria-current={language === "hi" ? "page" : undefined}
+              href="?lang=hi"
+              lang="hi"
+            >
+              हिन्दी
+            </a>
+          </nav>
+        )}
+        <div
+          className="jee-prose"
+          lang={content === q ? "en" : "hi"}
+          dangerouslySetInnerHTML={{ __html: content.body }}
+        />
+        {content.options.length > 0 && (
+          <fieldset className="mt-5 grid gap-2">
+            <legend className="mb-2 font-semibold">Your answer</legend>
+            {content.options.map((opt, i) => (
+              <label
+                key={i}
+                className="flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 has-checked:border-primary"
+              >
+                <input
+                  className="mt-2"
+                  type={q.kind === "mcqm" ? "checkbox" : "radio"}
+                  name="choice"
+                  checked={choices.includes(i)}
+                  onChange={() => {
+                    setChecked(false);
+                    setChoices(
+                      q.kind === "mcqm"
+                        ? choices.includes(i)
+                          ? choices.filter((x) => x !== i)
+                          : [...choices, i]
+                        : [i],
+                    );
+                  }}
+                />
+                <b>{String.fromCharCode(65 + i)}</b>
+                <span
+                  className="jee-prose min-w-0"
+                  lang={content === q ? "en" : "hi"}
+                  dangerouslySetInnerHTML={{ __html: opt }}
+                />
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {q.complete && q.kind === "integer" && (
+          <label className="mt-5 block font-semibold">
+            Your numerical answer{" "}
+            <input
+              aria-label="Your numerical answer"
+              type="text"
+              inputMode="decimal"
+              className={btn}
+              value={numeric}
+              onChange={(e) => {
+                setNumeric(e.target.value);
+                setChecked(false);
+              }}
+            />
+          </label>
+        )}
+        {q.choiceKey !== undefined && (
+          <div className="mt-3 flex items-center gap-3">
+            <button className={btn} disabled={!choices.length} onClick={() => setChecked(true)}>
+              Check selected answer
+            </button>
+            {checked && (
+              <span role="status">
+                {choices[0] === q.choiceKey
+                  ? "Correct."
+                  : "Published answer: " + String.fromCharCode(65 + q.choiceKey)}
+              </span>
+            )}
+          </div>
+        )}
+        {q.numericKey !== undefined && (
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              className={btn}
+              disabled={!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(numeric.trim())}
+              onClick={() => setChecked(true)}
+            >
+              Check numerical answer
+            </button>
+            {checked && (
+              <span role="status">
+                {Number(numeric) === q.numericKey
+                  ? "Correct."
+                  : "Not quite. Published answer: " + q.numericKey}
+              </span>
+            )}
+          </div>
+        )}
+        {content.solution ? (
+          <>
+            <button
+              className={btn + " mt-5"}
+              aria-expanded={revealed}
+              onClick={() => setRevealed(!revealed)}
+            >
+              {revealed ? "Hide explanation" : "Show explanation"}
+            </button>
+            {revealed && (
+              <section className="mt-4 rounded-lg border p-4">
+                <h2 className="mb-2 font-bold">Explanation</h2>
+                <div className="jee-prose" dangerouslySetInnerHTML={{ __html: content.solution }} />
+              </section>
+            )}
+          </>
+        ) : (
+          <p className="mt-5 text-sm text-muted-foreground">
+            {q.complete
+              ? "No published explanation is available for this question."
+              : "Question preview. Answer choices and explanation are not yet available here."}
+          </p>
+        )}
+        <nav
+          className="mt-6 flex flex-wrap justify-between gap-2 border-t pt-4"
+          aria-label="Question navigation"
+        >
+          {q.prev && (
+            <a className={btn} href={prefix + q.prev + suffix}>
+              ← Previous
+            </a>
+          )}
+          {q.canonical && (
+            <a className={btn} href={"/past-years/jee/question/" + q.canonical + suffix}>
+              View in chapter
+            </a>
+          )}
+          {q.chapter && (
+            <a className={btn} href={jeeHub + "/" + q.subject + "/" + q.chapter}>
+              Chapter
+            </a>
+          )}
+          {q.next && (
+            <a className={btn} href={prefix + q.next + suffix}>
+              Next →
+            </a>
+          )}
+        </nav>
+      </article>
+    </main>
+  );
+}
+
+export function ChapterPdfCatalog({ subject }: { subject?: string }) {
+  return (
+    <main className="exam-wrap exam-jee-page">
+      <ArchiveNav />
+      <header className="exam-pastel-panel rounded-2xl border p-5">
+        <h1 className="text-3xl font-extrabold">
+          JEE Main chapter PDFs{subject ? " · " + title(subject) : ""}
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          Choose a chapter to print its questions or open a PDF edition.
+        </p>
+      </header>
+      {Object.entries(chapterOrder)
+        .filter(([s]) => !subject || s === subject)
+        .map(([s, chapters]) => (
+          <section key={s} className="my-6">
+            <h2 className="mb-3 text-xl font-bold">
+              <a href={"/pyq-pdfs" + jeeHub + "/" + s}>{title(s)}</a>
+            </h2>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {chapters.map((c) => (
+                <a
+                  className="exam-pastel-card rounded-xl border p-3"
+                  key={c}
+                  href={"/pyq-pdfs" + jeeHub + "/" + s + "/" + c}
+                >
+                  {(chapterMeta as Record<string, { name: string }>)[s + "/" + c]?.name ?? title(c)}
+                </a>
+              ))}
+            </div>
+          </section>
+        ))}
+    </main>
+  );
+}

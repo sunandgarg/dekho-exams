@@ -1,3 +1,5 @@
+import jeeChapterOrder from "@/data/jee-main-chapters.json";
+import jeeChapterMeta from "@/data/jee-main-chapter-meta.json";
 // Dekhoexams question bank. Exam/subject/chapter structure follows the public
 // syllabus layout of each exam. Every question here is an ORIGINAL practice
 // question written for Dekhoexams — none are copied past-paper questions, so
@@ -64,7 +66,19 @@ const BIOLOGY = subject("Biology", [
   ["Botany", ["Cell Structure", "Cell Division", "Plant Physiology", "Plant Reproduction", "Genetics", "Molecular Basis of Inheritance", "Ecology"]],
   ["Zoology", ["Human Physiology", "Human Reproduction", "Evolution", "Biotechnology", "Human Health and Disease"]],
 ]);
+const jeeExtra: Record<string, string[]> = {
+  "Modern Physics": ["Communication Systems"],
+  "Physical Chemistry": ["Gaseous State", "Chemical Kinetics and Nuclear Chemistry", "Solid State"],
+  "Inorganic Chemistry": ["Isolation of Elements", "Environmental Chemistry"],
+  "Organic Chemistry": ["Chemistry in Everyday Life", "Practical Organic Chemistry"],
+  Algebra: ["Mathematical Reasoning"],
+  Calculus: ["Area Under the Curves"],
+};
 const PCM = [PHYSICS, CHEMISTRY, MATHEMATICS];
+const jeeMainSubjects = PCM.map((s) => {
+  const units = s.units.map((u) => ({ ...u, chapters: [...u.chapters, ...ch(...(jeeExtra[u.name] ?? []))] }));
+  return { ...s, units, chapters: units.flatMap((u) => u.chapters) };
+});
 const PCB = [PHYSICS, CHEMISTRY, BIOLOGY];
 const NEG = { correct: 4, wrong: -1, unattempted: 0, numericWrong: 0 };
 const POS = { correct: 1, wrong: 0, unattempted: 0, numericWrong: 0 };
@@ -76,7 +90,7 @@ const GATE_APT = flat("General Aptitude", ["Verbal Aptitude", "Quantitative Apti
 const ENG_MATH = flat("Engineering Mathematics", ["Linear Algebra", "Calculus", "Differential Equations", "Probability and Statistics", "Numerical Methods"]);
 
 export const EXAMS: Exam[] = [
-  exam("jee", "jee-main", "JEE Main", "JM", NEG, PCM),
+  exam("jee", "jee-main", "JEE Main", "JM", NEG, jeeMainSubjects),
   exam("jee", "jee-advanced", "JEE Advanced", "JA", NEG, PCM),
   exam("jee", "mht-cet", "MHT CET", "MC", POS, PCM),
   exam("jee", "bitsat", "BITSAT", "BI", { correct: 3, wrong: -1, unattempted: 0, numericWrong: 0 }, PCM),
@@ -272,6 +286,18 @@ const JEE_MAIN_SLUGS: Record<string, Record<string, string>> = {
 const JEE_MAIN_UNMATCHED = new Set(["chemistry/states-of-matter", "chemistry/chemical-kinetics", "mathematics/application-of-integration"]);
 export function jeeMainPublicChapterSlug(subject: string, internal: string): string | null {
   return JEE_MAIN_UNMATCHED.has(`${subject}/${internal}`) ? null : JEE_MAIN_SLUGS[subject]?.[internal] ?? internal;
+}
+export function publicJeeUnits(sub: Subject): Unit[] {
+  const result: Unit[] = [];
+  const internal=new Map(sub.chapters.map(c=>[jeeMainPublicChapterSlug(sub.slug,c[0]),c[0]]));
+  for (const slug of (jeeChapterOrder as Record<string,string[]>)[sub.slug] ?? []) {
+    const id=internal.get(slug), meta=(jeeChapterMeta as Record<string,{name:string;unit:string}>)[sub.slug+"/"+slug];
+    if (!id || !meta) continue;
+    let unit=result.find(u=>u.name===meta.unit);
+    if(!unit){unit={name:meta.unit,chapters:[]};result.push(unit);}
+    unit.chapters.push([id,meta.name]);
+  }
+  return result;
 }
 export const questionsFor = (exam: string, subject?: string, chapter?: string) =>
   QUESTIONS.filter((q) => q.exam === exam && (!subject || q.subject === subject) && (!chapter || q.chapter === chapter));

@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { ArrowRight, FileText, Printer } from "lucide-react";
 import { seoHead } from "@/lib/seo";
 import { categoryOf, examBySlug, papersFor } from "@/lib/question-bank";
@@ -6,6 +6,7 @@ import { Crumbs, ExamLogo } from "@/components/exams/exam-ui";
 
 export const Route = createFileRoute("/questions/$exam/papers/")({
   loader: ({ params }) => {
+    if (params.exam === "jee-main") throw redirect({ to: "/past-years/year-wise/jee/jee-main", statusCode: 301 });
     const exam = examBySlug(params.exam);
     if (!exam) throw notFound();
     return { slug: exam.slug, name: exam.name };

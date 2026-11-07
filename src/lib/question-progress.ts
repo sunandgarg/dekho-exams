@@ -3,8 +3,10 @@ import { questionById } from "./question-bank";
 
 const KEY = "pencil2pen-qbank-v1";
 const EVT = "pencil2pen-qbank";
-type State = { version: 1; bookmarks: string[]; attempts: Record<string, { r: number; ok: boolean }> };
-const empty = (): State => ({ version: 1, bookmarks: [], attempts: {} });
+type SavedPyq = { href:string; title:string };
+const pyqPath=/^\/past-years\/(?:jee\/question\/[a-z0-9-]+(?:\.htm)?|year-wise\/jee\/jee-main\/[a-z0-9-]+\/[A-Za-z0-9-]+)$/;
+type State = { version: 1; pyqs:SavedPyq[]; bookmarks: string[]; attempts: Record<string, { r: number; ok: boolean }> };
+const empty = (): State => ({ version: 1, pyqs:[], bookmarks: [], attempts: {} });
 
 export function parseQState(raw: string | null): State {
   try {
@@ -18,7 +20,8 @@ export function parseQState(raw: string | null): State {
       const rec = a as { r?: unknown; ok?: unknown };
       if (questionById(k) && typeof rec?.r === "number" && typeof rec?.ok === "boolean") attempts[k] = { r: rec.r, ok: rec.ok };
     }
-    return { version: 1, bookmarks, attempts };
+    const pyqs:SavedPyq[]=Array.isArray(v.pyqs)?v.pyqs.filter((x:SavedPyq)=>x && typeof x.href==="string" && x.href.length<=320 && pyqPath.test(x.href) && typeof x.title==="string" && x.title.length<=260).slice(0,500):[];
+    return { version: 1, pyqs, bookmarks, attempts };
   } catch {
     return empty();
   }
@@ -42,6 +45,11 @@ export function useQuestionProgress() {
     toggleBookmark(id: string) {
       const s = parseQState(read());
       s.bookmarks = s.bookmarks.includes(id) ? s.bookmarks.filter((b) => b !== id) : [id, ...s.bookmarks];
+      return write(s);
+    },
+    togglePyq(item:SavedPyq) {
+      const s=parseQState(read());
+      s.pyqs=s.pyqs.some(v=>v.href===item.href)?s.pyqs.filter(v=>v.href!==item.href):[item,...s.pyqs].slice(0,500);
       return write(s);
     },
     record(id: string, r: number, ok: boolean) {

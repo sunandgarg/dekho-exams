@@ -24,10 +24,22 @@ import { Route as StudySplatRouteImport } from './routes/study.$'
 import { Route as StudySearchRouteImport } from './routes/study.search'
 import { Route as QuestionsExamIndexRouteImport } from './routes/questions.$exam.index'
 import { Route as QuestionsExamPracticeRouteImport } from './routes/questions.$exam.practice'
+import { Route as PastYearsJeeJeeMainIndexRouteImport } from './routes/past-years.jee.jee-main.index'
+import { Route as PastYearsJeeQuestionSlugRouteImport } from './routes/past-years.jee.question.$slug'
+import { Route as PyqPdfsPrintPaperLangRouteImport } from './routes/pyq-pdfs.print.$paper.$lang'
 import { Route as QuestionsExamSubjectChapterRouteImport } from './routes/questions.$exam.$subject.$chapter'
 import { Route as QuestionsExamPapersIndexRouteImport } from './routes/questions.$exam.papers.index'
 import { Route as QuestionsExamPapersPaperRouteImport } from './routes/questions.$exam.papers.$paper'
-import { Route as PastYearsJeeJeeMainSubjectChapterRouteImport } from './routes/past-years.jee.jee-main.$subject.$chapter'
+import { Route as PastYearsJeeJeeMainSubjectIndexRouteImport } from './routes/past-years.jee.jee-main.$subject.index'
+import { Route as PastYearsYearWiseJeeJeeMainIndexRouteImport } from './routes/past-years.year-wise.jee.jee-main.index'
+import { Route as PyqPdfsPastYearsJeeJeeMainIndexRouteImport } from './routes/pyq-pdfs.past-years.jee.jee-main.index'
+import { Route as PyqPdfsPastYearsYearWiseJeeJeeMainRouteImport } from './routes/pyq-pdfs.past-years.year-wise.jee.jee-main'
+import { Route as PastYearsJeeJeeMainSubjectChapterIndexRouteImport } from './routes/past-years.jee.jee-main.$subject.$chapter.index'
+import { Route as PastYearsJeeJeeMainSubjectChapterKindRouteImport } from './routes/past-years.jee.jee-main.$subject.$chapter.$kind'
+import { Route as PastYearsYearWiseJeeJeeMainPaperIndexRouteImport } from './routes/past-years.year-wise.jee.jee-main.$paper.index'
+import { Route as PastYearsYearWiseJeeJeeMainPaperIdRouteImport } from './routes/past-years.year-wise.jee.jee-main.$paper.$id'
+import { Route as PyqPdfsPastYearsJeeJeeMainSubjectIndexRouteImport } from './routes/pyq-pdfs.past-years.jee.jee-main.$subject.index'
+import { Route as PyqPdfsPastYearsJeeJeeMainSubjectChapterRouteImport } from './routes/pyq-pdfs.past-years.jee.jee-main.$subject.$chapter'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -104,6 +116,23 @@ const QuestionsExamPracticeRoute = QuestionsExamPracticeRouteImport.update({
   path: '/questions/$exam/practice',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PastYearsJeeJeeMainIndexRoute =
+  PastYearsJeeJeeMainIndexRouteImport.update({
+    id: '/past-years/jee/jee-main/',
+    path: '/past-years/jee/jee-main/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PastYearsJeeQuestionSlugRoute =
+  PastYearsJeeQuestionSlugRouteImport.update({
+    id: '/past-years/jee/question/$slug',
+    path: '/past-years/jee/question/$slug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PyqPdfsPrintPaperLangRoute = PyqPdfsPrintPaperLangRouteImport.update({
+  id: '/pyq-pdfs/print/$paper/$lang',
+  path: '/pyq-pdfs/print/$paper/$lang',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QuestionsExamSubjectChapterRoute =
   QuestionsExamSubjectChapterRouteImport.update({
     id: '/questions/$exam/$subject/$chapter',
@@ -122,10 +151,64 @@ const QuestionsExamPapersPaperRoute =
     path: '/questions/$exam/papers/$paper',
     getParentRoute: () => rootRouteImport,
   } as any)
-const PastYearsJeeJeeMainSubjectChapterRoute =
-  PastYearsJeeJeeMainSubjectChapterRouteImport.update({
-    id: '/past-years/jee/jee-main/$subject/$chapter',
-    path: '/past-years/jee/jee-main/$subject/$chapter',
+const PastYearsJeeJeeMainSubjectIndexRoute =
+  PastYearsJeeJeeMainSubjectIndexRouteImport.update({
+    id: '/past-years/jee/jee-main/$subject/',
+    path: '/past-years/jee/jee-main/$subject/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PastYearsYearWiseJeeJeeMainIndexRoute =
+  PastYearsYearWiseJeeJeeMainIndexRouteImport.update({
+    id: '/past-years/year-wise/jee/jee-main/',
+    path: '/past-years/year-wise/jee/jee-main/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PyqPdfsPastYearsJeeJeeMainIndexRoute =
+  PyqPdfsPastYearsJeeJeeMainIndexRouteImport.update({
+    id: '/pyq-pdfs/past-years/jee/jee-main/',
+    path: '/pyq-pdfs/past-years/jee/jee-main/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PyqPdfsPastYearsYearWiseJeeJeeMainRoute =
+  PyqPdfsPastYearsYearWiseJeeJeeMainRouteImport.update({
+    id: '/pyq-pdfs/past-years/year-wise/jee/jee-main',
+    path: '/pyq-pdfs/past-years/year-wise/jee/jee-main',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PastYearsJeeJeeMainSubjectChapterIndexRoute =
+  PastYearsJeeJeeMainSubjectChapterIndexRouteImport.update({
+    id: '/past-years/jee/jee-main/$subject/$chapter/',
+    path: '/past-years/jee/jee-main/$subject/$chapter/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PastYearsJeeJeeMainSubjectChapterKindRoute =
+  PastYearsJeeJeeMainSubjectChapterKindRouteImport.update({
+    id: '/past-years/jee/jee-main/$subject/$chapter/$kind',
+    path: '/past-years/jee/jee-main/$subject/$chapter/$kind',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PastYearsYearWiseJeeJeeMainPaperIndexRoute =
+  PastYearsYearWiseJeeJeeMainPaperIndexRouteImport.update({
+    id: '/past-years/year-wise/jee/jee-main/$paper/',
+    path: '/past-years/year-wise/jee/jee-main/$paper/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PastYearsYearWiseJeeJeeMainPaperIdRoute =
+  PastYearsYearWiseJeeJeeMainPaperIdRouteImport.update({
+    id: '/past-years/year-wise/jee/jee-main/$paper/$id',
+    path: '/past-years/year-wise/jee/jee-main/$paper/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PyqPdfsPastYearsJeeJeeMainSubjectIndexRoute =
+  PyqPdfsPastYearsJeeJeeMainSubjectIndexRouteImport.update({
+    id: '/pyq-pdfs/past-years/jee/jee-main/$subject/',
+    path: '/pyq-pdfs/past-years/jee/jee-main/$subject/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PyqPdfsPastYearsJeeJeeMainSubjectChapterRoute =
+  PyqPdfsPastYearsJeeJeeMainSubjectChapterRouteImport.update({
+    id: '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter',
+    path: '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -145,10 +228,22 @@ export interface FileRoutesByFullPath {
   '/study/': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
   '/questions/$exam/': typeof QuestionsExamIndexRoute
+  '/past-years/jee/question/$slug': typeof PastYearsJeeQuestionSlugRoute
+  '/pyq-pdfs/print/$paper/$lang': typeof PyqPdfsPrintPaperLangRoute
   '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
   '/questions/$exam/papers/$paper': typeof QuestionsExamPapersPaperRoute
+  '/past-years/jee/jee-main/': typeof PastYearsJeeJeeMainIndexRoute
   '/questions/$exam/papers/': typeof QuestionsExamPapersIndexRoute
-  '/past-years/jee/jee-main/$subject/$chapter': typeof PastYearsJeeJeeMainSubjectChapterRoute
+  '/pyq-pdfs/past-years/year-wise/jee/jee-main': typeof PyqPdfsPastYearsYearWiseJeeJeeMainRoute
+  '/past-years/jee/jee-main/$subject/': typeof PastYearsJeeJeeMainSubjectIndexRoute
+  '/past-years/year-wise/jee/jee-main/': typeof PastYearsYearWiseJeeJeeMainIndexRoute
+  '/pyq-pdfs/past-years/jee/jee-main/': typeof PyqPdfsPastYearsJeeJeeMainIndexRoute
+  '/past-years/jee/jee-main/$subject/$chapter/$kind': typeof PastYearsJeeJeeMainSubjectChapterKindRoute
+  '/past-years/year-wise/jee/jee-main/$paper/$id': typeof PastYearsYearWiseJeeJeeMainPaperIdRoute
+  '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter': typeof PyqPdfsPastYearsJeeJeeMainSubjectChapterRoute
+  '/past-years/jee/jee-main/$subject/$chapter/': typeof PastYearsJeeJeeMainSubjectChapterIndexRoute
+  '/past-years/year-wise/jee/jee-main/$paper/': typeof PastYearsYearWiseJeeJeeMainPaperIndexRoute
+  '/pyq-pdfs/past-years/jee/jee-main/$subject/': typeof PyqPdfsPastYearsJeeJeeMainSubjectIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -165,10 +260,22 @@ export interface FileRoutesByTo {
   '/study': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
   '/questions/$exam': typeof QuestionsExamIndexRoute
+  '/past-years/jee/question/$slug': typeof PastYearsJeeQuestionSlugRoute
+  '/pyq-pdfs/print/$paper/$lang': typeof PyqPdfsPrintPaperLangRoute
   '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
   '/questions/$exam/papers/$paper': typeof QuestionsExamPapersPaperRoute
+  '/past-years/jee/jee-main': typeof PastYearsJeeJeeMainIndexRoute
   '/questions/$exam/papers': typeof QuestionsExamPapersIndexRoute
-  '/past-years/jee/jee-main/$subject/$chapter': typeof PastYearsJeeJeeMainSubjectChapterRoute
+  '/pyq-pdfs/past-years/year-wise/jee/jee-main': typeof PyqPdfsPastYearsYearWiseJeeJeeMainRoute
+  '/past-years/jee/jee-main/$subject': typeof PastYearsJeeJeeMainSubjectIndexRoute
+  '/past-years/year-wise/jee/jee-main': typeof PastYearsYearWiseJeeJeeMainIndexRoute
+  '/pyq-pdfs/past-years/jee/jee-main': typeof PyqPdfsPastYearsJeeJeeMainIndexRoute
+  '/past-years/jee/jee-main/$subject/$chapter/$kind': typeof PastYearsJeeJeeMainSubjectChapterKindRoute
+  '/past-years/year-wise/jee/jee-main/$paper/$id': typeof PastYearsYearWiseJeeJeeMainPaperIdRoute
+  '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter': typeof PyqPdfsPastYearsJeeJeeMainSubjectChapterRoute
+  '/past-years/jee/jee-main/$subject/$chapter': typeof PastYearsJeeJeeMainSubjectChapterIndexRoute
+  '/past-years/year-wise/jee/jee-main/$paper': typeof PastYearsYearWiseJeeJeeMainPaperIndexRoute
+  '/pyq-pdfs/past-years/jee/jee-main/$subject': typeof PyqPdfsPastYearsJeeJeeMainSubjectIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -187,10 +294,22 @@ export interface FileRoutesById {
   '/study/': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
   '/questions/$exam/': typeof QuestionsExamIndexRoute
+  '/past-years/jee/question/$slug': typeof PastYearsJeeQuestionSlugRoute
+  '/pyq-pdfs/print/$paper/$lang': typeof PyqPdfsPrintPaperLangRoute
   '/questions/$exam/$subject/$chapter': typeof QuestionsExamSubjectChapterRoute
   '/questions/$exam/papers/$paper': typeof QuestionsExamPapersPaperRoute
+  '/past-years/jee/jee-main/': typeof PastYearsJeeJeeMainIndexRoute
   '/questions/$exam/papers/': typeof QuestionsExamPapersIndexRoute
-  '/past-years/jee/jee-main/$subject/$chapter': typeof PastYearsJeeJeeMainSubjectChapterRoute
+  '/pyq-pdfs/past-years/year-wise/jee/jee-main': typeof PyqPdfsPastYearsYearWiseJeeJeeMainRoute
+  '/past-years/jee/jee-main/$subject/': typeof PastYearsJeeJeeMainSubjectIndexRoute
+  '/past-years/year-wise/jee/jee-main/': typeof PastYearsYearWiseJeeJeeMainIndexRoute
+  '/pyq-pdfs/past-years/jee/jee-main/': typeof PyqPdfsPastYearsJeeJeeMainIndexRoute
+  '/past-years/jee/jee-main/$subject/$chapter/$kind': typeof PastYearsJeeJeeMainSubjectChapterKindRoute
+  '/past-years/year-wise/jee/jee-main/$paper/$id': typeof PastYearsYearWiseJeeJeeMainPaperIdRoute
+  '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter': typeof PyqPdfsPastYearsJeeJeeMainSubjectChapterRoute
+  '/past-years/jee/jee-main/$subject/$chapter/': typeof PastYearsJeeJeeMainSubjectChapterIndexRoute
+  '/past-years/year-wise/jee/jee-main/$paper/': typeof PastYearsYearWiseJeeJeeMainPaperIndexRoute
+  '/pyq-pdfs/past-years/jee/jee-main/$subject/': typeof PyqPdfsPastYearsJeeJeeMainSubjectIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -210,10 +329,22 @@ export interface FileRouteTypes {
     | '/study/'
     | '/questions/$exam/practice'
     | '/questions/$exam/'
+    | '/past-years/jee/question/$slug'
+    | '/pyq-pdfs/print/$paper/$lang'
     | '/questions/$exam/$subject/$chapter'
     | '/questions/$exam/papers/$paper'
+    | '/past-years/jee/jee-main/'
     | '/questions/$exam/papers/'
-    | '/past-years/jee/jee-main/$subject/$chapter'
+    | '/pyq-pdfs/past-years/year-wise/jee/jee-main'
+    | '/past-years/jee/jee-main/$subject/'
+    | '/past-years/year-wise/jee/jee-main/'
+    | '/pyq-pdfs/past-years/jee/jee-main/'
+    | '/past-years/jee/jee-main/$subject/$chapter/$kind'
+    | '/past-years/year-wise/jee/jee-main/$paper/$id'
+    | '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter'
+    | '/past-years/jee/jee-main/$subject/$chapter/'
+    | '/past-years/year-wise/jee/jee-main/$paper/'
+    | '/pyq-pdfs/past-years/jee/jee-main/$subject/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -230,10 +361,22 @@ export interface FileRouteTypes {
     | '/study'
     | '/questions/$exam/practice'
     | '/questions/$exam'
+    | '/past-years/jee/question/$slug'
+    | '/pyq-pdfs/print/$paper/$lang'
     | '/questions/$exam/$subject/$chapter'
     | '/questions/$exam/papers/$paper'
+    | '/past-years/jee/jee-main'
     | '/questions/$exam/papers'
+    | '/pyq-pdfs/past-years/year-wise/jee/jee-main'
+    | '/past-years/jee/jee-main/$subject'
+    | '/past-years/year-wise/jee/jee-main'
+    | '/pyq-pdfs/past-years/jee/jee-main'
+    | '/past-years/jee/jee-main/$subject/$chapter/$kind'
+    | '/past-years/year-wise/jee/jee-main/$paper/$id'
+    | '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter'
     | '/past-years/jee/jee-main/$subject/$chapter'
+    | '/past-years/year-wise/jee/jee-main/$paper'
+    | '/pyq-pdfs/past-years/jee/jee-main/$subject'
   id:
     | '__root__'
     | '/'
@@ -251,10 +394,22 @@ export interface FileRouteTypes {
     | '/study/'
     | '/questions/$exam/practice'
     | '/questions/$exam/'
+    | '/past-years/jee/question/$slug'
+    | '/pyq-pdfs/print/$paper/$lang'
     | '/questions/$exam/$subject/$chapter'
     | '/questions/$exam/papers/$paper'
+    | '/past-years/jee/jee-main/'
     | '/questions/$exam/papers/'
-    | '/past-years/jee/jee-main/$subject/$chapter'
+    | '/pyq-pdfs/past-years/year-wise/jee/jee-main'
+    | '/past-years/jee/jee-main/$subject/'
+    | '/past-years/year-wise/jee/jee-main/'
+    | '/pyq-pdfs/past-years/jee/jee-main/'
+    | '/past-years/jee/jee-main/$subject/$chapter/$kind'
+    | '/past-years/year-wise/jee/jee-main/$paper/$id'
+    | '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter'
+    | '/past-years/jee/jee-main/$subject/$chapter/'
+    | '/past-years/year-wise/jee/jee-main/$paper/'
+    | '/pyq-pdfs/past-years/jee/jee-main/$subject/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -270,10 +425,22 @@ export interface RootRouteChildren {
   QuestionsIndexRoute: typeof QuestionsIndexRoute
   QuestionsExamPracticeRoute: typeof QuestionsExamPracticeRoute
   QuestionsExamIndexRoute: typeof QuestionsExamIndexRoute
+  PastYearsJeeQuestionSlugRoute: typeof PastYearsJeeQuestionSlugRoute
+  PyqPdfsPrintPaperLangRoute: typeof PyqPdfsPrintPaperLangRoute
   QuestionsExamSubjectChapterRoute: typeof QuestionsExamSubjectChapterRoute
   QuestionsExamPapersPaperRoute: typeof QuestionsExamPapersPaperRoute
+  PastYearsJeeJeeMainIndexRoute: typeof PastYearsJeeJeeMainIndexRoute
   QuestionsExamPapersIndexRoute: typeof QuestionsExamPapersIndexRoute
-  PastYearsJeeJeeMainSubjectChapterRoute: typeof PastYearsJeeJeeMainSubjectChapterRoute
+  PyqPdfsPastYearsYearWiseJeeJeeMainRoute: typeof PyqPdfsPastYearsYearWiseJeeJeeMainRoute
+  PastYearsJeeJeeMainSubjectIndexRoute: typeof PastYearsJeeJeeMainSubjectIndexRoute
+  PastYearsYearWiseJeeJeeMainIndexRoute: typeof PastYearsYearWiseJeeJeeMainIndexRoute
+  PyqPdfsPastYearsJeeJeeMainIndexRoute: typeof PyqPdfsPastYearsJeeJeeMainIndexRoute
+  PastYearsJeeJeeMainSubjectChapterKindRoute: typeof PastYearsJeeJeeMainSubjectChapterKindRoute
+  PastYearsYearWiseJeeJeeMainPaperIdRoute: typeof PastYearsYearWiseJeeJeeMainPaperIdRoute
+  PyqPdfsPastYearsJeeJeeMainSubjectChapterRoute: typeof PyqPdfsPastYearsJeeJeeMainSubjectChapterRoute
+  PastYearsJeeJeeMainSubjectChapterIndexRoute: typeof PastYearsJeeJeeMainSubjectChapterIndexRoute
+  PastYearsYearWiseJeeJeeMainPaperIndexRoute: typeof PastYearsYearWiseJeeJeeMainPaperIndexRoute
+  PyqPdfsPastYearsJeeJeeMainSubjectIndexRoute: typeof PyqPdfsPastYearsJeeJeeMainSubjectIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -383,6 +550,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuestionsExamPracticeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/past-years/jee/jee-main/': {
+      id: '/past-years/jee/jee-main/'
+      path: '/past-years/jee/jee-main'
+      fullPath: '/past-years/jee/jee-main/'
+      preLoaderRoute: typeof PastYearsJeeJeeMainIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/past-years/jee/question/$slug': {
+      id: '/past-years/jee/question/$slug'
+      path: '/past-years/jee/question/$slug'
+      fullPath: '/past-years/jee/question/$slug'
+      preLoaderRoute: typeof PastYearsJeeQuestionSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pyq-pdfs/print/$paper/$lang': {
+      id: '/pyq-pdfs/print/$paper/$lang'
+      path: '/pyq-pdfs/print/$paper/$lang'
+      fullPath: '/pyq-pdfs/print/$paper/$lang'
+      preLoaderRoute: typeof PyqPdfsPrintPaperLangRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/questions/$exam/$subject/$chapter': {
       id: '/questions/$exam/$subject/$chapter'
       path: '/questions/$exam/$subject/$chapter'
@@ -404,11 +592,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuestionsExamPapersPaperRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/past-years/jee/jee-main/$subject/$chapter': {
-      id: '/past-years/jee/jee-main/$subject/$chapter'
+    '/past-years/jee/jee-main/$subject/': {
+      id: '/past-years/jee/jee-main/$subject/'
+      path: '/past-years/jee/jee-main/$subject'
+      fullPath: '/past-years/jee/jee-main/$subject/'
+      preLoaderRoute: typeof PastYearsJeeJeeMainSubjectIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/past-years/year-wise/jee/jee-main/': {
+      id: '/past-years/year-wise/jee/jee-main/'
+      path: '/past-years/year-wise/jee/jee-main'
+      fullPath: '/past-years/year-wise/jee/jee-main/'
+      preLoaderRoute: typeof PastYearsYearWiseJeeJeeMainIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pyq-pdfs/past-years/jee/jee-main/': {
+      id: '/pyq-pdfs/past-years/jee/jee-main/'
+      path: '/pyq-pdfs/past-years/jee/jee-main'
+      fullPath: '/pyq-pdfs/past-years/jee/jee-main/'
+      preLoaderRoute: typeof PyqPdfsPastYearsJeeJeeMainIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pyq-pdfs/past-years/year-wise/jee/jee-main': {
+      id: '/pyq-pdfs/past-years/year-wise/jee/jee-main'
+      path: '/pyq-pdfs/past-years/year-wise/jee/jee-main'
+      fullPath: '/pyq-pdfs/past-years/year-wise/jee/jee-main'
+      preLoaderRoute: typeof PyqPdfsPastYearsYearWiseJeeJeeMainRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/past-years/jee/jee-main/$subject/$chapter/': {
+      id: '/past-years/jee/jee-main/$subject/$chapter/'
       path: '/past-years/jee/jee-main/$subject/$chapter'
-      fullPath: '/past-years/jee/jee-main/$subject/$chapter'
-      preLoaderRoute: typeof PastYearsJeeJeeMainSubjectChapterRouteImport
+      fullPath: '/past-years/jee/jee-main/$subject/$chapter/'
+      preLoaderRoute: typeof PastYearsJeeJeeMainSubjectChapterIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/past-years/jee/jee-main/$subject/$chapter/$kind': {
+      id: '/past-years/jee/jee-main/$subject/$chapter/$kind'
+      path: '/past-years/jee/jee-main/$subject/$chapter/$kind'
+      fullPath: '/past-years/jee/jee-main/$subject/$chapter/$kind'
+      preLoaderRoute: typeof PastYearsJeeJeeMainSubjectChapterKindRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/past-years/year-wise/jee/jee-main/$paper/': {
+      id: '/past-years/year-wise/jee/jee-main/$paper/'
+      path: '/past-years/year-wise/jee/jee-main/$paper'
+      fullPath: '/past-years/year-wise/jee/jee-main/$paper/'
+      preLoaderRoute: typeof PastYearsYearWiseJeeJeeMainPaperIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/past-years/year-wise/jee/jee-main/$paper/$id': {
+      id: '/past-years/year-wise/jee/jee-main/$paper/$id'
+      path: '/past-years/year-wise/jee/jee-main/$paper/$id'
+      fullPath: '/past-years/year-wise/jee/jee-main/$paper/$id'
+      preLoaderRoute: typeof PastYearsYearWiseJeeJeeMainPaperIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pyq-pdfs/past-years/jee/jee-main/$subject/': {
+      id: '/pyq-pdfs/past-years/jee/jee-main/$subject/'
+      path: '/pyq-pdfs/past-years/jee/jee-main/$subject'
+      fullPath: '/pyq-pdfs/past-years/jee/jee-main/$subject/'
+      preLoaderRoute: typeof PyqPdfsPastYearsJeeJeeMainSubjectIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter': {
+      id: '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter'
+      path: '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter'
+      fullPath: '/pyq-pdfs/past-years/jee/jee-main/$subject/$chapter'
+      preLoaderRoute: typeof PyqPdfsPastYearsJeeJeeMainSubjectChapterRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -441,11 +692,29 @@ const rootRouteChildren: RootRouteChildren = {
   QuestionsIndexRoute: QuestionsIndexRoute,
   QuestionsExamPracticeRoute: QuestionsExamPracticeRoute,
   QuestionsExamIndexRoute: QuestionsExamIndexRoute,
+  PastYearsJeeQuestionSlugRoute: PastYearsJeeQuestionSlugRoute,
+  PyqPdfsPrintPaperLangRoute: PyqPdfsPrintPaperLangRoute,
   QuestionsExamSubjectChapterRoute: QuestionsExamSubjectChapterRoute,
   QuestionsExamPapersPaperRoute: QuestionsExamPapersPaperRoute,
+  PastYearsJeeJeeMainIndexRoute: PastYearsJeeJeeMainIndexRoute,
   QuestionsExamPapersIndexRoute: QuestionsExamPapersIndexRoute,
-  PastYearsJeeJeeMainSubjectChapterRoute:
-    PastYearsJeeJeeMainSubjectChapterRoute,
+  PyqPdfsPastYearsYearWiseJeeJeeMainRoute:
+    PyqPdfsPastYearsYearWiseJeeJeeMainRoute,
+  PastYearsJeeJeeMainSubjectIndexRoute: PastYearsJeeJeeMainSubjectIndexRoute,
+  PastYearsYearWiseJeeJeeMainIndexRoute: PastYearsYearWiseJeeJeeMainIndexRoute,
+  PyqPdfsPastYearsJeeJeeMainIndexRoute: PyqPdfsPastYearsJeeJeeMainIndexRoute,
+  PastYearsJeeJeeMainSubjectChapterKindRoute:
+    PastYearsJeeJeeMainSubjectChapterKindRoute,
+  PastYearsYearWiseJeeJeeMainPaperIdRoute:
+    PastYearsYearWiseJeeJeeMainPaperIdRoute,
+  PyqPdfsPastYearsJeeJeeMainSubjectChapterRoute:
+    PyqPdfsPastYearsJeeJeeMainSubjectChapterRoute,
+  PastYearsJeeJeeMainSubjectChapterIndexRoute:
+    PastYearsJeeJeeMainSubjectChapterIndexRoute,
+  PastYearsYearWiseJeeJeeMainPaperIndexRoute:
+    PastYearsYearWiseJeeJeeMainPaperIndexRoute,
+  PyqPdfsPastYearsJeeJeeMainSubjectIndexRoute:
+    PyqPdfsPastYearsJeeJeeMainSubjectIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

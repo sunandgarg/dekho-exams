@@ -448,3 +448,15 @@ if (process.env.PENPENCIL_TEST_URL) {
 console.log(
   `Catalog: ${pages.length} routes, ${resources.length} lessons, ${Object.keys(aliases).length} legacy redirects.`,
 );
+
+test("JEE Main lists the complete canonical chapter and paper directories", async () => {
+  const { publicJeeUnits } = await import("../src/lib/question-bank.ts");
+  const read = (name) => JSON.parse(readFileSync(new URL("../src/data/"+name+".json",import.meta.url),"utf8"));
+  const chapters=read("jee-main-chapters"),papers=read("jee-main-papers"),counts=read("jee-main-counts");
+  const exam=EXAMS.find(e=>e.slug==="jee-main");
+  for(const s of exam.subjects) assert.deepEqual(publicJeeUnits(s).flatMap(u=>u.chapters.map(c=>jeeMainPublicChapterSlug(s.slug,c[0]))),chapters[s.slug]);
+  assert.equal(Object.keys(counts).length,95);
+  assert.equal(Object.values(counts).reduce((a,b)=>a+b,0),18006);
+  assert.equal(new Set(papers.map(p=>p.slug)).size,202);
+  for(const paper of papers) for(const variant of paper.variants)assert.match(variant,/^[a-z]{2}(?:-dark)?\.pdf$/);
+});

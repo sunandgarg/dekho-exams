@@ -2,6 +2,8 @@
 
 Dekhoexams is a new Class 1–12 student experience built on this TanStack Start codebase. The local starter has 14 original lessons, plus board, book, exam and language directories. The inherited computing library is preserved. [SITE-ARCHITECTURE.md](SITE-ARCHITECTURE.md) is the routing/content contract; [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md) records what is complete and every remaining production workstream.
 
+The JEE Main library is available [chapter-wise](https://dekhoexams.com/past-years/jee/jee-main), [paper-wise](https://dekhoexams.com/past-years/year-wise/jee/jee-main) and as [PYQ PDF editions](https://dekhoexams.com/pyq-pdfs/past-years/year-wise/jee/jee-main). It includes 95 chapters and 202 papers. The archive is stored in this repository and served by Cloudflare. [Archive maintenance](scripts/jee/README.md) explains the data, validations and print views.
+
 ## Local preview
 
 ```sh

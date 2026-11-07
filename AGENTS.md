@@ -28,4 +28,4 @@
 - Question bank data lives in `src/lib/question-bank.ts` (stable question IDs and versions); keep `year`/`shift` null unless the question comes from a verified, rights-cleared past paper. Why: practice questions must never pass as past papers.
 
 - Tailwind must not scan `src/data` (`@source not "./data"` in styles.css): its multi-MB fixtures stall the dev server CSS transform.
-- Exam groups, exams, units and papers live in `src/lib/question-bank.ts`; papers are `kind: "practice"` with null year until a verified past paper is added.
+- Original practice sets remain in `src/lib/question-bank.ts` with null year. JEE Main past papers and chapter/question records are separate in `public/jee-archive`. Preserve both published URL forms (including case-sensitive paper IDs); run `python3 scripts/jee/verify.py` after an archive refresh.
