@@ -1,9 +1,15 @@
 # Dekhoexams Implementation Status
 
+## JEE Advanced archive (2026-11-08)
+
+- The chapter directory covers 81 chapters and 3,959 questions in Physics, Chemistry and Mathematics. The 79-paper directory spans 1978–2026 and contains 3,920 paper positions. 3,919 link to their matching chapter question. One IIT-JEE 1987 question is available only through its paper.
+- All 3,960 distinct questions have English and Hindi editions and an explanation. The reader and print editions retain the common passage for all 284 passage questions. The archive includes single and multiple correct, numerical, written-response, fill-in-the-blank and true/false questions.
+- Catalogued external PDF editions comprise 202 paper links and 162 chapter links. Every chapter and paper has printable English and Hindi Dekhoexams editions with optional solutions. Both exams retain their published question URLs and paper identifiers. Full coverage reports are stored in `docs/jee-main/coverage.json` and `docs/jee-advanced/coverage.json`.
+
 ## JEE Main archive (2026-11-08)
 
 - The chapter directory has Physics, Chemistry and Mathematics, 95 chapters and 18,006 question listings. Chapter pages preserve question types, historical counts and annual weightages. The year-wise archive contains 202 papers and 15,280 paper positions, ordered by subject. Chapter and paper totals overlap.
-- All 18,006 questions have English detail and explanation records; 18,004 also have verified Hindi content. Explicit numerical keys are available for 3,592 questions and explicit final choice keys for 1,808. Question readers retain the canonical chapter slug, the paper-specific ID, options, mathematical notation, available English/Hindi editions and published explanations. Numerical or multiple-choice responses are scored only against an explicit published key. Bookmarks are local to the browser.
+- All 18,006 questions have English detail and explanation records; all 18,006 also have Hindi editions, including two questions whose prompts, choices and solutions are notation-only. Automatic grading supports explicit single and multiple choice keys, numerical keys and published numerical ranges. Question readers retain the canonical chapter slug, the paper-specific ID, options, mathematical notation, available English/Hindi editions and published explanations. Grading uses the published keys. Bookmarks are local to the browser.
 - The public PDF catalog lists 830 paper editions and 380 chapter editions. The original PDF files and some diagrams are served externally. Dekhoexams also supplies its own printable views. The JEE dataset is versioned on GitHub and served by Cloudflare; it is separate from the Hostinger WordPress lesson editor. All JEE routes remain noindex during preview.
 - Coverage checks: `npm run test:education` checks the chapter order against the directory; `python3 scripts/jee/verify.py` checks every question, neighbor, paper association and mathematical glyph.
 

@@ -1,20 +1,17 @@
-# JEE Main archive
+# JEE archive
 
-The frontend reads the published archive from this repo through its Cloudflare assets binding. A student does not need WordPress credentials. The WordPress backend remains on Hostinger.
-
-To refresh this JEE Main snapshot, use Python with lxml and curl. Set `JEE_CACHE` to a scratch directory outside Git, `JEE_CONTENT_ORIGIN` to the authorized question catalog HTTPS origin, and `JEE_PDF_ORIGIN` to the authorized PDF catalog HTTPS origin. The directory and PDF lists in `src/data/jee-main-*.json` describe this inventory; inspect changes to them before refreshing. Run:
+The frontend reads the versioned archive from Cloudflare static assets. Set `JEE_EXAM` to `jee-main` or `jee-advanced`, `JEE_CACHE` to a separate scratch directory for each exam, and `JEE_CONTENT_ORIGIN` and `JEE_PDF_ORIGIN` to the authorized HTTPS catalog origins. The collector requires Python, lxml and curl.
 
 ```sh
-python archive.py index
-python archive.py fetch
-python archive.py hindi
-python chapters.py
+python collect.py
 python archive.py build
 python archive.py reconcile
 python archive.py build
-python verify.py
+python verify.py "$JEE_EXAM"
 ```
 
-Collection respects the public crawl rules. Only published HTML is collected; PDF download and private answer endpoints are not requested. A missing translation stays missing. Browsers can open a catalogued external edition or print the local paper view.
+The collector discovers chapter URLs and question groups first, followed by the paper and PDF directories. The reconciliation step checks missing records using their individual public URLs. The verifier checks every indexed question, its neighbors, mathematical glyphs, paper association, language coverage and printable editions against the release inventory.
 
-Question routes keep both chapter slugs and case-sensitive paper IDs. Assets are gzip-compressed JSON split by the first three hex digits of the SHA-256 of the ID. The importer retains semantic text, approved diagram URLs and the local mathematics glyphs. It discards scripts, styles, handlers and navigation from question HTML. Automatic grading requires a published numerical key or an explicitly identified final choice. The full verifier checks questions against their directory, neighbors, canonical paper association and glyph set.
+Chapter and paper routes preserve the published identifiers. Both exams share one canonical question URL format. Paper IDs are case-sensitive. Multiple-choice selections and numerical responses are graded only when the published material explicitly identifies the answer or accepted range. Students can choose whether to include explanations when they print.
+
+Original PDF edition links open externally. Dekhoexams print editions use the local archive. To regenerate only the print editions from published questions, run `python archive.py print`.

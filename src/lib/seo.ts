@@ -29,7 +29,7 @@ const SITE_LOGO = `${SITE_ORIGIN}/pencil2pen-icon-192.png`;
 export function normalizedContentPath(path: string): string {
   const clean = path.split(/[?#]/, 1)[0]!.replace(/^\/+|\/+$/g, "");
   // The final segment in a paper can be a case-sensitive published question ID.
-  return /^past-years\/year-wise\/jee\/jee-main\/[^/]+\/[^/]+$/.test(clean) ? clean : clean.toLowerCase();
+  return /^past-years\/year-wise\/jee\/(?:jee-main|jee-advanced)\/[^/]+\/[^/]+$/.test(clean) ? clean : clean.toLowerCase();
 }
 
 export function isUtilityPath(path: string): boolean {

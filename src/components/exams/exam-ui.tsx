@@ -1,9 +1,8 @@
-import chapterMeta from "@/data/jee-main-chapter-meta.json";
-import chapterCounts from "@/data/jee-main-counts.json";
+import {archiveCatalog,isArchive} from "@/lib/jee-catalog";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, ChevronRight, FileText } from "lucide-react";
 import type { ReactNode } from "react";
-import { CATEGORIES, examsIn, jeeMainPublicChapterSlug, papersFor, questionsFor, type Exam } from "@/lib/question-bank";
+import { CATEGORIES, examsIn, papersFor, questionsFor, type Exam } from "@/lib/question-bank";
 import logoSources from "@/data/exam-logo-sources.json";
 
 export function ExamLogo({ exam }: { exam: Exam }) {
@@ -30,6 +29,7 @@ export function Crumbs({ items }: { items: [label: string, to?: ReactNode][] }) 
 
 
 function ExamCard({ exam }: { exam: Exam }) {
+  const catalog=isArchive(exam.slug)?archiveCatalog(exam.slug):null;
   const n = questionsFor(exam.slug).length;
   const papers = papersFor(exam.slug).length;
   return (
@@ -39,19 +39,19 @@ function ExamCard({ exam }: { exam: Exam }) {
         <div>
           <h3 className="text-base font-bold leading-6">{exam.name}</h3>
           <p className="text-sm text-muted-foreground">
-            {exam.slug==="jee-main" ? "95 chapters · 202 previous-year papers" : n > 0 ? `${n} practice ${n === 1 ? "question" : "questions"} with solutions` : "Chapters listed · questions coming soon"}
+            {catalog ? Object.keys(catalog.meta).length+" chapters · "+catalog.papers.length+" previous-year papers" : n > 0 ? `${n} practice ${n === 1 ? "question" : "questions"} with solutions` : "Chapters listed · questions coming soon"}
           </p>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        {exam.slug==="jee-main" ? <a href="/past-years/jee/jee-main" className="exam-btn exam-btn-solid">Chapter-wise</a> : <Link to="/questions/$exam" params={{ exam: exam.slug }} className="exam-btn exam-btn-solid">Chapter-wise</Link>}
-        {exam.slug==="jee-main" ? <a href="/past-years/year-wise/jee/jee-main" className="exam-btn">Paper-wise</a> : <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="exam-btn">Paper-wise</Link>}
+        {catalog ? <a href={catalog.jeeHub} className="exam-btn exam-btn-solid">Chapter-wise</a> : <Link to="/questions/$exam" params={{ exam: exam.slug }} className="exam-btn exam-btn-solid">Chapter-wise</Link>}
+        {catalog ? <a href={catalog.paperHub} className="exam-btn">Paper-wise</a> : <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="exam-btn">Paper-wise</Link>}
       </div>
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t pt-3 text-sm">
         <Link to="/questions/$exam/practice" params={{ exam: exam.slug }} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
           Timed practice <ArrowUpRight className="size-3.5" />
         </Link>
-        {exam.slug==="jee-main" ? <a href="/pyq-pdfs/past-years/year-wise/jee/jee-main" className="inline-flex items-center gap-1 font-semibold text-primary"><FileText className="size-3.5"/> PYQ PDFs</a> : papers > 0 && (
+        {catalog ? <a href={catalog.pdfHub} className="inline-flex items-center gap-1 font-semibold text-primary"><FileText className="size-3.5"/> PYQ PDFs</a> : papers > 0 && (
           <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="inline-flex items-center gap-1 font-semibold text-primary">
             <FileText className="size-3.5" /> Printable sets
           </Link>
@@ -68,7 +68,7 @@ export function ExamDirectory() {
       <span className="exam-sticker">✦ Dekhoexams Questions</span>
       <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight sm:text-6xl">Crack your exam, one chapter at a time.</h1>
       <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
-        JEE, NEET, GATE, UPSC, NDA, SSC and CBSE, organised chapter-wise and paper-wise. Browse JEE Main past papers by year and shift, or choose an original Dekhoexams practice set.
+        JEE, NEET, GATE, UPSC, NDA, SSC and CBSE, organised chapter-wise and paper-wise. Browse JEE Main and JEE Advanced past papers by year and shift, or choose an original Dekhoexams practice set.
       </p>
       </header>
       <div className="exam-chipbar">
@@ -95,19 +95,20 @@ export function ExamDirectory() {
 
 export function ChapterCard({ exam, subject, slug, name }: { exam: string; subject: string; slug: string; name: string }) {
   const qs = questionsFor(exam, subject, slug);
-  const publicSlug = exam === "jee-main" ? jeeMainPublicChapterSlug(subject, slug) : null;
+  const catalog=isArchive(exam)?archiveCatalog(exam):null;
+  const entry=catalog?.meta[subject+"/"+slug];
   const content = <>
     <span className="flex items-start justify-between gap-2 font-semibold leading-6">
-      {publicSlug ? (chapterMeta as Record<string,{name:string}>)[subject+"/"+publicSlug]?.name ?? name : name}
+      {entry?.name ?? name}
       <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground group-hover:text-primary" />
     </span>
     <span className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-      {publicSlug ? <span><b>{(chapterCounts as Record<string,number>)["chapter/"+subject+"/"+publicSlug] ?? 0}</b> previous-year questions</span> : qs.length > 0 ? <><span className="rounded bg-muted px-2 py-0.5 text-xs font-semibold">Practice</span><span><b className="text-foreground">{qs.length}</b> {qs.length === 1 ? "question" : "questions"}</span></> : <span className="text-xs">Coming soon</span>}
+      {catalog && entry ? <span><b>{catalog.counts["chapter/"+subject+"/"+slug] ?? 0}</b> previous-year questions</span> : qs.length > 0 ? <><span className="rounded bg-muted px-2 py-0.5 text-xs font-semibold">Practice</span><span><b className="text-foreground">{qs.length}</b> {qs.length === 1 ? "question" : "questions"}</span></> : <span className="text-xs">Coming soon</span>}
     </span>
-    {publicSlug && <small className="block text-muted-foreground">{(chapterMeta as Record<string,{latest:string}>)[subject+"/"+publicSlug]?.latest}</small>}
+    {entry?.latest && <small className="block text-muted-foreground">{entry.latest}</small>}
   </>;
   const className = "chapter-card group flex min-h-[84px] flex-col justify-between rounded-xl border bg-card p-4 hover:border-primary";
-  if (publicSlug) return <Link to="/past-years/jee/jee-main/$subject/$chapter" params={{ subject, chapter: publicSlug }} className={className}>{content}</Link>;
+  if (catalog && entry) return <Link to="/past-years/jee/$archive/$subject/$chapter" params={{ archive:catalog.id,subject, chapter:slug }} className={className}>{content}</Link>;
   return (
     <Link
       to="/questions/$exam/$subject/$chapter"

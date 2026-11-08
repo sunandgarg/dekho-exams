@@ -1,14 +1,15 @@
+import {archiveCatalog,archiveUnits,isArchive,questionKind} from "@/lib/jee-catalog";
 import { useState } from "react";
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { seoHead } from "@/lib/seo";
-import { chapterName, examBySlug, jeeMainPublicChapterSlug, publicJeeUnits, questionsFor, subjectOf } from "@/lib/question-bank";
+import { chapterName, examBySlug, jeeMainPublicChapterSlug, questionsFor, subjectOf } from "@/lib/question-bank";
 import { PracticeNotice, QuestionCard } from "@/components/question-bank";
 import { useQuestionProgress } from "@/lib/question-progress";
 import { ArchiveRows, ArchiveNav } from "@/components/exams/jee-archive";
 import type { ArchiveRow,ChapterMeta } from "@/lib/jee-archive.functions";
 import { Crumbs } from "@/components/exams/exam-ui";
 
-export type ChapterData = { exam: string; examName: string; subject: string; subjectName: string; chapter: string; chapterName: string };
+export type ChapterData = { exam: string; examName: string; subject: string; subjectName: string; chapter: string; chapterName: string; publicChapter?: string };
 
 export const Route = createFileRoute("/questions/$exam/$subject/$chapter")({
   loader: ({ params }) => {
@@ -16,9 +17,10 @@ export const Route = createFileRoute("/questions/$exam/$subject/$chapter")({
     const sub = exam && subjectOf(exam, params.subject);
     const chap = sub && chapterName(sub, params.chapter);
     if (!exam || !sub || !chap) throw notFound();
-    if (exam.slug === "jee-main") {
-      const publicSlug = jeeMainPublicChapterSlug(sub.slug, params.chapter);
-      if (publicSlug) throw redirect({ to: "/past-years/jee/jee-main/$subject/$chapter", params: { subject: sub.slug, chapter: publicSlug }, statusCode: 301 });
+    if (isArchive(exam.slug)) {
+      const catalog=archiveCatalog(exam.slug);
+      const publicSlug=catalog.meta[sub.slug+"/"+params.chapter]?params.chapter:jeeMainPublicChapterSlug(sub.slug,params.chapter);
+      if (publicSlug && catalog.meta[sub.slug+"/"+publicSlug]) throw redirect({ to: "/past-years/jee/$archive/$subject/$chapter", params: {archive:exam.slug, subject: sub.slug, chapter: publicSlug }, statusCode: 301 });
     }
     return { exam: exam.slug, examName: exam.name, subject: sub.slug, subjectName: sub.name, chapter: params.chapter, chapterName: chap };
   },
@@ -47,7 +49,8 @@ export function ChapterContent({ d, rows, meta }: { d: ChapterData; rows?: Archi
   const all = questionsFor(d.exam, d.subject, d.chapter);
   const exam = examBySlug(d.exam)!;
   const subject = subjectOf(exam, d.subject)!;
-  const jeeMain = d.exam === "jee-main";
+  const catalog = isArchive(d.exam)?archiveCatalog(d.exam):null;
+  const chapterPath=catalog?.jeeHub+"/"+d.subject+"/"+d.publicChapter;
   const mcqCount = all.filter((q) => q.type === "mcq").length;
   const numericCount = all.length - mcqCount;
   const years = [...new Set(all.map((q) => q.year).filter((y): y is number => y !== null))];
@@ -61,25 +64,25 @@ export function ChapterContent({ d, rows, meta }: { d: ChapterData; rows?: Archi
         || (status === "new" && !a) || (status === "correct" && a?.ok) || (status === "wrong" && a && !a.ok)
         || (status === "bookmarked" && p.state.bookmarks.includes(q.id)));
   });
-  const chapterLinks = (jeeMain ? publicJeeUnits(subject) : subject.units).map((unit) => <div key={unit.name}>
+  const chapterLinks = (catalog ? archiveUnits(catalog.id,d.subject) : subject.units).map((unit) => <div key={unit.name}>
     <h3 className="mb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">{unit.name}</h3>
     {unit.chapters.map(([slug, name]) => {
-      const publicSlug = jeeMainPublicChapterSlug(d.subject, slug);
-      return publicSlug ? <Link key={slug} to="/past-years/jee/jee-main/$subject/$chapter" params={{ subject: d.subject, chapter: publicSlug }} aria-current={slug === d.chapter ? "page" : undefined} className={`block rounded-lg px-2 py-1.5 text-sm hover:bg-accent ${slug === d.chapter ? "bg-primary/10 font-bold text-primary" : ""}`}>{name}</Link>
+      const publicSlug = catalog?.meta[d.subject+"/"+slug] ? slug : null;
+      return catalog && publicSlug ? <Link key={slug} to="/past-years/jee/$archive/$subject/$chapter" params={{ archive:catalog.id,subject: d.subject, chapter: publicSlug }} aria-current={slug === d.publicChapter ? "page" : undefined} className={`block rounded-lg px-2 py-1.5 text-sm hover:bg-accent ${slug === d.publicChapter ? "bg-primary/10 font-bold text-primary" : ""}`}>{name}</Link>
         : <Link key={slug} to="/questions/$exam/$subject/$chapter" params={{ exam: d.exam, subject: d.subject, chapter: slug }} className="block rounded-lg px-2 py-1.5 text-sm hover:bg-accent">{name}</Link>;
     })}
   </div>);
   return (
-    <div className={`exam-wrap${jeeMain ? " exam-jee-page" : ""}`}>
-      <div className={`grid gap-7 ${jeeMain ? "lg:grid-cols-[260px_minmax(0,1fr)]" : ""}`}>
-      {jeeMain && <aside className="exam-pastel-card self-start rounded-2xl border p-4 lg:sticky lg:top-20" aria-label={`${d.subjectName} chapters`}>
+    <div className={`exam-wrap${catalog ? " exam-jee-page" : ""}`}>
+      <div className={`grid gap-7 ${catalog ? "lg:grid-cols-[260px_minmax(0,1fr)]" : ""}`}>
+      {catalog && <aside className="exam-pastel-card self-start rounded-2xl border p-4 lg:sticky lg:top-20" aria-label={`${d.subjectName} chapters`}>
         <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{d.examName}</p>
         <h2 className="mt-1 font-bold">{d.subjectName}</h2>
         <details className="mt-3 lg:hidden"><summary className="cursor-pointer text-sm font-semibold">Browse chapters</summary><nav className="mt-3 max-h-72 space-y-4 overflow-y-auto" aria-label="Chapters">{chapterLinks}</nav></details>
         <nav className="mt-4 hidden max-h-[70vh] space-y-4 overflow-y-auto lg:block" aria-label="Chapters">{chapterLinks}</nav>
       </aside>}
       <main className="min-w-0">
-      <Crumbs items={[["Home", <Link to="/">Home</Link>], [d.examName, <Link to="/questions/$exam" params={{ exam: d.exam }}>{d.examName}</Link>], [d.subjectName, jeeMain ? <a href={"/past-years/jee/jee-main/"+d.subject}>{d.subjectName}</a> : undefined], [d.chapterName]]} />
+      <Crumbs items={[["Home", <Link to="/">Home</Link>], [d.examName, <Link to="/questions/$exam" params={{ exam: d.exam }}>{d.examName}</Link>], [d.subjectName, catalog ? <a href={catalog.jeeHub+"/"+d.subject}>{d.subjectName}</a> : undefined], [d.chapterName]]} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">{d.chapterName}</h1>
@@ -87,8 +90,8 @@ export function ChapterContent({ d, rows, meta }: { d: ChapterData; rows?: Archi
         </div>
         {rows?.[0] ? <a href={"/past-years/jee/question/"+rows[0].id} className="rounded-lg border bg-card px-4 py-2 text-sm font-semibold hover:bg-accent">Start PYQ practice →</a> : all.length > 0 && <a href="#questions" className="rounded-lg border bg-card px-4 py-2 text-sm font-semibold hover:bg-accent">Start practice →</a>}
       </div>
-      {rows && <><ArchiveNav/>{meta && <section className="my-4 rounded-xl border p-4"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Chapter history</h2>{Object.keys(meta.pdfs).length>0&&<a className="text-sm font-semibold text-primary" href={`/pyq-pdfs/past-years/jee/jee-main/${d.subject}/${jeeMainPublicChapterSlug(d.subject,d.chapter)}`}>Chapter PDFs →</a>}</div><details className="mt-2"><summary className="cursor-pointer text-sm">Questions and weightage by year</summary><table className="mt-2 w-full text-left text-sm"><thead><tr>{["Year","Questions","Average per paper","Weightage / change"].map(x=><th key={x} className="py-1">{x}</th>)}</tr></thead><tbody>{meta.stats.map(row=><tr className="border-t" key={row[0]}>{row.map((v,i)=><td className="py-1" key={i}>{v}</td>)}</tr>)}</tbody></table></details></section>}<nav className="flex flex-wrap gap-3" aria-label="Question types">{[...new Set(rows.map(r=>r.group))].map(kind=><a key={kind} className="text-sm font-semibold text-primary" href={`/past-years/jee/jee-main/${d.subject}/${jeeMainPublicChapterSlug(d.subject,d.chapter)}/${kind}`}>{{mcq:"Single correct",integer:"Numerical",mcqm:"Multiple correct"}[kind]??kind}</a>)}</nav><ArchiveRows key={d.chapter} rows={rows}/></>}
-      {jeeMain && all.length > 0 && <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3" aria-label="Chapter question summary">
+      {rows && <><ArchiveNav/>{meta && <section className="my-4 rounded-xl border p-4"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">Chapter history</h2>{Object.keys(meta.pdfs).length>0&&<a className="text-sm font-semibold text-primary" href={"/pyq-pdfs"+chapterPath}>Chapter PDFs →</a>}</div><details className="mt-2"><summary className="cursor-pointer text-sm">Questions and weightage by year</summary><table className="mt-2 w-full text-left text-sm"><thead><tr>{["Year","Questions","Average per paper","Weightage / change"].map(x=><th key={x} className="py-1">{x}</th>)}</tr></thead><tbody>{meta.stats.map(row=><tr className="border-t" key={row[0]}>{row.map((v,i)=><td className="py-1" key={i}>{v}</td>)}</tr>)}</tbody></table></details></section>}<nav className="flex flex-wrap gap-3" aria-label="Question types">{[...new Set(rows.map(r=>r.group))].map(kind=><a key={kind} className="text-sm font-semibold text-primary" href={chapterPath+"/"+kind}>{questionKind(kind)}</a>)}</nav><ArchiveRows key={d.chapter} rows={rows}/></>}
+      {catalog && all.length > 0 && <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3" aria-label="Chapter question summary">
         <div className="exam-pastel-panel rounded-xl border p-3 sm:p-4"><b className="text-xl">{all.length}</b><p className="text-xs text-muted-foreground sm:text-sm">Original questions</p></div>
         <div className="exam-pastel-card rounded-xl border p-3 sm:p-4"><b className="text-xl">{mcqCount}</b><p className="text-xs text-muted-foreground sm:text-sm">Single correct</p></div>
         <div className="exam-pastel-card rounded-xl border p-3 sm:p-4"><b className="text-xl">{numericCount}</b><p className="text-xs text-muted-foreground sm:text-sm">Numerical</p></div>

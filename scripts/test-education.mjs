@@ -460,3 +460,20 @@ test("JEE Main lists the complete canonical chapter and paper directories", asyn
   assert.equal(new Set(papers.map(p=>p.slug)).size,202);
   for(const paper of papers) for(const variant of paper.variants)assert.match(variant,/^[a-z]{2}(?:-dark)?\.pdf$/);
 });
+
+
+test("JEE Advanced preserves its chapter inventory and paper identifiers alongside JEE Main", () => {
+  const read = (name) => JSON.parse(readFileSync(new URL("../src/data/"+name+".json",import.meta.url),"utf8"));
+  const subjects=read("jee-advanced-chapters"), metadata=read("jee-advanced-chapter-meta"),counts=read("jee-advanced-counts"),papers=read("jee-advanced-papers");
+  assert.deepEqual(Object.keys(subjects),["physics","chemistry","mathematics"]);
+  for(const [subject,chapters] of Object.entries(subjects)) {
+    for(const chapter of chapters) {
+      assert.ok(metadata[subject+"/"+chapter]?.name);
+      assert.ok(Number.isInteger(counts["chapter/"+subject+"/"+chapter]));
+    }
+  }
+  assert.equal(Object.keys(metadata).length,81);
+  assert.equal(Object.values(counts).reduce((sum,count)=>sum+count,0),3959);
+  assert.equal(new Set(papers.map(p=>p.slug)).size,79);
+  assert.equal(papers.flatMap(p=>p.variants).length,202);
+});

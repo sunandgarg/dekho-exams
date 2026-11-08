@@ -4,7 +4,7 @@ import { questionById } from "./question-bank";
 const KEY = "pencil2pen-qbank-v1";
 const EVT = "pencil2pen-qbank";
 type SavedPyq = { href:string; title:string };
-const pyqPath=/^\/past-years\/(?:jee\/question\/[a-z0-9-]+(?:\.htm)?|year-wise\/jee\/jee-main\/[a-z0-9-]+\/[A-Za-z0-9-]+)$/;
+const pyqPath=/^\/past-years\/(?:jee\/question\/[a-z0-9-]+(?:\.htm)?|year-wise\/jee\/(?:jee-main|jee-advanced)\/[a-z0-9-]+\/[A-Za-z0-9-]+)$/;
 type State = { version: 1; pyqs:SavedPyq[]; bookmarks: string[]; attempts: Record<string, { r: number; ok: boolean }> };
 const empty = (): State => ({ version: 1, pyqs:[], bookmarks: [], attempts: {} });
 

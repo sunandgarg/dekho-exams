@@ -6,14 +6,14 @@ export const Route = createFileRoute("/past-years/jee/question/$slug")({
   validateSearch: (s: Record<string, unknown>): { lang?: "hi" | "en" } =>
     s["lang"] === "hi" ? { lang: "hi" } : s["lang"] === "en" ? { lang: "en" } : {},
   loader: async ({ params }) => {
-    const q = await archiveQuestion({ data: params.slug });
+    const q = await archiveQuestion({ data: {id:params.slug} });
     if (!q?.chapter) throw notFound();
     return q;
   },
   head: ({ loaderData: q }) =>
     seoHead({
       title: q ? q.teaser.slice(0, 100) + " · " + q.paperTitle : "Question not found",
-      description: "Practise a JEE Main previous-year question.",
+      description: "Practise a JEE previous-year question with its explanation.",
       path: q ? "past-years/jee/question/" + q.slug : "questions",
       noindex: true,
     }),
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/past-years/jee/question/$slug")({
       <QuestionView
         key={q.slug + Route.useSearch().lang}
         language={Route.useSearch().lang ?? "en"}
-        q={q}
+        q={q} owner={q.exam}
       />
     );
   },

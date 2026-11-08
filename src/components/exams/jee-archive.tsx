@@ -1,23 +1,20 @@
-import chapterOrder from "@/data/jee-main-chapters.json";
-import chapterMeta from "@/data/jee-main-chapter-meta.json";
 import { useState } from "react";
-import hindiPrint from "@/data/jee-main-hindi-print.json";
+import { useParams } from "@tanstack/react-router";
+import { archiveCatalog, questionKind, type ArchiveId, type ArchivePaper } from "@/lib/jee-catalog";
 import { useQuestionProgress } from "@/lib/question-progress";
-import papers from "@/data/jee-main-papers.json";
 import type { ArchiveQuestion, ArchiveRow } from "@/lib/jee-archive.functions";
-
-export const jeeHub = "/past-years/jee/jee-main",
-  paperHub = "/past-years/year-wise/jee/jee-main",
-  pdfHub = "/pyq-pdfs/past-years/year-wise/jee/jee-main";
+function useCatalog(owner?: ArchiveId) {
+  const params = useParams({ strict: false });
+  return archiveCatalog(owner ?? params.archive ?? "jee-main");
+}
 const btn =
   "inline-flex items-center rounded-lg border bg-card px-3 py-2 text-sm font-semibold hover:bg-accent";
-const label = (s: string) =>
-  ({ mcq: "Single correct", mcqm: "Multiple correct", integer: "Numerical" })[s] ??
-  s.replaceAll("-", " ");
+const label = questionKind;
 const title = (s: string) => s.replaceAll("-", " ").replace(/(^|\s)\w/g, (c) => c.toUpperCase());
-export function ArchiveNav() {
+export function ArchiveNav({ owner }: { owner?: ArchiveId } = {}) {
+  const { jeeHub, paperHub, pdfHub, name } = useCatalog(owner);
   return (
-    <nav className="my-4 flex flex-wrap gap-2" aria-label="JEE Main library">
+    <nav className="my-4 flex flex-wrap gap-2" aria-label={name + " library"}>
       <a className={btn} href={jeeHub}>
         Chapter-wise
       </a>
@@ -39,6 +36,7 @@ export function ArchiveRows({
   paper?: string;
   filter?: string;
 }) {
+  const { paperHub } = useCatalog();
   const [group, setGroup] = useState(filter ?? ""),
     [year, setYear] = useState("");
   const selected = rows.filter(
@@ -112,14 +110,15 @@ export function ArchiveRows({
     </section>
   );
 }
-function PdfLinks({ paper }: { paper: (typeof papers)[number] }) {
+function PdfLinks({ paper }: { paper: ArchivePaper }) {
+  const { id, printPrefix, hindiPrint } = useCatalog();
   return (
     <div className="mt-2 flex flex-wrap gap-2">
-      <a className={btn} href={"/pyq-pdfs/print/" + paper.slug + "/en"}>
+      <a className={btn} href={printPrefix + paper.slug + "/en"}>
         Print English edition
       </a>
       {hindiPrint.includes(paper.slug) && (
-        <a className={btn} href={"/pyq-pdfs/print/" + paper.slug + "/hi"}>
+        <a className={btn} href={printPrefix + paper.slug + "/hi"}>
           Print Hindi edition
         </a>
       )}
@@ -128,7 +127,12 @@ function PdfLinks({ paper }: { paper: (typeof papers)[number] }) {
           className={btn}
           key={v}
           href={
-            "https://pdf.questions.examgoal.com/download/paper/jee/jee-main/" + paper.slug + "/" + v
+            "https://pdf.questions.examgoal.com/download/paper/jee/" +
+            id +
+            "/" +
+            paper.slug +
+            "/" +
+            v
           }
           target="_blank"
           rel="nofollow noreferrer"
@@ -142,6 +146,7 @@ function PdfLinks({ paper }: { paper: (typeof papers)[number] }) {
   );
 }
 export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
+  const { papers, name, jeeHub, paperHub, id } = useCatalog();
   const years = [
     ...new Set(papers.map((p) => p.date.match(/\d{4}/)?.[0] ?? p.title.match(/\d{4}/)![0])),
   ];
@@ -152,10 +157,10 @@ export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
       <ArchiveNav />
       <header className="exam-pastel-panel rounded-2xl border p-5">
         <h1 className="text-3xl font-extrabold">
-          JEE Main {pdf ? "PYQ PDFs" : "previous-year papers"}
+          {name} {pdf ? "PYQ PDFs" : "previous-year papers"}
         </h1>
         <p className="mt-2 text-muted-foreground">
-          {papers.length} papers by year and shift.{" "}
+          {papers.length} papers by year.{" "}
           {pdf
             ? "Choose a language and edition to open the external PDF."
             : "Choose a paper to practise its questions in order."}
@@ -181,7 +186,7 @@ export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
         <input
           className={btn}
           aria-label="Search papers"
-          placeholder="Find a date or shift"
+          placeholder={id === "jee-main" ? "Find a date or shift" : "Find a year or paper"}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -219,14 +224,15 @@ export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
           p.title.toLowerCase().includes(query.toLowerCase()),
       ) && <p>No papers match this search.</p>}
       {!pdf && (
-        <a className={btn} href="/questions/jee-main/papers/practice-set-1">
+        <a className={btn} href={"/questions/" + id + "/papers/practice-set-1"}>
           Original printable practice set
         </a>
       )}
     </main>
   );
 }
-export function PaperPage({ paper, rows }: { paper: (typeof papers)[number]; rows: ArchiveRow[] }) {
+export function PaperPage({ paper, rows }: { paper: ArchivePaper; rows: ArchiveRow[] }) {
+  const { paperHub } = useCatalog();
   return (
     <main className="exam-wrap exam-jee-page">
       <ArchiveNav />
@@ -248,10 +254,12 @@ export function PaperPage({ paper, rows }: { paper: (typeof papers)[number]; row
 }
 export function QuestionView({
   q,
+  owner,
   inPaper = false,
   language = "en",
 }: {
   q: ArchiveQuestion;
+  owner?: ArchiveId;
   inPaper?: boolean;
   language?: "en" | "hi";
 }) {
@@ -259,7 +267,11 @@ export function QuestionView({
     [revealed, setRevealed] = useState(false),
     [numeric, setNumeric] = useState(""),
     [checked, setChecked] = useState(false);
+  const { id, name, jeeHub, paperHub, papers } = useCatalog(owner);
   const paper = papers.find((p) => p.slug === q.paper);
+  const keys = q.choiceKeys ?? (q.choiceKey === undefined ? undefined : [q.choiceKey]);
+  const bounds =
+    q.numericRange ?? (q.numericKey === undefined ? undefined : [q.numericKey, q.numericKey]);
   const content = language === "hi" && q.hi ? q.hi : q;
   const progress = useQuestionProgress();
   const bookmarkHref = q.canonical
@@ -273,7 +285,7 @@ export function QuestionView({
   const prefix = inPaper ? paperHub + "/" + q.paper + "/" : "/past-years/jee/question/";
   return (
     <main className="exam-wrap exam-jee-page">
-      <ArchiveNav />
+      <ArchiveNav owner={id} />
       <article className="exam-pastel-card mx-auto max-w-4xl rounded-2xl border p-5 sm:p-8">
         <p className="text-sm font-semibold text-primary">
           {paper ? <a href={paperHub + "/" + q.paper}>{paper.title}</a> : q.paperTitle}
@@ -289,9 +301,7 @@ export function QuestionView({
                 !progress.togglePyq({
                   href: bookmarkHref,
                   title:
-                    (paper?.title || q.paperTitle || "JEE Main") +
-                    " · " +
-                    title(q.chapter || q.subject),
+                    (paper?.title || q.paperTitle || name) + " · " + title(q.chapter || q.subject),
                 }),
               )
             }
@@ -361,6 +371,15 @@ export function QuestionView({
             ))}
           </fieldset>
         )}
+        {q.complete && ["subjective", "fill-blanks"].includes(q.kind) && (
+          <label className="mt-5 block font-semibold">
+            Your response
+            <textarea
+              className="mt-2 block w-full rounded-lg border bg-background p-3 font-normal"
+              rows={q.kind === "subjective" ? 4 : 2}
+            />
+          </label>
+        )}
         {q.complete && q.kind === "integer" && (
           <label className="mt-5 block font-semibold">
             Your numerical answer{" "}
@@ -377,21 +396,21 @@ export function QuestionView({
             />
           </label>
         )}
-        {q.choiceKey !== undefined && (
+        {keys && (
           <div className="mt-3 flex items-center gap-3">
             <button className={btn} disabled={!choices.length} onClick={() => setChecked(true)}>
               Check selected answer
             </button>
             {checked && (
               <span role="status">
-                {choices[0] === q.choiceKey
+                {choices.length === keys.length && keys.every((k) => choices.includes(k))
                   ? "Correct."
-                  : "Published answer: " + String.fromCharCode(65 + q.choiceKey)}
+                  : "Published answer: " + keys.map((k) => String.fromCharCode(65 + k)).join(", ")}
               </span>
             )}
           </div>
         )}
-        {q.numericKey !== undefined && (
+        {bounds && (
           <div className="mt-3 flex items-center gap-3">
             <button
               className={btn}
@@ -402,9 +421,10 @@ export function QuestionView({
             </button>
             {checked && (
               <span role="status">
-                {Number(numeric) === q.numericKey
+                {Number(numeric) >= bounds[0]! && Number(numeric) <= bounds[1]!
                   ? "Correct."
-                  : "Not quite. Published answer: " + q.numericKey}
+                  : "Published answer: " +
+                    (bounds[0] === bounds[1] ? bounds[0] : bounds.join(" to "))}
               </span>
             )}
           </div>
@@ -463,12 +483,13 @@ export function QuestionView({
 }
 
 export function ChapterPdfCatalog({ subject }: { subject?: string }) {
+  const { name, jeeHub, chapters: chapterOrder, meta: chapterMeta } = useCatalog();
   return (
     <main className="exam-wrap exam-jee-page">
       <ArchiveNav />
       <header className="exam-pastel-panel rounded-2xl border p-5">
         <h1 className="text-3xl font-extrabold">
-          JEE Main chapter PDFs{subject ? " · " + title(subject) : ""}
+          {name} chapter PDFs{subject ? " · " + title(subject) : ""}
         </h1>
         <p className="mt-2 text-muted-foreground">
           Choose a chapter to print its questions or open a PDF edition.
