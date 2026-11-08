@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { test } from "node:test";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 // Node's type stripping keeps these checks on the real source, without a test framework.
@@ -36,6 +37,24 @@ const { default: directoryReference } = await import("../src/data/khan-course-re
 const { parseProgress } = await import("../src/lib/learning-progress.ts");
 const { EXAM_GUIDES } = await import("../src/lib/exam-update-guides.ts");
 const { EXAMS, jeeMainPublicChapterSlug } = await import("../src/lib/question-bank.ts");
+test("the JEE Main download menu offers exactly the verified files in the release", () => {
+  const read = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url)));
+  const papers = read("../src/data/jee-main-pdf-papers.json");
+  const release = read("../docs/jee-main/part-1-pdfs.json");
+  const expected = Object.keys(papers).flatMap((slug) => ["en.pdf", "hi.pdf", "en-dark.pdf", "hi-dark.pdf"].map((file) => slug + "/" + file));
+  const directory = new URL("../public/jee-papers/jee-main/", import.meta.url);
+  assert.deepEqual(release.files.map((r) => r.paper + "/" + r.file).sort(), expected.sort());
+  const catalog = read("../src/data/jee-main-papers.json").map((p) => p.slug);
+  for (const [slug, missing] of Object.entries(papers)) {
+    assert.ok(catalog.includes(slug), slug);
+    assert.equal(missing, release.unlisted_answers[slug] ?? null);
+  }
+  for (const r of release.files) {
+    const data = readFileSync(new URL(r.paper + "/" + r.file, directory));
+    assert.equal(data.length, r.bytes);
+    assert.equal(createHash("sha256").update(data).digest("hex"), r.sha256);
+  }
+});
 test("JEE Main public chapter slugs keep verified paths and stable internal IDs", () => {
   const exam = EXAMS.find((e) => e.slug === "jee-main");
   assert.ok(exam);

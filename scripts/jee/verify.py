@@ -4,7 +4,7 @@ from collections import Counter
 import gzip,json,re,hashlib,sys
 root=Path(__file__).resolve().parents[2]
 exam=sys.argv[1] if len(sys.argv)>1 else 'jee-main'
-inventories={'jee-main':(95,18006,202,15280),'jee-advanced':(81,3959,79,3920)}
+inventories={'jee-main':(95,18006,202,15282),'jee-advanced':(81,3959,79,3920)}
 if exam not in inventories:raise ValueError('Unsupported exam')
 asset_dir='jee-archive' if exam=='jee-main' else 'jee-advanced-archive'
 out=root/'public'/asset_dir
@@ -66,7 +66,7 @@ for f in (out/'print').rglob('*.bin'):
 assert stats['chapter detailed']==stats['chapter']==stats['chapter explanations']
 assert stats['paper detailed']==stats['paper']==stats['paper explanations']
 assert stats['print en']==stats['chapters']+stats['papers']==stats['print hi']
-assert stats['paper positions linked to chapters']==(15280 if exam=='jee-main' else 3919)
+assert stats['paper positions linked to chapters']==(15282 if exam=='jee-main' else 3919)
 assert stats['chapter Hindi']==stats['chapter'] and stats['paper Hindi']==stats['paper']
 
 print(json.dumps(stats,indent=2))

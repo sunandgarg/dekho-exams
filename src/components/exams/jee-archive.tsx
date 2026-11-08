@@ -1,4 +1,5 @@
 import { useState } from "react";
+import downloadPapers from "@/data/jee-main-pdf-papers.json";
 import { useParams } from "@tanstack/react-router";
 import { archiveCatalog, questionKind, type ArchiveId, type ArchivePaper } from "@/lib/jee-catalog";
 import { useQuestionProgress } from "@/lib/question-progress";
@@ -111,18 +112,49 @@ export function ArchiveRows({
   );
 }
 export function EditionLinks({ edition }: { edition: string }) {
-  const { printPrefix, hindiPrint } = useCatalog();
+  const { id, printPrefix, hindiPrint } = useCatalog();
+  const paper =
+    id === "jee-main" ? (downloadPapers as Record<string, number | null>)[edition] : undefined;
   return (
-    <div className="mt-2 flex flex-wrap gap-2">
-      <a className={btn} href={printPrefix + edition + "/en"}>
-        English print edition
-      </a>
-      {hindiPrint.includes(edition) && (
-        <a className={btn} href={printPrefix + edition + "/hi"}>
-          Hindi print edition
-        </a>
+    <>
+      {paper !== undefined && (
+        <div className="mt-3">
+          <p className="mb-1 text-sm font-semibold">Download paper with answer key</p>
+          <div className="flex flex-wrap gap-2">
+            {(["en", "hi"] as const).flatMap((lang) =>
+              ["", "-dark"].map((theme) => {
+                const file = lang + theme + ".pdf";
+                return (
+                  <a
+                    key={file}
+                    className={btn}
+                    href={"/jee-papers/jee-main/" + edition + "/" + file}
+                    download={"DekhoExams-" + edition + "-" + file}
+                  >
+                    {lang === "en" ? "English" : "Hindi"} · {theme ? "Dark" : "Light"}
+                  </a>
+                );
+              }),
+            )}
+          </div>
+          {paper != null && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              The PDF answer key does not list a definitive answer for Q{paper}.
+            </p>
+          )}
+        </div>
       )}
-    </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <a className={btn} href={printPrefix + edition + "/en"}>
+          English print edition
+        </a>
+        {hindiPrint.includes(edition) && (
+          <a className={btn} href={printPrefix + edition + "/hi"}>
+            Hindi print edition
+          </a>
+        )}
+      </div>
+    </>
   );
 }
 export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
@@ -142,7 +174,9 @@ export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
         <p className="mt-2 text-muted-foreground">
           {papers.length} papers by year.{" "}
           {pdf
-            ? "Open a Dekhoexams edition, choose whether to include solutions, then print or save as PDF."
+            ? id === "jee-main"
+              ? "Download 2025 and 2026 papers with answer keys in English or Hindi, in light or dark mode. For any year, use a print edition to include solutions."
+              : "Open a Dekhoexams edition, choose whether to include solutions, then print or save as PDF."
             : "Choose a paper to practise its questions in order."}
         </p>
       </header>
