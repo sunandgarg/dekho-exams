@@ -41,7 +41,7 @@ export function TopicIllustration({ kind = "java" }: { kind?: "java" | "ai" | "w
         <path d="M15 0v232" stroke="#173d2c" opacity=".22" strokeWidth="3" />
         <rect x="30" y="27" width="118" height="150" rx="3" fill="#fff9eb" />
         <text x="44" y="49" fontSize="8" fontFamily="sans-serif" letterSpacing="1.2" fill={colour}>
-          AI TROVE / NOTES
+          DEKHOEXAMS / NOTES
         </text>
         <text
           x="89"

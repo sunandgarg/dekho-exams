@@ -5,7 +5,7 @@ export const Route = createFileRoute("/reset-password")({
   head: () =>
     seoHead({
       title: "Reset your password",
-      description: "AI Trove learner account recovery.",
+      description: "Dekhoexams learner account recovery.",
       path: "reset-password",
       noindex: true,
     }),

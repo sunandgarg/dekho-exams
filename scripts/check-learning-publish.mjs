@@ -55,7 +55,7 @@ for (const path of paths) {
 for (const path of [
   "/learning-coverage.html",
   "/java-coverage.html",
-  "/downloads/aitrove-spring-source-kit.zip",
+  "/downloads/dekhoexams-spring-source-kit.zip",
 ]) {
   const r = await request.get(base + path);
   assert.equal(r.status(), 200, path);

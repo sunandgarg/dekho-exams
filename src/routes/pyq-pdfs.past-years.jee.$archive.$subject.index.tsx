@@ -10,7 +10,7 @@ export const Route = createFileRoute("/pyq-pdfs/past-years/jee/$archive/$subject
   head: ({ params, loaderData: s }) =>
     seoHead({
       title: archiveCatalog(params.archive).name + " " + (s ?? "") + " chapter PDFs",
-      description: "Open printable JEE Main chapters.",
+      description: "Print a Dekhoexams chapter edition with optional solutions.",
       path: "pyq-pdfs" + archiveCatalog(params.archive).jeeHub + "/" + s,
       noindex: true,
     }),

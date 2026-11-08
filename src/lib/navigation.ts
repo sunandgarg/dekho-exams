@@ -101,7 +101,7 @@ const ALL_NAV_GROUPS = [
           ["Databases", "sql/guide-to-databases"],
           ["Software & tools", "websites-apps/software-and-tools-a-to-z-list"],
           ["How-to & shortcuts", "guides/how-to-and-shortcuts"],
-          ["School resources", "school-resources/geeksforgeeks-school"],
+          ["School resources", "classes"],
           ["All tutorials", "tutorials/programming-language-tutorials"],
         ],
       },

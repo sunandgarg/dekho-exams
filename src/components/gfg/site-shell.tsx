@@ -324,7 +324,7 @@ function Brand() {
   return (
     <span className="trove-brand">
       <span className="trove-brand-wordmark">
-        dekho<span className="pencil2pen-digit">exams</span>
+        dekho<span className="dekhoexams-wordmark">exams</span>
       </span>
     </span>
   );

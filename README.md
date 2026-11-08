@@ -2,7 +2,7 @@
 
 Dekhoexams is a new Class 1–12 student experience built on this TanStack Start codebase. The local starter has 14 original lessons, plus board, book, exam and language directories. The inherited computing library is preserved. [SITE-ARCHITECTURE.md](SITE-ARCHITECTURE.md) is the routing/content contract; [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md) records what is complete and every remaining production workstream.
 
-The JEE Main library has 95 chapters and 202 papers. JEE Advanced has 81 chapters and 79 papers. Both are stored in this repository and served by Cloudflare. Students can practise chapter-wise or paper-wise and print PDFs with optional solutions. [JEE Main](https://dekhoexams.com/past-years/jee/jee-main) · [JEE Advanced](https://dekhoexams.com/past-years/jee/jee-advanced) · [Archive maintenance](scripts/jee/README.md)
+The JEE Main library has 95 chapters and 202 papers. JEE Advanced has 81 chapters and 79 papers. Both are stored in this repository and served by Cloudflare. Students can practise chapter-wise or paper-wise and print Dekhoexams editions with optional solutions. No external PDFs or remote diagrams are served in the JEE archive. Unreviewed diagrams are labeled in place until clean replacements are available. [JEE Main](https://dekhoexams.com/past-years/jee/jee-main) · [JEE Advanced](https://dekhoexams.com/past-years/jee/jee-advanced) · [Archive maintenance](scripts/jee/README.md)
 
 ## Local preview
 
@@ -89,6 +89,6 @@ Real CMS installation and import verification; original reviewed content and med
 
 Courses are hidden site-wide via `FEATURES.courses = false` in `src/lib/features.ts`. Course records and all templates are retained. Public menus, home sections, recommendations, search results, learner links and the page directory exclude courses; course, checkout and enrolled-learning URLs return 404 while disabled. Switch the flag to true and restart/rebuild to restore them. Update the WordPress plugin before connecting the CMS so `exclude_types` filtering keeps list pagination/counts correct. Stored course bookmarks/progress remain in browser storage but are hidden.
 
-Brand assets now use `aitrove-symbol-v2.png` and `aitrove-favicon-v2.png`; the original assets are retained.
+The public icon, social card and print wordmark use Dekhoexams. Original computing kit archives are retained in `docs/legacy-kits`; rebuild the public editions with `python3 scripts/build-dekhoexams-kits.py`.
 
 For the current availability settings, use `scripts/check-course-visibility.mjs` to verify course hiding, retained records/state and the new logo. The general preview check expects courses to be hidden by default; set `COURSES_ENABLED=true` when running it after launching courses.

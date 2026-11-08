@@ -23,8 +23,8 @@ export function validatedSiteOrigin(value?: string): string {
 export const SITE_ORIGIN = validatedSiteOrigin(import.meta.env["VITE_SITE_URL"]);
 // Preview and unconfigured builds stay out of public search until editorial launch.
 export const IS_PREVIEW = import.meta.env["VITE_PREVIEW_MODE"] !== "false";
-export const SITE_IMAGE = `${SITE_ORIGIN}/pencil2pen-social.png`;
-const SITE_LOGO = `${SITE_ORIGIN}/pencil2pen-icon-192.png`;
+export const SITE_IMAGE = `${SITE_ORIGIN}/dekhoexams-social.png`;
+const SITE_LOGO = `${SITE_ORIGIN}/dekhoexams-icon-192.png`;
 
 export function normalizedContentPath(path: string): string {
   const clean = path.split(/[?#]/, 1)[0]!.replace(/^\/+|\/+$/g, "");

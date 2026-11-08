@@ -96,7 +96,7 @@ Use Maven and JDK 21. From jmh run `mvn package`, then `java -jar target/benchma
 The explanations and learning programs were written for AI Trove. Java/API facts and third-party dependencies do not become exclusively owned by AI Trove. No third-party dependency binaries are included in this ZIP.
 ''')
 files=[p for p in kit.rglob('*') if p.is_file() and not any(part in {'target','build','.gradle','out'} for part in p.relative_to(kit).parts)]
-archive=ROOT/'public/downloads/aitrove-java-source-kit.zip';archive.parent.mkdir(parents=True,exist_ok=True)
+archive=ROOT/'docs/legacy-kits/aitrove-java-source-kit.zip';archive.parent.mkdir(parents=True,exist_ok=True)
 with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
  for path in sorted(files):z.write(path,'aitrove-java-source-kit/'+str(path.relative_to(kit)))
 shutil.copyfile(archive,OUT/archive.name)

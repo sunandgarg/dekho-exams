@@ -1236,6 +1236,7 @@ function ArticleDetail({ entry, d }: { entry: Entry; d: EntryData }) {
   const sectionTitle =
     arr<SubjectTab>(obj(subjectRoot?.data).resource_tabs).find((tab) => tab.path === sectionPath)
       ?.title ?? "Articles";
+  const kit = /^\/downloads\/(?:aitrove|dekhoexams)-(java|spring|python)-source-kit\.zip$/.exec(str(d["download_path"]))?.[1] as "java" | "spring" | "python" | undefined;
   const updated = new Date(entry.updated_at).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
@@ -1262,9 +1263,6 @@ function ArticleDetail({ entry, d }: { entry: Entry; d: EntryData }) {
           </Badge>
         )}
         {entry.difficulty && <DifficultyBadge value={entry.difficulty} />}
-        <ELink to={str(d.author_path, "authors/aitrove-editorial")} className="text-primary">
-          By AITrove Editorial
-        </ELink>
         <BookmarkButton entry={entry} />
       </div>
       {introduction ? (
@@ -1274,21 +1272,10 @@ function ArticleDetail({ entry, d }: { entry: Entry; d: EntryData }) {
       ) : entry.summary ? (
         <p className="mt-5 text-lg text-muted-foreground">{entry.summary}</p>
       ) : null}
-      {[
-        "/downloads/aitrove-java-source-kit.zip",
-        "/downloads/aitrove-spring-source-kit.zip",
-        "/downloads/aitrove-python-source-kit.zip",
-      ].includes(str(d["download_path"])) && (
-        <a
-          href={str(d["download_path"])}
-          download
-          className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-        >
-          {d["download_path"] === "/downloads/aitrove-spring-source-kit.zip"
-            ? "Download Spring source kit"
-            : d["download_path"] === "/downloads/aitrove-python-source-kit.zip"
-              ? "Download Python source kit"
-              : "Download Java source kit"}
+      {kit && (
+        <a href={"/downloads/dekhoexams-" + kit + "-source-kit.zip"} download
+          className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">
+          Download {{ java: "Java", spring: "Spring", python: "Python" }[kit]} source kit
         </a>
       )}
       {d.visual_demo === "linked-list" && <LinkedListDemo />}
@@ -2014,10 +2001,10 @@ function CourseDetail({ entry, d }: { entry: Entry; d: EntryData }) {
           <section className="mt-8 rounded-xl border p-6">
             <h2 className="font-display text-xl font-bold">Your instructor</h2>
             <ELink
-              to={str(d.instructor_path, "authors/aitrove-editorial")}
+              to={str(d.instructor_path, "authors")}
               className="mt-3 block font-semibold text-primary"
             >
-              {str(d.instructor, "AITrove Editorial")}
+              {str(d.instructor, "Course team")}
             </ELink>
             <p className="mt-2 text-sm text-muted-foreground">
               View expertise and published resources.
@@ -2051,7 +2038,7 @@ function CourseDetail({ entry, d }: { entry: Entry; d: EntryData }) {
           <section className="mt-8">
             <h2 className="font-display text-xl font-bold">Learner reviews</h2>
             <p className="mt-3 text-sm text-muted-foreground">
-              No verified AITrove reviews published yet.
+              No verified reviews published yet.
             </p>
           </section>
           <Button
@@ -2062,7 +2049,7 @@ function CourseDetail({ entry, d }: { entry: Entry; d: EntryData }) {
               const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
               const a = document.createElement("a");
               a.href = url;
-              a.download = "aitrove-course-outline.txt";
+              a.download = "dekhoexams-course-outline.txt";
               a.click();
               URL.revokeObjectURL(url);
             }}

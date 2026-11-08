@@ -117,7 +117,7 @@ if (!(await logo.getAttribute("src")).includes("aitrove-symbol-v2"))
 if (!(await logo.evaluate((img) => img.complete && img.naturalWidth > 0)))
   throw new Error("Logo did not load.");
 const favicon = await page.locator('link[rel="icon"]').getAttribute("href");
-if (favicon !== "/aitrove-favicon-v2.png") throw new Error("Old favicon");
+if (favicon !== "/dekhoexams-icon-192.png") throw new Error("Old favicon");
 if (!(await fetch(base + favicon)).ok) throw new Error("Favicon failed to load.");
 for (const href of links)
   if (href && !(await fetch(base + href)).ok)

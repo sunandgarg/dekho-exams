@@ -110,38 +110,18 @@ export function ArchiveRows({
     </section>
   );
 }
-function PdfLinks({ paper }: { paper: ArchivePaper }) {
-  const { id, printPrefix, hindiPrint } = useCatalog();
+export function EditionLinks({ edition }: { edition: string }) {
+  const { printPrefix, hindiPrint } = useCatalog();
   return (
     <div className="mt-2 flex flex-wrap gap-2">
-      <a className={btn} href={printPrefix + paper.slug + "/en"}>
-        Print English edition
+      <a className={btn} href={printPrefix + edition + "/en"}>
+        English print edition
       </a>
-      {hindiPrint.includes(paper.slug) && (
-        <a className={btn} href={printPrefix + paper.slug + "/hi"}>
-          Print Hindi edition
+      {hindiPrint.includes(edition) && (
+        <a className={btn} href={printPrefix + edition + "/hi"}>
+          Hindi print edition
         </a>
       )}
-      {paper.variants.map((v) => (
-        <a
-          className={btn}
-          key={v}
-          href={
-            "https://pdf.questions.examgoal.com/download/paper/jee/" +
-            id +
-            "/" +
-            paper.slug +
-            "/" +
-            v
-          }
-          target="_blank"
-          rel="nofollow noreferrer"
-        >
-          {{ en: "English", hi: "Hindi", gu: "Gujarati" }[v.split(/[.-]/)[0]!] ??
-            v.split(/[.-]/)[0]!.toUpperCase()}
-          {v.includes("-dark") ? " · Dark" : ""} PDF ↗
-        </a>
-      ))}
     </div>
   );
 }
@@ -162,7 +142,7 @@ export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
         <p className="mt-2 text-muted-foreground">
           {papers.length} papers by year.{" "}
           {pdf
-            ? "Choose a language and edition to open the external PDF."
+            ? "Open a Dekhoexams edition, choose whether to include solutions, then print or save as PDF."
             : "Choose a paper to practise its questions in order."}
         </p>
       </header>
@@ -210,7 +190,7 @@ export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
                     <h3 className="font-semibold">
                       <a href={paperHub + "/" + p.slug}>{p.title}</a>
                     </h3>
-                    {pdf && <PdfLinks paper={p} />}
+                    {pdf && <EditionLinks edition={p.slug} />}
                   </article>
                 ))}
               </div>
@@ -246,7 +226,7 @@ export function PaperPage({ paper, rows }: { paper: ArchivePaper; rows: ArchiveR
             Start paper practice →
           </a>
         )}
-        <PdfLinks paper={paper} />
+        <EditionLinks edition={paper.slug} />
       </header>
       <ArchiveRows rows={rows} paper={paper.slug} />
     </main>
@@ -273,6 +253,9 @@ export function QuestionView({
   const bounds =
     q.numericRange ?? (q.numericKey === undefined ? undefined : [q.numericKey, q.numericKey]);
   const content = language === "hi" && q.hi ? q.hi : q;
+  const promptFigurePending = [content.body, ...content.options].some((part) =>
+    part.includes('class="jee-figure-pending"'),
+  );
   const progress = useQuestionProgress();
   const bookmarkHref = q.canonical
     ? "/past-years/jee/question/" + q.canonical
@@ -331,6 +314,13 @@ export function QuestionView({
               हिन्दी
             </a>
           </nav>
+        )}
+        {promptFigurePending && (
+          <p className="mb-3 text-sm text-muted-foreground">
+            {language === "hi"
+              ? "इस प्रश्न में चित्र अभी उपलब्ध नहीं है। आप हल पढ़ सकते हैं।"
+              : "A diagram in this question is pending. You can still read the explanation."}
+          </p>
         )}
         <div
           className="jee-prose"
@@ -396,7 +386,7 @@ export function QuestionView({
             />
           </label>
         )}
-        {keys && (
+        {keys && !promptFigurePending && (
           <div className="mt-3 flex items-center gap-3">
             <button className={btn} disabled={!choices.length} onClick={() => setChecked(true)}>
               Check selected answer
@@ -410,7 +400,7 @@ export function QuestionView({
             )}
           </div>
         )}
-        {bounds && (
+        {bounds && !promptFigurePending && (
           <div className="mt-3 flex items-center gap-3">
             <button
               className={btn}
@@ -492,7 +482,7 @@ export function ChapterPdfCatalog({ subject }: { subject?: string }) {
           {name} chapter PDFs{subject ? " · " + title(subject) : ""}
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Choose a chapter to print its questions or open a PDF edition.
+          Choose a chapter to print or save a Dekhoexams edition with optional solutions.
         </p>
       </header>
       {Object.entries(chapterOrder)

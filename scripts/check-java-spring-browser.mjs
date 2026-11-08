@@ -130,8 +130,8 @@ assert.equal(await page.locator(".explore-card").count(), 16);
 await page.getByRole("link", { name: /Spring & Spring Boot View resources/ }).click();
 await page.waitForURL("**/spring/spring-boot");
 for (const path of [
-  "downloads/aitrove-spring-source-kit.zip",
-  "downloads/aitrove-java-source-kit.zip",
+  "downloads/dekhoexams-spring-source-kit.zip",
+  "downloads/dekhoexams-java-source-kit.zip",
   "learning-coverage.html",
 ]) {
   const response = await context.request.get("http://127.0.0.1:3001/" + path);

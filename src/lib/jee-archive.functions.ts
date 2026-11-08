@@ -79,7 +79,7 @@ export const archiveQuestion = createServerFn({ method: "GET" })
     }
     return null;
   });
-export type ChapterMeta = { stats: string[][]; pdfs: Record<string, string> };
+export type ChapterMeta = { stats: string[][] };
 export const archiveChapterMeta = createServerFn({ method: "GET" })
   .validator((x) => z.object({ exam: examSchema, subject: segment, chapter: segment }).parse(x))
   .handler(({ data }) =>

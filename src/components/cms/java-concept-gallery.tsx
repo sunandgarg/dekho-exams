@@ -56,7 +56,7 @@ export function JavaConceptGallery() {
           Java, mapped out
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Original AI Trove diagrams · Java 8 foundations
+          Java 8 foundations
         </p>
         <figure className="mt-5">
           <h3 className="mb-4 text-lg font-bold">{slide.title}</h3>

@@ -1,15 +1,12 @@
 import { archiveCatalog } from "@/lib/jee-catalog";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { archiveChapterMeta } from "@/lib/jee-archive.functions";
-import { ArchiveNav } from "@/components/exams/jee-archive";
+import { ArchiveNav, EditionLinks } from "@/components/exams/jee-archive";
 import { seoHead } from "@/lib/seo";
 export const Route = createFileRoute("/pyq-pdfs/past-years/jee/$archive/$subject/$chapter")({
-  loader: async ({ params: p }) => {
-    const { chapters, id } = archiveCatalog(p.archive);
-    if (!(chapters as Record<string, string[]>)[p.subject]?.includes(p.chapter)) throw notFound();
-    const m = await archiveChapterMeta({ data: { exam: id, ...p } });
-    if (!m) throw notFound();
-    return { ...p, pdfs: m.pdfs };
+  loader: ({ params: p }) => {
+    if (!Object.hasOwn(archiveCatalog(p.archive).meta, p.subject + "/" + p.chapter))
+      throw notFound();
+    return p;
   },
   head: ({ loaderData: d }) =>
     seoHead({
@@ -24,43 +21,15 @@ export const Route = createFileRoute("/pyq-pdfs/past-years/jee/$archive/$subject
     }),
   component: () => {
     const d = Route.useLoaderData();
-    const { printPrefix, hindiPrint, jeeHub } = archiveCatalog(d.archive);
+    const { jeeHub } = archiveCatalog(d.archive);
     return (
       <main className="exam-wrap exam-jee-page">
         <ArchiveNav />
         <h1 className="text-3xl font-bold capitalize">{d.chapter.replaceAll("-", " ")} PDFs</h1>
         <p className="my-3 text-muted-foreground">
-          Print a Dekhoexams edition, or open an external PDF by language and theme.
+          Open a Dekhoexams edition, choose whether to include solutions, then print or save as PDF.
         </p>
-        <div className="mb-4 flex flex-wrap gap-3">
-          <a
-            className="rounded-lg border p-3 font-semibold"
-            href={printPrefix + d.subject + "--" + d.chapter + "/en"}
-          >
-            Print English edition
-          </a>
-          {hindiPrint.includes(d.subject + "--" + d.chapter) && (
-            <a
-              className="rounded-lg border p-3 font-semibold"
-              href={printPrefix + d.subject + "--" + d.chapter + "/hi"}
-            >
-              Print Hindi edition
-            </a>
-          )}
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {Object.entries(d.pdfs).map(([path, label]) => (
-            <a
-              className="exam-pastel-card rounded-xl border p-4 font-semibold"
-              key={path}
-              href={"https://pdf.questions.examgoal.com" + path}
-              target="_blank"
-              rel="nofollow noreferrer"
-            >
-              {label} ↗
-            </a>
-          ))}
-        </div>
+        <EditionLinks edition={d.subject + "--" + d.chapter} />
         <a
           className="mt-4 inline-block text-primary"
           href={jeeHub + "/" + d.subject + "/" + d.chapter}

@@ -458,7 +458,6 @@ test("JEE Main lists the complete canonical chapter and paper directories", asyn
   assert.equal(Object.keys(counts).length,95);
   assert.equal(Object.values(counts).reduce((a,b)=>a+b,0),18006);
   assert.equal(new Set(papers.map(p=>p.slug)).size,202);
-  for(const paper of papers) for(const variant of paper.variants)assert.match(variant,/^[a-z]{2}(?:-dark)?\.pdf$/);
 });
 
 
@@ -475,5 +474,4 @@ test("JEE Advanced preserves its chapter inventory and paper identifiers alongsi
   assert.equal(Object.keys(metadata).length,81);
   assert.equal(Object.values(counts).reduce((sum,count)=>sum+count,0),3959);
   assert.equal(new Set(papers.map(p=>p.slug)).size,79);
-  assert.equal(papers.flatMap(p=>p.variants).length,202);
 });

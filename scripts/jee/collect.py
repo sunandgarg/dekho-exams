@@ -1,8 +1,7 @@
-"""Discover and collect one JEE archive in chapter, question, paper and PDF order."""
+"""Discover and collect one JEE archive in chapter, question and paper order."""
 import concurrent.futures
 import gzip
 import json
-import os
 import re
 import subprocess
 import threading
@@ -23,11 +22,12 @@ def rules_for(host):
     rule.parse(subprocess.check_output(['curl','-fsS','--max-time','25','-A',UA,host+'/robots.txt']).decode().splitlines())
     rules[host] = rule
 
-def page(path, host=BASE):
+def page(path):
+    host=BASE
     url = host + path
     if not rules[host].can_fetch(UA,url) or stop.is_set():
         raise RuntimeError(f'Collection stopped at {url}')
-    file = cache_dir / (('pdf' if host != BASE else '') + path.replace('/','_')+'.gz')
+    file = cache_dir / (path.replace('/','_')+'.gz')
     if not file.exists():
         response = subprocess.run(['curl','--compressed','-sS','-A',UA,'--max-time','40','-w','%{http_code}',url],capture_output=True)
         body,status = response.stdout[:-3],response.stdout[-3:]
@@ -62,21 +62,14 @@ def collect():
     assert paper_slugs
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
         for _ in pool.map(page,[paper_hub+'/'+slug for slug in sorted(paper_slugs)]):pass
-    pdf_host=origin(os.environ['JEE_PDF_ORIGIN'])
-    rules_for(pdf_host)
     papers=[]
-    for row in cls(page(paper_hub,pdf_host),'paper'):
-        anchor=cls(row,'paper-title')[0]
+    for row in cls(paper_index,'yw-paper'):
+        anchor=cls(row,'yw-paper-title')[0].xpath('.//a')[0]
         slug=urlsplit(anchor.get('href')).path.split('/')[-1]
-        variants=[]
-        for download in row.xpath('.//a[@data-pdf-download="paper"]'):
-            path=urlsplit(download.get('href')).path
-            assert path.startswith(f'/download/paper/jee/{EXAM}/{slug}/')
-            variants.append(path.split('/')[-1])
-        papers.append(dict(slug=slug,title=strip(anchor),date=strip(cls(row,'paper-meta')[0]),variants=variants))
-    assert {p['slug'] for p in papers}==paper_slugs
+        papers.append(dict(slug=slug,title=strip(anchor),date=strip(cls(row,'yw-paper-date')[0])))
+    assert len(papers)==len(paper_slugs) and {p['slug'] for p in papers}==paper_slugs
     save('papers',papers)
-    print('Paper inventory',len(papers),'PDF editions',sum(len(p['variants']) for p in papers),flush=True)
+    print('Paper inventory',len(papers),flush=True)
     from chapters import main
     main()
 

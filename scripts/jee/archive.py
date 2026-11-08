@@ -6,7 +6,7 @@ import collections, concurrent.futures, gzip, hashlib, html as escapehtml, json,
 from pathlib import Path
 from collections.abc import MutableMapping
 import zlib
-from urllib.parse import urlsplit, urljoin
+from urllib.parse import urlsplit
 from urllib.robotparser import RobotFileParser
 from lxml import html, etree
 ROOT=Path(__file__).resolve().parents[2]; CACHE=Path(os.environ['JEE_CACHE']); EXAM=os.environ.get('JEE_EXAM','jee-main')
@@ -14,6 +14,8 @@ if EXAM not in ('jee-main','jee-advanced'):raise ValueError('Unsupported JEE arc
 EXAM_NAME={'jee-main':'JEE Main','jee-advanced':'JEE Advanced'}[EXAM]
 ASSETS='jee-archive' if EXAM=='jee-main' else 'jee-advanced-archive'
 OUT=ROOT/'public'/ASSETS
+QUESTION_REDIRECTS=json.loads((ROOT/'src/data/jee-question-redirects.json').read_text())
+ORIGINAL_SLUGS={v:k for k,v in QUESTION_REDIRECTS.items()}
 BASE=os.environ.get('JEE_CONTENT_ORIGIN','').rstrip('/')
 def origin(value):
  parsed=urlsplit(value)
@@ -85,7 +87,7 @@ if __name__=='__main__' and sys.argv[1]=='reconcile':
  hindi=set()
  for file in sorted((OUT/'q').glob('*.bin')):
   for q in json.loads(gzip.decompress(file.read_bytes())).values():
-   path='/past-years/jee/question/'+q['slug'] if q['chapter'] else f'/past-years/year-wise/jee/{EXAM}/'+q['paper']+'/'+q['slug']
+   path='/past-years/jee/question/'+ORIGINAL_SLUGS.get(q['slug'],q['slug']) if q['chapter'] else f'/past-years/year-wise/jee/{EXAM}/'+q['paper']+'/'+q['slug']
    if not q['complete']:english.add(path)
    if not q.get('hi'):hindi.add(path)
  print('Pending exact detail URLs',len(english),'English and',len(hindi),'Hindi',flush=True)
@@ -100,6 +102,12 @@ def esc(x):return escapehtml.escape(x or '',quote=True)
 def glyphs(tree):
  for n in tree.xpath('//path[@id][@d]'):
   if re.fullmatch(r'MJX-[a-zA-Z0-9_-]+',n.get('id')):GLYPHS[n.get('id')]=n.get('d')
+def figure(src,alt):
+ # Only reviewed, local figures can appear in practice or print. Keep the ID for matching a replacement.
+ id=key(src)
+ if (ROOT/'public/jee-figures'/(id+'.png')).is_file():
+  return '<img src="/jee-figures/'+id+'.png" alt="'+esc(alt or 'Question diagram')+'" loading="lazy">'
+ return '<span class="jee-figure-pending" data-figure="'+id+'">Diagram pending · चित्र उपलब्ध नहीं है</span>'
 def markup(n):
  if not isinstance(n.tag,str) or n.tag in ('script','style','iframe','object','template'):return ''
  tag=n.tag
@@ -117,10 +125,7 @@ def markup(n):
     try:chars.append(chr(int(u.rsplit('-',1)[1],16)))
     except (ValueError,OverflowError):pass
    attr.update(role='img',**{'aria-label':''.join(chars) or 'Mathematical expression'})
- if tag=='img':
-  src=n.get('src',''); url=urlsplit(src)
-  if url.scheme!='https' or url.hostname not in ('app-content.cdn.examgoal.net','imagex.cdn.examgoal.net','gateclass.static.cdn.examgoal.net','gateclass.cdn.examgoal.net','cdn.examgoal.net','cdn.mathpix.com','img.examgoal.com'):return esc(n.get('alt') or '[Illustration unavailable]')
-  attr=dict(src=src,alt=n.get('alt') or 'Question diagram',loading='lazy')
+ if tag=='img':return figure(n.get('src',''),n.get('alt',''))
  if tag in ('td','th'):
   for k in ('rowspan','colspan'):
    if n.get(k,'').isdigit():attr[k]=n.get(k)
@@ -253,7 +258,7 @@ def build():
    d=doc(gzip.decompress((CACHE/'index'/(f'_past-years_jee_{EXAM}_'+subject+'_'+chapter+'.gz')).read_bytes()));glyphs(d)
    ls=[]; groups=collections.defaultdict(list)
    for row in cls(d,'preview-row'):
-    href=row.get('href'); slug=href.split('/')[-1]; b=cls(row,'preview-body')[0];group=row.getparent().getparent().get('id')
+    href=row.get('href'); original=href.split('/')[-1]; slug=QUESTION_REDIRECTS.get(original,original); b=cls(row,'preview-body')[0];group=row.getparent().getparent().get('id')
     teaser=plain(b);paper=strip(cls(row,'preview-meta')[0]);ps=titles.get(paper,'')
     groups[group].append((href,slug,b,teaser,paper,ps))
    for group,gr in groups.items():
@@ -309,7 +314,9 @@ def print_editions(lists,questions,papers):
    recs=[questions[r['id']] for r in rows]
    if lang=='hi' and not any(q.get('hi') for q in recs):continue
    if lang=='hi':hindi_print.append(edition)
-   parts=['<!doctype html><html lang="'+lang+'"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,follow"><title>'+esc(title)+' | Dekhoexams</title><link rel="stylesheet" href="/jee-print.css"><script defer src="/jee-print.js"></script><header><strong>Dekhoexams</strong><h1>'+esc(title)+'</h1><p>'+esc(byline)+' · '+str(len(rows))+' questions · '+('Hindi' if lang=='hi' else 'English')+'</p><nav><a href="'+esc(link)+'">Online practice</a> <label><input type="checkbox" id="print-solutions"> Include solutions</label> <button type="button">Print / Save as PDF</button></nav></header>']
+   parts=['<!doctype html><html lang="'+lang+'"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,follow"><title>'+esc(title)+' | Dekhoexams</title><link rel="stylesheet" href="/jee-print.css"><script defer src="/jee-print.js"></script><header><strong><img class="edition-logo" src="/dekhoexams-icon.svg" alt=""> Dekhoexams</strong><h1>'+esc(title)+'</h1><p>'+esc(byline)+' · '+str(len(rows))+(' question · ' if len(rows)==1 else ' questions · ')+('Hindi' if lang=='hi' else 'English')+'</p><nav><a href="'+esc(link)+'">Online practice</a> <label><input type="checkbox" id="print-solutions"> Include solutions</label> <button type="button">Print / Save as PDF</button></nav></header>']
+   if any('jee-figure-pending' in part for q in recs for item in [q.get('hi',q) if lang=='hi' else q] for part in [item['body'],*item['options'],item['solution']]):
+    parts.append('<p class="figure-notice">'+('कुछ चित्र अभी उपलब्ध नहीं हैं। उनके स्थान पर सूचना दी गई है।' if lang=='hi' else 'Some diagrams are pending. Each missing figure is marked in the edition.')+'</p>')
    last=''
    for i,(q,r) in enumerate(zip(recs,rows),1):
     if r['group']!=last:last=r['group'];parts.append('<h2>'+esc({'mcq':'Single correct','integer':'Numerical','mcqm':'Multiple correct'}.get(last,last.title()))+'</h2>')

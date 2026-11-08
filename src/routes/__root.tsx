@@ -13,7 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import { IS_PREVIEW } from "@/lib/seo";
 import appCss from "../styles.css?url";
 import oziCss from "../ozi-design.css?url";
-import penpencilCss from "../penpencil-theme.css?url";
+import dekhoexamsCss from "../dekhoexams-theme.css?url";
 import { SiteShell } from "@/components/gfg/site-shell";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -89,12 +89,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: "/pencil2pen-icon-192.png", type: "image/png", sizes: "192x192" },
-      { rel: "icon", href: "/pencil2pen-icon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/dekhoexams-icon-192.png", type: "image/png", sizes: "192x192" },
+      { rel: "icon", href: "/dekhoexams-icon.svg", type: "image/svg+xml" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
       { rel: "manifest", href: "/site.webmanifest" },
       { rel: "stylesheet", href: oziCss },
-      { rel: "stylesheet", href: penpencilCss },
+      { rel: "stylesheet", href: dekhoexamsCss },
       { rel: "stylesheet", href: "/fonts/fonts.css" },
     ],
   }),

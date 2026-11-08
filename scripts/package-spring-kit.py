@@ -4,7 +4,7 @@ from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
 root = Path(__file__).resolve().parents[1]
 kit = root / "work/spring-kit"
-archive = root / "public/downloads/aitrove-spring-source-kit.zip"
+archive = root / "docs/legacy-kits/aitrove-spring-source-kit.zip"
 reactive = kit / "reactive-r2dbc"
 batch = kit / "batch-chunks"
 modulith = kit / "modulith-boundaries"

@@ -269,7 +269,7 @@ export const examBySlug = (s: string) => EXAMS.find((e) => e.slug === s);
 export const subjectOf = (e: Exam, s: string) => e.subjects.find((x) => x.slug === s);
 export const chapterName = (sub: Subject, c: string) => sub.chapters.find(([slug]) => slug === c)?.[1];
 
-// Verified against the JEE Main chapter links on ExamSIDE; keep internal IDs stable.
+// Verified against the JEE Main chapter directory; keep internal IDs stable.
 const JEE_MAIN_SLUGS: Record<string, Record<string, string>> = {
   physics: {
     "center-of-mass-and-collision": "center-of-mass",

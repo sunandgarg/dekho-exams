@@ -117,7 +117,7 @@ assert.equal(
   await headingPage.locator('[data-subject-tabs] a[aria-current="page"]').getAttribute("href"),
   "/java/java-quizzes",
 );
-for (const path of ["java-coverage.html", "downloads/aitrove-java-source-kit.zip"]) {
+for (const path of ["java-coverage.html", "downloads/dekhoexams-java-source-kit.zip"]) {
   const r = await get(path);
   assert.equal(r.status(), 200, path);
   assert.ok(r.headers()["x-robots-tag"]?.includes("noindex"), path);

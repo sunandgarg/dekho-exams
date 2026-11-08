@@ -854,7 +854,7 @@ export function InquiryForm({ title = "Send an inquiry" }: { title?: string }) {
       onSubmit={(e) => {
         e.preventDefault();
         setNotice(
-          "The inquiry service is not connected. Your message has not been sent. You can email aitrove@gmail.com directly.",
+          "The inquiry service is not connected. Your message has not been sent.",
         );
       }}
     >
@@ -951,8 +951,8 @@ export function LearnerAuth({ view = "login" }: { view?: string }) {
           {forgot
             ? "Reset your password"
             : signup
-              ? "Create your AITrove account"
-              : "Welcome to AITrove"}
+              ? "Create your Dekhoexams account"
+              : "Welcome to Dekhoexams"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Learner authentication will be enabled when its service is connected.

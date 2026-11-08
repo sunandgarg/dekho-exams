@@ -58,7 +58,7 @@ with tempfile.TemporaryDirectory(prefix='aitrove-owned-fixture-') as temporary:
 ''')
 readme=kit/'README.md';text=readme.read_text();text+='''\n## Package-access and heap-capture checks\n\nRun `python3 verify-boundaries.py --jdk-home /path/to/jdk21` from this kit. It compiles the valid cross-package sources, requires three invalid accesses to fail compilation, and captures a histogram and heap dump from the synthetic JVM it starts. The temporary dump is removed on exit; no other JVM is inspected. Use a full JDK with javac, java and jcmd. A managed machine may restrict attaching even to a process you own.\n''';readme.write_text(text)
 files=[p for p in kit.rglob('*') if p.is_file() and not any(part in {'target','build','.gradle','out'} for part in p.relative_to(kit).parts)]
-archive=ROOT/'public/downloads/aitrove-java-source-kit.zip'
+archive=ROOT/'docs/legacy-kits/aitrove-java-source-kit.zip'
 with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
  for p in sorted(files):z.write(p,'aitrove-java-source-kit/'+str(p.relative_to(kit)))
 shutil.copyfile(archive,OUT/archive.name)

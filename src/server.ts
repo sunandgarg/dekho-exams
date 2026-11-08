@@ -1,4 +1,5 @@
 import "./lib/error-capture";
+import jeeQuestionRedirects from "./data/jee-question-redirects.json";
 import { seoFileResponse } from "./lib/seo.server";
 import { IS_PREVIEW, isUtilityPath, normalizedContentPath } from "./lib/seo";
 import { EDUCATION_ALIASES, educationPage, educationIndexable } from "./lib/education-catalog";
@@ -73,6 +74,11 @@ function contentAliasRedirect(request: Request): Response | null {
   if (request.method !== "GET" && request.method !== "HEAD") return null;
   const url = new URL(request.url);
   const path = url.pathname;
+  const kit = /^\/downloads\/aitrove-(java|spring|python)-source-kit\.zip$/.exec(path);
+  if (kit) {
+    url.pathname = "/downloads/dekhoexams-" + kit[1] + "-source-kit.zip";
+    return Response.redirect(url.href, 301);
+  }
   // Never rewrite assets, encoded paths, framework RPC or application operations.
   if (
     !/^\/[a-zA-Z0-9/-]*$/.test(path) ||
@@ -82,7 +88,11 @@ function contentAliasRedirect(request: Request): Response | null {
     return null;
   const normalized = normalizedContentPath(path);
   const normalizedPath = normalized ? `/${normalized}` : "/";
-  const alias = EDUCATION_ALIASES[normalizedPath];
+  const questionPrefix = "/past-years/jee/question/";
+  const slug = normalizedPath.slice(questionPrefix.length);
+  const alias = normalizedPath.startsWith(questionPrefix) && Object.hasOwn(jeeQuestionRedirects, slug)
+    ? questionPrefix + jeeQuestionRedirects[slug as keyof typeof jeeQuestionRedirects]
+    : EDUCATION_ALIASES[normalizedPath];
   const target = alias ?? normalizedPath;
   if (path === target) return null;
   url.pathname = target;
@@ -131,7 +141,7 @@ export default {
       const cached = await cache?.match(request);
       if (cached) {
         const response = withPublicHeaders(cached, request);
-        response.headers.set("X-AITrove-Cache", "HIT");
+        response.headers.set("X-Dekhoexams-Cache", "HIT");
         return response;
       }
       const handler = await getServerEntry();
@@ -146,7 +156,7 @@ export default {
         const stored = publicResponse.clone();
         stored.headers.set("Cache-Control", "public, max-age=0, s-maxage=300");
         (ctx as { waitUntil(promise: Promise<unknown>): void }).waitUntil(cache.put(request, stored));
-        publicResponse.headers.set("X-AITrove-Cache", "MISS");
+        publicResponse.headers.set("X-Dekhoexams-Cache", "MISS");
       }
       return publicResponse;
     } catch (error) {

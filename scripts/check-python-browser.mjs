@@ -231,7 +231,7 @@ await go("");
 assert.equal(await page.locator(".explore-card").count(), 16);
 await page.getByRole("link", { name: /Python View resources/ }).click();
 await page.waitForURL("**/python/python-programming-language-tutorial");
-for (const path of ["downloads/aitrove-python-source-kit.zip", "learning-coverage.html"]) {
+for (const path of ["downloads/dekhoexams-python-source-kit.zip", "learning-coverage.html"]) {
   const r = await context.request.get(base + "/" + path);
   assert.equal(r.status(), 200);
   assert.ok(r.headers()["x-robots-tag"].includes("noindex"));

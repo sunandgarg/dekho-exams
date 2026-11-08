@@ -147,7 +147,7 @@ export const TYPE_META: Record<
     label: "Author",
     plural: "Authors",
     prefix: "authors/",
-    example: "authors/aitrove-editorial",
+    example: "authors",
   },
   page: {
     label: "Static page",

@@ -5,7 +5,7 @@ export const Route = createFileRoute("/auth")({
   head: () =>
     seoHead({
       title: "Sign in",
-      description: "AI Trove learner access.",
+      description: "Dekhoexams learner access.",
       path: "auth",
       noindex: true,
     }),

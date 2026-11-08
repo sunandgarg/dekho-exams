@@ -20,7 +20,7 @@ export async function printEdition(exam: ArchiveId, paper: string, language: str
       "Content-Type": "text/html; charset=utf-8",
       "X-Robots-Tag": "noindex, follow",
       "Content-Security-Policy":
-        "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self' https:; base-uri 'none'; frame-ancestors 'self'",
+        "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'self'",
     },
   });
 }

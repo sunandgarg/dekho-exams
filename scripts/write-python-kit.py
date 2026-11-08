@@ -24,7 +24,7 @@ The state-boundary fixtures use small, owned receipt data. The SQLite row-factor
 
 Explanations and programs were written for AI Trove. Python syntax, API behavior, algorithmic facts and third-party projects are not exclusive AI Trove property. This archive includes no interpreter, dependencies, compiled bytecode or private configuration.
 ''')
-with zipfile.ZipFile(ROOT/'public/downloads/aitrove-python-source-kit.zip','w',zipfile.ZIP_DEFLATED) as archive:
+with zipfile.ZipFile(ROOT/'docs/legacy-kits/aitrove-python-source-kit.zip','w',zipfile.ZIP_DEFLATED) as archive:
  for file in sorted(kit.iterdir()):
   if file.is_file() and file.suffix in ('.py','.json','.md','.txt'):
    info=zipfile.ZipInfo('aitrove-python-source-kit/'+file.name,(2026,9,29,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;archive.writestr(info,file.read_bytes())
