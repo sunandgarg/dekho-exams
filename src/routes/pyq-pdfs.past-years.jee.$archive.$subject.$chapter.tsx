@@ -17,7 +17,6 @@ export const Route = createFileRoute("/pyq-pdfs/past-years/jee/$archive/$subject
       path: d
         ? "pyq-pdfs" + archiveCatalog(d.archive).jeeHub + "/" + d.subject + "/" + d.chapter
         : "questions",
-      noindex: true,
     }),
   component: () => {
     const d = Route.useLoaderData();

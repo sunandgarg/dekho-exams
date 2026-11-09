@@ -1,3 +1,4 @@
+import { releasedSearchPath } from "./jee-search";
 import type { Entry, EntryListItem } from "./content-types";
 import { isPublicEntryType, isPublicPath } from "./features";
 
@@ -23,6 +24,8 @@ export function validatedSiteOrigin(value?: string): string {
 export const SITE_ORIGIN = validatedSiteOrigin(import.meta.env["VITE_SITE_URL"]);
 // Preview and unconfigured builds stay out of public search until editorial launch.
 export const IS_PREVIEW = import.meta.env["VITE_PREVIEW_MODE"] !== "false";
+export const JEE_SEARCH_LIVE = import.meta.env["VITE_JEE_SEARCH_LIVE"] === "true";
+export const previewExcludes = (path: string) => IS_PREVIEW && !(JEE_SEARCH_LIVE && releasedSearchPath(path));
 export const SITE_IMAGE = `${SITE_ORIGIN}/dekhoexams-social.png`;
 const SITE_LOGO = `${SITE_ORIGIN}/dekhoexams-icon-192.png`;
 
@@ -153,7 +156,7 @@ export function seoHead({
   schema?: Record<string, unknown>[];
 }) {
   const canonical = canonicalUrl(path, page);
-  const excluded = IS_PREVIEW || noindex || isUtilityPath(path);
+  const excluded = previewExcludes(path) || noindex || isUtilityPath(path);
   return {
     meta: [
       { title: `${title} — Dekhoexams` },

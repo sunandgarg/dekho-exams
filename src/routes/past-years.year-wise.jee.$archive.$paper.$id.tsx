@@ -1,3 +1,4 @@
+import { readyQuestion } from "@/lib/jee-search";
 import { archiveCatalog } from "@/lib/jee-catalog";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { QuestionView } from "@/components/exams/jee-archive";
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/past-years/year-wise/jee/$archive/$paper/
           ? "past-years/jee/question/" + q.canonical
           : archiveCatalog(q.exam).paperHub.slice(1) + "/" + q.paper + "/" + q.slug
         : "questions",
-      noindex: true,
+      noindex: !readyQuestion(q),
     }),
   component: () => {
     const q = Route.useLoaderData();

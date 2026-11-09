@@ -17,7 +17,6 @@ export const Route = createFileRoute("/past-years/year-wise/jee/$archive/$paper/
       title: d?.paper.title || "Paper not found",
       description: "Read and practise this paper by subject.",
       path: d ? archiveCatalog(d.exam).paperHub.slice(1) + "/" + d.paper.slug : "questions",
-      noindex: true,
     }),
   component: () => <PaperPage {...Route.useLoaderData()} />,
 });

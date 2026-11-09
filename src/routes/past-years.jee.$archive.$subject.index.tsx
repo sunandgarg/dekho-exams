@@ -16,7 +16,6 @@ export const Route = createFileRoute("/past-years/jee/$archive/$subject/")({
       title: d ? `${d.examName} ${d.name} chapters` : "Subject unavailable",
       description: "Choose a chapter to practise.",
       path: `past-years/jee/${d?.exam}/${d?.slug ?? ""}`,
-      noindex: true,
     }),
   component: () => (
     <ExamHub exam={examBySlug(Route.useLoaderData().exam)!} subject={Route.useLoaderData().slug} />

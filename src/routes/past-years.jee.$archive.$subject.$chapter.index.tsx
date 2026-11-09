@@ -40,7 +40,6 @@ export const Route = createFileRoute("/past-years/jee/$archive/$subject/$chapter
         ? `Previous-year ${d.chapterName} questions for ${d.examName} ${d.subjectName}, with solutions.`
         : "This chapter is not in the question bank.",
       path: d ? `past-years/jee/${d.exam}/${d.subject}/${d.publicChapter}` : "questions",
-      noindex: true,
       schema: d
         ? [
             {

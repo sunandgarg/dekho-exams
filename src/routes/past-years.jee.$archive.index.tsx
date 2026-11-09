@@ -11,7 +11,6 @@ export const Route = createFileRoute("/past-years/jee/$archive/")({
       title: archiveCatalog(params.archive).name + " chapter-wise questions",
       description: "Browse Physics, Chemistry and Mathematics by unit and chapter.",
       path: archiveCatalog(params.archive).jeeHub.slice(1),
-      noindex: true,
     }),
   component: () => <ExamHub exam={examBySlug(Route.useLoaderData())!} />,
 });

@@ -9,7 +9,6 @@ export const Route = createFileRoute("/pyq-pdfs/past-years/jee/$archive/")({
       title: archiveCatalog(params.archive).name + " previous-year chapter PDFs",
       description: "Find chapter PDFs by subject.",
       path: "pyq-pdfs" + archiveCatalog(params.archive).jeeHub,
-      noindex: true,
     }),
   component: () => <ChapterPdfCatalog />,
 });

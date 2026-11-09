@@ -1,5 +1,6 @@
+import { JEE_SITEMAPS } from "./jee-search";
 import type { Entry } from "./content-types";
-import { canonicalUrl, IS_PREVIEW, isSeoReady, SITE_ORIGIN } from "./seo";
+import { canonicalUrl, IS_PREVIEW, JEE_SEARCH_LIVE, isSeoReady, SITE_ORIGIN } from "./seo";
 import {
   EDUCATION_PAGES,
   EDUCATION_ALIASES,
@@ -127,7 +128,7 @@ export async function seoFileResponse(request: Request): Promise<Response | null
     return new Response(
       request.method === "HEAD"
         ? null
-        : IS_PREVIEW
+        : (url.origin !== SITE_ORIGIN || (IS_PREVIEW && !JEE_SEARCH_LIVE))
           ? "User-agent: *\nDisallow: /\n"
           : `User-agent: *\nAllow: /\n\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`,
       {
@@ -137,6 +138,11 @@ export async function seoFileResponse(request: Request): Promise<Response | null
         },
       },
     );
+  }
+  if (JEE_SEARCH_LIVE && url.origin === SITE_ORIGIN && url.pathname === "/sitemap.xml") {
+    const xml = '<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+      JEE_SITEMAPS.map(name => '<sitemap><loc>' + SITE_ORIGIN + '/sitemap-' + name + '.xml</loc></sitemap>').join("") + '</sitemapindex>';
+    return new Response(request.method === "HEAD" ? null : xml, {headers: {"content-type":"application/xml; charset=utf-8","cache-control":"public, max-age=300"}});
   }
   const match = url.pathname.match(/^\/sitemap(?:-(\d+|education))?\.xml$/);
   if (!match) return null;

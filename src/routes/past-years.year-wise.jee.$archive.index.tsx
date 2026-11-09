@@ -9,7 +9,6 @@ export const Route = createFileRoute("/past-years/year-wise/jee/$archive/")({
       title: archiveCatalog(params.archive).name + " previous-year papers by year and shift",
       description: "Practise a JEE paper by date, shift and subject.",
       path: archiveCatalog(params.archive).paperHub.slice(1),
-      noindex: true,
     }),
   component: () => <PaperCatalog />,
 });

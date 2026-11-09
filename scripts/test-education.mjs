@@ -37,6 +37,16 @@ const { default: directoryReference } = await import("../src/data/khan-course-re
 const { parseProgress } = await import("../src/lib/learning-progress.ts");
 const { EXAM_GUIDES } = await import("../src/lib/exam-update-guides.ts");
 const { EXAMS, jeeMainPublicChapterSlug } = await import("../src/lib/question-bank.ts");
+const { readyQuestion, releasedSearchPath } = await import("../src/lib/jee-search.ts");
+test("search lists complete bilingual canonical questions and keeps duplicate and pending editions out", () => {
+  const en = { body: "prompt", options: ["A"], solution: "explanation" };
+  const question = { ...en, complete: true, hi: en };
+  assert.ok(readyQuestion(question));
+  assert.ok(!readyQuestion({ ...question, canonical: "another-page" }));
+  assert.ok(!readyQuestion({ ...question, hi: { ...en, solution: '<span class="jee-figure-pending">' } }));
+  assert.ok(!releasedSearchPath("/pyq-pdfs/print/jee-advanced/paper/en"));
+  assert.ok(releasedSearchPath("/past-years/jee/jee-main/physics"));
+});
 test("the JEE Main download menu offers exactly the verified files in the release", () => {
   const read = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url)));
   const papers = read("../src/data/jee-main-pdf-papers.json");

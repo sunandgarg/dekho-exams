@@ -9,7 +9,6 @@ export const Route = createFileRoute("/pyq-pdfs/past-years/year-wise/jee/$archiv
       title: archiveCatalog(params.archive).name + " previous-year question paper PDFs",
       description: "Choose your year, shift, language and PDF edition.",
       path: archiveCatalog(params.archive).pdfHub.slice(1),
-      noindex: true,
     }),
   component: () => <PaperCatalog pdf />,
 });

@@ -1,7 +1,7 @@
 import "./lib/error-capture";
 import jeeQuestionRedirects from "./data/jee-question-redirects.json";
 import { seoFileResponse } from "./lib/seo.server";
-import { IS_PREVIEW, isUtilityPath, normalizedContentPath } from "./lib/seo";
+import { IS_PREVIEW, JEE_SEARCH_LIVE, SITE_ORIGIN, previewExcludes, isUtilityPath, normalizedContentPath } from "./lib/seo";
 import { EDUCATION_ALIASES, educationPage, educationIndexable } from "./lib/education-catalog";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
@@ -56,7 +56,8 @@ function withPublicHeaders(response: Response, request: Request): Response {
   const path = new URL(request.url).pathname;
   const education = educationPage(path);
   if (
-    IS_PREVIEW ||
+    (new URL(request.url).origin !== SITE_ORIGIN) ||
+    (previewExcludes(path) && !(JEE_SEARCH_LIVE && (path === "/robots.txt" || path === "/sitemap.xml"))) ||
     (education && !educationIndexable(education)) ||
     isUtilityPath(path) ||
     response.status >= 400 ||

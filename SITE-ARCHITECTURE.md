@@ -71,3 +71,7 @@ The exam-update guides link to CBSE and NTA publishers and must never fabricate 
 ## Verification
 
 `npm run test:education` validates destinations, parents, breadcrumb cycles, IDs, grade/language/category coverage, alias targets, publication gates and hostile/malformed storage. It runs automatically before `npm run build`. Set `PENPENCIL_TEST_URL` to the local preview to also crawl every catalog page for SSR, canonical/robots metadata and route status, plus redirects and sitemap behavior. Keep TypeScript and browser flow checks alongside these tests.
+
+## Google sitemap
+
+The canonical site advertises `https://dekhoexams.com/sitemap.xml` in its robots file. Four child maps separate Main and Advanced directories from their individual question pages. The build regenerates the lists from the checked-in archives; only complete canonical questions with both languages and no pending figure qualify. The rest of the site retains its preview gates. No synthetic modification dates are published.
