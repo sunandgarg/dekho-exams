@@ -15,7 +15,7 @@ async function restore(r) {
   let last;
   for (let i=0;i<4;i++) {
     try {
-      const res=await fetch(release+"/"+r.paper+"-"+r.file,{signal:AbortSignal.timeout(90000)});
+      const res=await fetch(release+"/"+r.paper+"-"+r.file+(i ? "?version="+i : ""),{signal:AbortSignal.timeout(90000)});
       if (!res.ok) throw Error("HTTP "+res.status);
       const bytes=Buffer.from(await res.arrayBuffer());
       if (bytes.length!==r.bytes || createHash("sha256").update(bytes).digest("hex")!==r.sha256) throw Error("checksum mismatch");

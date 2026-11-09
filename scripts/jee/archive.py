@@ -287,16 +287,18 @@ def build():
       ls.append(dict(id=slug,teaser=teaser,group=group,paper=paper))
    lists['chapter/'+subject+'/'+chapter]=ls
  if EXAM=='jee-main':
-  # The supplied answer-key editions place these chapter questions last in their respective papers.
-  for slug in ('pwhich-of-the-following-statement-is-not-true-for-radioact-jee-main-chemistry-some-basic-concepts-of-chemistry-31rfa0ypgm4o1zxt',
-               'pa-telescope-with-objective-diameter-r-is-used-to-observ-jee-main-physics-units-and-measurements-wgi1kvqurczt6hlh'):
-   q=questions[slug];qid=q['qid'];paper_rows=lists['paper/'+q['paper']]
-   if qid not in [row['id'] for row in paper_rows]:
-    assert len(paper_rows)==74 and qid not in questions
-    paper_rows.append(dict(id=qid,teaser=q['teaser'],group=q['subject'],paper=q['paperTitle']))
-    questions[qid]=dict(q,slug=qid,chapter='')
-   assert paper_rows[74]['id']==qid
-   alias[qid]=slug
+  # The supplied paper editions place the extra chapter records after the original paper listing.
+  for paper,slugs in json.loads((ROOT/'scripts/jee/paper-supplements.json').read_text()).items():
+   rows=lists['paper/'+paper];ids={r['id'] for r in rows};extra=[]
+   for slug in slugs:
+    q=questions[slug];qid=q['qid'];assert q['complete'] and q['paper']==paper
+    extra.append(qid)
+    if qid not in ids:
+     assert qid not in questions
+     rows.append(dict(id=qid,teaser=q['teaser'],group=q['subject'],paper=q['paperTitle']))
+     questions[qid]=dict(q,slug=qid,chapter='');ids.add(qid)
+    alias[qid]=slug
+   assert [r['id'] for r in rows[-len(extra):]]==extra
  for qid,slug in alias.items():
   if questions[qid]['complete'] and not questions[slug]['complete']:raise ValueError('unexpected unresolved match '+qid)
   rec=questions[qid];rec['canonical']=slug;questions[qid]=rec

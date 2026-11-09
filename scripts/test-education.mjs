@@ -50,16 +50,18 @@ test("search lists complete bilingual canonical questions and keeps duplicate an
 test("the JEE Main download menu offers exactly the verified files in the release", () => {
   const read = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url)));
   const papers = read("../src/data/jee-main-pdf-papers.json");
-  const release = read("../docs/jee-main/part-1-pdfs.json");
-  const expected = Object.keys(papers).flatMap((slug) => ["en.pdf", "hi.pdf", "en-dark.pdf", "hi-dark.pdf"].map((file) => slug + "/" + file));
+  const releases = [1,2,3,4].map(n => read("../docs/jee-main/part-"+n+"-pdfs.json"));
+  const files = releases.flatMap(r => r.files);
+  const expected = Object.entries(papers).flatMap(([slug, p]) => p.languages.flatMap(l => ["", "-dark"].map(theme => slug + "/" + l + theme + ".pdf")));
   const directory = new URL("../public/jee-papers/jee-main/", import.meta.url);
-  assert.deepEqual(release.files.map((r) => r.paper + "/" + r.file).sort(), expected.sort());
+  assert.deepEqual(files.map((r) => r.paper + "/" + r.file).sort(), expected.sort());
   const catalog = read("../src/data/jee-main-papers.json").map((p) => p.slug);
-  for (const [slug, missing] of Object.entries(papers)) {
+  const notes = Object.assign({}, ...releases.map(r => r.unlisted_answers));
+  for (const [slug, paper] of Object.entries(papers)) {
     assert.ok(catalog.includes(slug), slug);
-    assert.equal(missing, release.unlisted_answers[slug] ?? null);
+    assert.deepEqual(paper.unlisted, [notes[slug] ?? []].flat());
   }
-  for (const r of release.files) {
+  for (const r of files) {
     const data = readFileSync(new URL(r.paper + "/" + r.file, directory));
     assert.equal(data.length, r.bytes);
     assert.equal(createHash("sha256").update(data).digest("hex"), r.sha256);

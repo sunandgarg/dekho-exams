@@ -5,6 +5,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  build: { copyPublicDir: false },
   cacheDir: ".vite-ozi",
   server: { port: 3001, strictPort: true },
   plugins: [

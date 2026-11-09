@@ -114,14 +114,16 @@ export function ArchiveRows({
 export function EditionLinks({ edition }: { edition: string }) {
   const { id, printPrefix, hindiPrint } = useCatalog();
   const paper =
-    id === "jee-main" ? (downloadPapers as Record<string, number | null>)[edition] : undefined;
+    id === "jee-main"
+      ? (downloadPapers as Record<string, { languages: string[]; unlisted: number[] }>)[edition]
+      : undefined;
   return (
     <>
       {paper !== undefined && (
         <div className="mt-3">
           <p className="mb-1 text-sm font-semibold">Download paper with answer key</p>
           <div className="flex flex-wrap gap-2">
-            {(["en", "hi"] as const).flatMap((lang) =>
+            {paper.languages.flatMap((lang) =>
               ["", "-dark"].map((theme) => {
                 const file = lang + theme + ".pdf";
                 return (
@@ -131,15 +133,17 @@ export function EditionLinks({ edition }: { edition: string }) {
                     href={"/jee-papers/jee-main/" + edition + "/" + file}
                     download={"DekhoExams-" + edition + "-" + file}
                   >
-                    {lang === "en" ? "English" : "Hindi"} · {theme ? "Dark" : "Light"}
+                    {lang === "en" ? "English" : lang === "hi" ? "Hindi" : "Bengali"} ·{" "}
+                    {theme ? "Dark" : "Light"}
                   </a>
                 );
               }),
             )}
           </div>
-          {paper != null && (
+          {paper.unlisted.length > 0 && (
             <p className="mt-1 text-sm text-muted-foreground">
-              The PDF answer key does not list a definitive answer for Q{paper}.
+              The PDF answer key does not list a definitive answer for{" "}
+              {paper.unlisted.map((n) => "Q" + n).join(", ")}.
             </p>
           )}
         </div>
@@ -175,7 +179,7 @@ export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
           {papers.length} papers by year.{" "}
           {pdf
             ? id === "jee-main"
-              ? "Download 2025 and 2026 papers with answer keys in English or Hindi, in light or dark mode. For any year, use a print edition to include solutions."
+              ? "Download available papers with answer keys in English or Hindi, and Bengali where listed. Choose a light or dark edition. Use the print edition for worked solutions."
               : "Open a Dekhoexams edition, choose whether to include solutions, then print or save as PDF."
             : "Choose a paper to practise its questions in order."}
         </p>
