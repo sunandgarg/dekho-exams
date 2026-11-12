@@ -102,3 +102,8 @@ The latest local HTTP suite passed 20 tests across all 2,338 catalog routes, che
 - Chapter-wise (`/questions/$exam`) groups chapters by subject and unit. JEE Main uses the chapter and year-wise archive paths above. The other exam directories list their available original practice sets; each original set has a printable view with an answer key.
 - JEE Main now opens the archive described above. Earlier practice links still resolve; original practice questions retain their existing IDs and separate labels.
 - Exam cards use local logos where sourced; IAT and ICSE Class 10 use initials. 106 original practice questions across all 29 exams (each has a printable practice set); no past papers yet. Dekhoexams eye-and-tick icon and share image added.
+
+The standalone Node release serves the exam archives, school content, CMS
+snapshot and PDF library from disk. The AWS container packaging is in the
+repository. AWS deployment, production DNS cutover and reconciliation of
+WordPress-only edits are pending.

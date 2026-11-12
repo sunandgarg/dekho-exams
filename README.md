@@ -94,3 +94,22 @@ Courses are hidden site-wide via `FEATURES.courses = false` in `src/lib/features
 The public icon, social card and print wordmark use Dekhoexams. Original computing kit archives are retained in `docs/legacy-kits`; rebuild the public editions with `python3 scripts/build-dekhoexams-kits.py`.
 
 For the current availability settings, use `scripts/check-course-visibility.mjs` to verify course hiding, retained records/state and the new logo. The general preview check expects courses to be hidden by default; set `COURSES_ENABLED=true` when running it after launching courses.
+
+## AWS with Node.js
+
+Use Node 26. From the repository root run `npm ci`, `npm run build:node`, then
+`npm start`. Open http://localhost:3000. Run `node scripts/test-node.mjs` in
+another terminal for an HTTP smoke test. Set PORT to change the listening port.
+
+For an AWS container host, build the included Dockerfile with
+`docker build -t dekhoexams .`. The image serves both the website and the
+published content on port 3000. Build with network access to restore any
+missing PDF releases. Questions, figures, PDFs and the CMS snapshot ship in
+the image. Publish content changes by rebuilding and deploying the image.
+
+Terminate HTTPS at your AWS ingress and preserve the host header. Set
+TRUST_PROXY=true only when that ingress is the sole permitted caller and
+overwrites forwarded headers. Verify chapter pages, PDFs, robots.txt and
+sitemap.xml on the HTTPS domain before changing production DNS. The Node
+build runs without WordPress. Export and reconcile any newer WordPress
+editorial changes before switching traffic.
