@@ -107,3 +107,7 @@ The standalone Node release serves the exam archives, school content, CMS
 snapshot and PDF library from disk. The AWS container packaging is in the
 repository. AWS deployment, production DNS cutover and reconciliation of
 WordPress-only edits are pending.
+
+Cloudflare/Lightsail deployment files are in deploy/lightsail. A local MySQL
+import and HTTP smoke test passed for the Node backend. Check AWS resource
+and Worker version state before treating this configuration as live.

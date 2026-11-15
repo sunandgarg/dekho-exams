@@ -6,6 +6,7 @@ import { env } from "./assets.mjs";
 const clientFile = serveStatic({ dir: "dist/client/assets" });
 await serve({
   manual: true,
+  hostname: process.env.HOST || "0.0.0.0",
   trustProxy: process.env.TRUST_PROXY === "true",
   port: Number(process.env.PORT || 3000),
   async fetch(request) {
