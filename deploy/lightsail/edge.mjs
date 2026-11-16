@@ -11,11 +11,26 @@ export default {
     const media = path.startsWith("/jee-papers/") || path.startsWith("/jee-figures/");
     if (media && !/^\/(?:jee-papers\/[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9-]+\.pdf|jee-figures\/[a-f0-9]+\.png)$/.test(path)) return new Response(null, { status: 404 });
     if (media && !["GET", "HEAD"].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: "GET, HEAD" } });
-    const cacheable = request.method === "GET" && !url.search && !request.headers.has("authorization") &&
-      !request.headers.has("cookie") && (media || path.startsWith("/assets/") || path.startsWith("/past-years/"));
+    // S3 keys are public editions; query strings and cookies do not select their contents.
+    const page = path.startsWith("/past-years/");
+    const trackingOnly = [...url.searchParams.keys()].every(key => /^utm_|^(gclid|fbclid)$/.test(key));
+    const anonymous = !request.headers.has("authorization") &&
+      !(request.headers.get("cookie") || "").split(";").some(cookie => cookie.trim() && !/^(_ga(?:_[A-Za-z0-9]+)?|_gid)=/.test(cookie.trim()));
+    const html = !request.headers.has("accept") || /text\/html|\*\/\*/.test(request.headers.get("accept"));
+    const publicPage = page && html && anonymous && trackingOnly && request.method === "GET" &&
+      !request.headers.has("range") && !request.headers.has("x-tsr-serverfn");
+    const cacheable = request.method === "GET" &&
+      (media || publicPage || (anonymous && !url.search && path.startsWith("/assets/")));
+    const keyUrl = new URL(url);
+    if (media || publicPage) keyUrl.search = "";
+    const cacheKey = new Request(keyUrl, { headers: media ? request.headers : undefined });
     if (cacheable) {
-      const hit = await caches.default.match(request);
-      if (hit) return hit;
+      const hit = await caches.default.match(cacheKey);
+      if (hit) {
+        const result = new Response(hit.body, hit);
+        result.headers.set("X-Dekhoexams-Cache", "HIT");
+        return result;
+      }
     }
     let response;
     if (media) {
@@ -44,7 +59,9 @@ export default {
     } else {
       const origin = new URL(env.APP_ORIGIN);
       if (origin.protocol !== "https:" || !env.ORIGIN_KEY) throw Error("Invalid origin configuration");
-      const headers = new Headers(request.headers);
+      // Render a single anonymous HTML representation for the shared page key.
+      const headers = publicPage ? new Headers({ Accept: "text/html" }) : new Headers(request.headers);
+      if (publicPage) url.search = "";
       headers.set("X-Dekho-Host", url.host);
       headers.set("X-Origin-Key", env.ORIGIN_KEY);
       url.host = origin.host;
@@ -53,9 +70,11 @@ export default {
     }
     if (cacheable && response.status === 200 && !request.headers.has("range") &&
         !response.headers.has("set-cookie") && !/private|no-store|no-cache/i.test(response.headers.get("cache-control") || "")) {
-      const cached = new Response(response.clone().body, response);
-      cached.headers.set("Cache-Control", media ? "public, max-age=86400" : "public, max-age=300");
-      ctx.waitUntil(caches.default.put(request, cached));
+      response = new Response(response.body, response);
+      response.headers.set("X-Dekhoexams-Cache", "MISS");
+      const cached = response.clone();
+      cached.headers.set("Cache-Control", media ? "public, max-age=300, s-maxage=86400" : "public, max-age=0, s-maxage=900");
+      ctx.waitUntil(caches.default.put(new Request(keyUrl), cached));
     }
     return response;
   },
