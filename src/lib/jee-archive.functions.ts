@@ -33,7 +33,7 @@ const segment = z
 const questionId = z
   .string()
   .max(240)
-  .regex(/^[A-Za-z0-9][A-Za-z0-9-]*(?:\.htm)?$/);
+  .regex(/^-*[A-Za-z0-9][A-Za-z0-9-]*(?:\.htm)?$/);
 const examSchema = z.enum(["jee-main", "jee-advanced"]);
 async function wordpressRecord<T>(exam: ArchiveId, kind: string, slug: string): Promise<T | null> {
   if (!env.SCHOOL_WORDPRESS_URL) return null;

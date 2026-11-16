@@ -10,6 +10,8 @@ const chapter = await (await check("/past-years/jee/jee-main/physics/units-and-m
 const question = chapter.match(/href="(\/past-years\/jee\/question\/[^"]+)"/);
 assert.ok(question, "chapter renders links to real questions");
 await check(question[1]);
+// The published archive includes slugs beginning with a hyphen.
+await check("/past-years/jee/question/-2002-marks-4-nlmqez2gcmeglcir.htm");
 const papers = "public/jee-papers/jee-main/aieee-2002";
 const pdf = (await readdir(papers)).find(file => file.endsWith(".pdf"));
 const bytes = Buffer.from(await (await check(papers.slice(6) + "/" + pdf)).arrayBuffer());
