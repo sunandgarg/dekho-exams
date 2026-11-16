@@ -1,3 +1,4 @@
+import { pdfBrowsePath, pdfExams } from "@/lib/pdf-library";
 import {isArchive} from "@/lib/jee-catalog";
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { ArrowRight, FileText, Printer } from "lucide-react";
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/questions/$exam/papers/")({
   },
   head: ({ loaderData }) => seoHead({
     title: loaderData ? `${loaderData.name} Question Papers, Paper-wise` : "Exam not found",
-    description: loaderData ? `${loaderData.name} original practice sets with answer keys and printable copies. Verified past papers will be listed when available.` : "This exam is not in the question bank.",
+    description: loaderData ? `${loaderData.name} practice sets with answer keys and printable copies.` : "This exam is not in the question bank.",
     path: loaderData ? `questions/${loaderData.slug}/papers` : "questions",
     noindex: !loaderData || !papersFor(loaderData.slug).length,
   }),
@@ -30,6 +31,7 @@ function PapersPage() {
   const practice = papers.filter((p) => p.kind === "practice");
   const firstPractice = practice[0];
   const years = [...new Set(past.map((p) => p.year!))].sort((a, b) => b - a);
+  const hasPdfs = Object.hasOwn(pdfExams, exam.slug);
   const jeeMain = exam.slug === "jee-main";
   return (
     <div className={`exam-wrap${jeeMain ? " exam-jee-page" : ""}`}>
@@ -45,6 +47,8 @@ function PapersPage() {
         <Link to="/questions/$exam" params={{ exam: exam.slug }} className="rounded-lg border bg-card px-4 py-2 text-sm font-semibold hover:bg-accent">Chapter-wise</Link>
       </div>
 
+      {hasPdfs && <a className="pdf-download mt-5" href={pdfBrowsePath(exam.slug, "paper")}>Download previous year question papers <ArrowRight size={16}/></a>}
+
       <section className="exam-pastel-panel mt-7 flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 shadow-sm" aria-label="Available papers">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Paper-wise practice</p>
@@ -59,7 +63,7 @@ function PapersPage() {
           <h2 className="mb-3 text-xl font-bold">{y} <span className="text-sm font-normal text-muted-foreground">{past.filter((p) => p.year === y).length} papers</span></h2>
         </section>
       ))}
-      {past.length === 0 && (
+      {!hasPdfs && past.length === 0 && (
         <p className="mt-8 rounded-xl border border-dashed bg-card p-5 text-sm text-muted-foreground">
           No verified past papers for {exam.name} have been added yet. Year- and shift-wise papers appear here once each one is checked
           and cleared for publishing.

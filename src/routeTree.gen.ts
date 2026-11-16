@@ -19,6 +19,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StudyRouteImport } from './routes/study'
 import { Route as PdfLibraryIndexRouteImport } from './routes/pdf-library.index'
 import { Route as PdfLibrarySplatRouteImport } from './routes/pdf-library.$'
+import { Route as PyqPdfsIndexRouteImport } from './routes/pyq-pdfs.index'
 import { Route as QuestionsIndexRouteImport } from './routes/questions.index'
 import { Route as QuestionsBookmarksRouteImport } from './routes/questions.bookmarks'
 import { Route as StudyIndexRouteImport } from './routes/study.index'
@@ -92,6 +93,11 @@ const PdfLibraryIndexRoute = PdfLibraryIndexRouteImport.update({
 const PdfLibrarySplatRoute = PdfLibrarySplatRouteImport.update({
   id: '/pdf-library/$',
   path: '/pdf-library/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PyqPdfsIndexRoute = PyqPdfsIndexRouteImport.update({
+  id: '/pyq-pdfs/',
+  path: '/pyq-pdfs/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QuestionsIndexRoute = QuestionsIndexRouteImport.update({
@@ -245,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
   '/pdf-library/': typeof PdfLibraryIndexRoute
+  '/pyq-pdfs/': typeof PyqPdfsIndexRoute
   '/questions/': typeof QuestionsIndexRoute
   '/study/': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
@@ -280,6 +287,7 @@ export interface FileRoutesByTo {
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
   '/pdf-library': typeof PdfLibraryIndexRoute
+  '/pyq-pdfs': typeof PyqPdfsIndexRoute
   '/questions': typeof QuestionsIndexRoute
   '/study': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
   '/pdf-library/': typeof PdfLibraryIndexRoute
+  '/pyq-pdfs/': typeof PyqPdfsIndexRoute
   '/questions/': typeof QuestionsIndexRoute
   '/study/': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
@@ -355,6 +364,7 @@ export interface FileRouteTypes {
     | '/study/$'
     | '/study/search'
     | '/pdf-library/'
+    | '/pyq-pdfs/'
     | '/questions/'
     | '/study/'
     | '/questions/$exam/practice'
@@ -390,6 +400,7 @@ export interface FileRouteTypes {
     | '/study/$'
     | '/study/search'
     | '/pdf-library'
+    | '/pyq-pdfs'
     | '/questions'
     | '/study'
     | '/questions/$exam/practice'
@@ -426,6 +437,7 @@ export interface FileRouteTypes {
     | '/study/$'
     | '/study/search'
     | '/pdf-library/'
+    | '/pyq-pdfs/'
     | '/questions/'
     | '/study/'
     | '/questions/$exam/practice'
@@ -461,6 +473,7 @@ export interface RootRouteChildren {
   PdfLibrarySplatRoute: typeof PdfLibrarySplatRoute
   QuestionsBookmarksRoute: typeof QuestionsBookmarksRoute
   PdfLibraryIndexRoute: typeof PdfLibraryIndexRoute
+  PyqPdfsIndexRoute: typeof PyqPdfsIndexRoute
   QuestionsIndexRoute: typeof QuestionsIndexRoute
   QuestionsExamPracticeRoute: typeof QuestionsExamPracticeRoute
   QuestionsExamIndexRoute: typeof QuestionsExamIndexRoute
@@ -553,6 +566,13 @@ declare module '@tanstack/react-router' {
       path: '/pdf-library/$'
       fullPath: '/pdf-library/$'
       preLoaderRoute: typeof PdfLibrarySplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pyq-pdfs/': {
+      id: '/pyq-pdfs/'
+      path: '/pyq-pdfs'
+      fullPath: '/pyq-pdfs/'
+      preLoaderRoute: typeof PyqPdfsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/questions/': {
@@ -752,6 +772,7 @@ const rootRouteChildren: RootRouteChildren = {
   PdfLibrarySplatRoute: PdfLibrarySplatRoute,
   QuestionsBookmarksRoute: QuestionsBookmarksRoute,
   PdfLibraryIndexRoute: PdfLibraryIndexRoute,
+  PyqPdfsIndexRoute: PyqPdfsIndexRoute,
   QuestionsIndexRoute: QuestionsIndexRoute,
   QuestionsExamPracticeRoute: QuestionsExamPracticeRoute,
   QuestionsExamIndexRoute: QuestionsExamIndexRoute,

@@ -1,3 +1,4 @@
+import { pdfBrowsePath, pdfExams } from "@/lib/pdf-library";
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { seoHead } from "@/lib/seo";
 import { categoryOf, examBySlug, questionsFor } from "@/lib/question-bank";
@@ -43,7 +44,8 @@ export function ExamHub({ exam, subject }: { exam: NonNullable<ReturnType<typeof
             <p className="mt-1 text-muted-foreground">Chapter-wise questions with solutions, by subject.</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {!catalog && Object.hasOwn(pdfExams, exam.slug) && <a href={pdfBrowsePath(exam.slug,"chapter")} className="pdf-download">Download chapter PDFs</a>}
           {!catalog && <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="rounded-lg border bg-card px-4 py-2 text-sm font-semibold hover:bg-accent">Paper-wise</Link>}
           {!catalog && <Link to="/questions/$exam/practice" params={{ exam: exam.slug }} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Timed practice</Link>}
         </div>
