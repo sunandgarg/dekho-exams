@@ -1,3 +1,4 @@
+import { Atom, BookOpen, ChevronRight, FlaskConical, Radical } from "lucide-react";
 import { pdfBrowsePath, pdfExams } from "@/lib/pdf-library";
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { seoHead } from "@/lib/seo";
@@ -33,46 +34,47 @@ export function ExamHub({ exam, subject }: { exam: NonNullable<ReturnType<typeof
   const cat = categoryOf(exam);
   const selected = exam.subjects.find((s) => s.slug === subject);
   const catalog = isArchive(exam.slug) ? archiveCatalog(exam.slug) : null;
+  const icons = { physics: Atom, chemistry: FlaskConical, mathematics: Radical };
   return (
-    <div className={`exam-wrap${catalog ? " exam-jee-page" : ""}`}>
+    <div className={`exam-wrap exam-hub${catalog ? " exam-jee-page" : ""}`}>
       <Crumbs items={[["Home", <Link to="/">Home</Link>], [cat.short, <a href={`/#${cat.slug}`}>{cat.short}</a>], [exam.name]]} />
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex gap-3">
-          <ExamLogo exam={exam} />
+      <header className="exam-hub-head">
+        <div className="exam-hub-intro">
+          <ExamLogo exam={exam}/>
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">{exam.name}{selected ? " · " + selected.name : ""}</h1>
-            <p className="mt-1 text-muted-foreground">Chapter-wise questions with solutions, by subject.</p>
+            <h1>{exam.name}{selected ? " · " + selected.name : ""}</h1>
+            <p>Chapter-wise questions with solutions</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {!catalog && Object.hasOwn(pdfExams, exam.slug) && <a href={pdfBrowsePath(exam.slug,"chapter")} className="pdf-download">Download chapter PDFs</a>}
-          {!catalog && <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="rounded-lg border bg-card px-4 py-2 text-sm font-semibold hover:bg-accent">Paper-wise</Link>}
-          {!catalog && <Link to="/questions/$exam/practice" params={{ exam: exam.slug }} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Timed practice</Link>}
-        </div>
-      </div>
-      {catalog && <ArchiveNav/>}
-      <div className="mt-4 flex flex-wrap gap-2">
-        {exam.subjects.map((s) => (
-          <a key={s.slug} href={catalog ? catalog.jeeHub+"/"+s.slug : `#${s.slug}`} className="rounded-full border bg-card px-3 py-1 text-sm font-medium hover:bg-accent">{s.name}</a>
-        ))}
-      </div>
-      {catalog ? (
-        <section className="exam-pastel-panel mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 shadow-sm" aria-label={exam.name+" practice bank"}>
-          <div>
-            <h2 className="text-base font-bold">Chapter-wise {exam.name} practice</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{Object.values(catalog.counts).reduce((a,b)=>a+b,0).toLocaleString("en-IN")} previous-year question listings across Physics, Chemistry and Mathematics.</p>
-            <p className="mt-1 text-sm text-muted-foreground">Browse previous papers by year for paper PDFs. Practice solutions have not been academically reviewed.</p>
-          </div>
-          <Link to="/questions/$exam/practice" params={{ exam: exam.slug }} className="rounded-lg border bg-background px-4 py-2 text-sm font-semibold hover:bg-accent">Practise original set →</Link>
-        </section>
-      ) : <div className="mt-5"><PracticeNotice /></div>}
+        {catalog && <dl className="exam-hub-stats">
+          <div><dt>Chapters</dt><dd>{Object.keys(catalog.meta).length}</dd></div>
+          <div><dt>Past papers</dt><dd>{catalog.papers.length}</dd></div>
+          <div><dt>Question listings</dt><dd>{Object.values(catalog.counts).reduce((a,b)=>a+b,0).toLocaleString("en-IN")}</dd></div>
+        </dl>}
+      </header>
+      {catalog ? <ArchiveNav/> : <nav className="exam-hub-actions" aria-label="Exam resources">
+        {Object.hasOwn(pdfExams, exam.slug) && <a className="pdf-download" href={pdfBrowsePath(exam.slug,"chapter")}>Download chapter PDFs</a>}
+        <Link to="/questions/$exam/papers" params={{exam: exam.slug}}>Paper-wise</Link>
+        <Link to="/questions/$exam/practice" params={{exam: exam.slug}}>Timed practice</Link>
+      </nav>}
+      <nav className="subject-picker" aria-label="Subjects">
+        {exam.subjects.map(s => {
+          const Icon = icons[s.slug as keyof typeof icons] ?? BookOpen;
+          const total = catalog?.chapters[s.slug]?.length ?? s.chapters.length;
+          return <a key={s.slug} data-subject={s.slug} href={catalog ? catalog.jeeHub+"/"+s.slug : "#"+s.slug} aria-current={subject === s.slug ? "page" : undefined}>
+            <span className="subject-icon"><Icon size={23} aria-hidden="true"/></span>
+            <span><strong>{s.name}</strong><small>{total} {total===1 ? "chapter" : "chapters"}</small></span><ChevronRight size={18} aria-hidden="true"/>
+          </a>;
+        })}
+      </nav>
+      {!catalog && <div className="mt-5"><PracticeNotice /></div>}
       {exam.subjects.filter((s) => !subject || s.slug === subject).map((s) => (
-        <section key={s.slug} id={s.slug} className="mt-10 scroll-mt-28">
-          <h2 className="mb-2 flex items-center gap-4 text-xl font-bold">{s.name}<span className="h-px flex-1 bg-border" /></h2>
+        <section key={s.slug} id={s.slug} data-subject={s.slug} className="exam-subject">
+          <h2>{s.name}</h2>
           {(catalog?archiveUnits(catalog.id,s.slug):s.units).map((u) => (
             <div key={u.name} className="mt-5">
-              {s.units.length > 1 && <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">{u.name}</h3>}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {s.units.length > 1 && <h3 className="exam-unit-name">{u.name}</h3>}
+              <div className="chapter-grid">
                 {u.chapters.map(([slug, name]) => (
                   <ChapterCard key={slug} exam={exam.slug} subject={s.slug} slug={slug} name={name} />
                 ))}
@@ -81,6 +83,10 @@ export function ExamHub({ exam, subject }: { exam: NonNullable<ReturnType<typeof
           ))}
         </section>
       ))}
+      {catalog && <aside className="exam-hub-practice">
+        <Link to="/questions/$exam/practice" params={{ exam: exam.slug }}>Practise an original set →</Link>
+        <span>Practice solutions have not been academically reviewed.</span>
+      </aside>}
     </div>
   );
 }

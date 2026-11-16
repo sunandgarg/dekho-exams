@@ -4,6 +4,7 @@ import {
   Bookmark,
   BookOpen,
   GraduationCap,
+  Files, Atom, Stethoscope, Cpu, Landmark, Shield, ClipboardList,
   Home,
   Menu,
   Moon,
@@ -126,16 +127,10 @@ export function SiteShell({ children }: { children: ReactNode }) {
     </div>;
   }
   const libraryTopics = [
-    ["PDF library", "/pdf-library"],
-    ["JEE", "/#jee"],
-    ["Medical", "/#medical"],
-    ["GATE", "/#gate"],
-    ["Civil Services", "/#civil-services"],
-    ["Defence", "/#defence"],
-    ["SSC", "/#ssc"],
-    ["CBSE", "/#cbse"],
-    ["Bookmarks", "/questions/bookmarks"],
-  ];
+    ["PDF library", "/pdf-library", Files], ["JEE", "/#jee", Atom], ["Medical", "/#medical", Stethoscope],
+    ["GATE", "/#gate", Cpu], ["Civil Services", "/#civil-services", Landmark], ["Defence", "/#defence", Shield],
+    ["SSC", "/#ssc", ClipboardList], ["CBSE", "/#cbse", GraduationCap], ["Bookmarks", "/questions/bookmarks", Bookmark],
+  ] as const;
   return (
     <div
       className="ozi-site min-h-screen bg-background text-foreground"
@@ -260,7 +255,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
         </div>
         <nav aria-label="Popular topics" className="ozi-topic-nav">
           <div>
-            {libraryTopics.map(([label, path], index) => (
+            {libraryTopics.map(([label, path, Icon], index) => (
               <a
                 key={path}
                 href={path}
@@ -268,7 +263,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 aria-current={pathname === path ? "page" : undefined}
               >
                 <span className="ozi-topic-image">
-                  {label === "Bookmarks" ? <Bookmark className="size-6" /> : <GraduationCap className="size-6" />}
+                  <Icon className="size-6" aria-hidden="true"/>
                 </span>
                 <span>{label}</span>
               </a>

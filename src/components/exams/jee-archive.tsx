@@ -1,7 +1,8 @@
 import { DownloadPdf } from "./pdf-browser";
 import { useState } from "react";
 import downloadPapers from "@/data/jee-main-pdf-papers.json";
-import { useParams } from "@tanstack/react-router";
+import { BookOpen, CalendarDays, Download } from "lucide-react";
+import { useParams, useRouterState } from "@tanstack/react-router";
 import { archiveCatalog, questionKind, type ArchiveId, type ArchivePaper } from "@/lib/jee-catalog";
 import { useQuestionProgress } from "@/lib/question-progress";
 import type { ArchiveQuestion, ArchiveRow } from "@/lib/jee-archive.functions";
@@ -15,17 +16,14 @@ const label = questionKind;
 const title = (s: string) => s.replaceAll("-", " ").replace(/(^|\s)\w/g, (c) => c.toUpperCase());
 export function ArchiveNav({ owner }: { owner?: ArchiveId } = {}) {
   const { jeeHub, paperHub, pdfHub, name } = useCatalog(owner);
+  const path = useRouterState({ select: state => state.location.pathname });
   return (
-    <nav className="my-4 flex flex-wrap gap-2" aria-label={name + " library"}>
-      <a className={btn} href={jeeHub}>
-        Chapter-wise
-      </a>
-      <a className={btn} href={paperHub}>
-        Paper-wise
-      </a>
-      <a className={btn} href={pdfHub}>
-        PYQ PDFs
-      </a>
+    <nav className="archive-nav" aria-label={name + " library"}>
+      {([[jeeHub, "Chapter-wise", BookOpen], [paperHub, "Paper-wise", CalendarDays], [pdfHub, "PYQ PDFs", Download]] as const).map(([href, text, Icon]) => (
+        <a key={href} href={href} aria-current={path === href ? "page" : path.startsWith(href + "/") ? "location" : undefined}>
+          <Icon size={18} aria-hidden="true"/>{text}
+        </a>
+      ))}
     </nav>
   );
 }
