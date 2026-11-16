@@ -1,3 +1,4 @@
+import { getArchivePdf } from "@/lib/pdf-library.functions";
 import { archiveCatalog } from "@/lib/jee-catalog";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { PaperPage } from "@/components/exams/jee-archive";
@@ -10,7 +11,8 @@ export const Route = createFileRoute("/past-years/year-wise/jee/$archive/$paper/
     if (!paper) throw notFound();
     const rows = await archiveList({ data: { exam: catalog.id, paper: paper.slug } });
     if (!rows) throw notFound();
-    return { exam: catalog.id, paper, rows };
+    const file = await getArchivePdf({data: {exam: catalog.id, edition: paper.slug}});
+    return { exam: catalog.id, paper, rows, file };
   },
   head: ({ loaderData: d }) =>
     seoHead({

@@ -1,4 +1,4 @@
-import { pdfExams } from "@/lib/pdf-library";
+import { pdfExams, pdfBrowsePath } from "@/lib/pdf-library";
 import {archiveCatalog,isArchive} from "@/lib/jee-catalog";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, ChevronRight, FileText } from "lucide-react";
@@ -46,14 +46,14 @@ function ExamCard({ exam }: { exam: Exam }) {
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        {catalog ? <a href={catalog.jeeHub} className="exam-btn exam-btn-solid">Chapter-wise</a> : collection ? <a href={collection+"#chapters"} className="exam-btn exam-btn-solid">Chapter-wise</a> : <Link to="/questions/$exam" params={{ exam: exam.slug }} className="exam-btn exam-btn-solid">Chapter-wise</Link>}
-        {catalog ? <a href={catalog.paperHub} className="exam-btn">Paper-wise</a> : collection ? <a href={collection+"#papers"} className="exam-btn">Paper-wise</a> : <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="exam-btn">Paper-wise</Link>}
+        {catalog ? <a href={catalog.jeeHub} className="exam-btn exam-btn-solid">Chapter-wise</a> : collection ? <a href={pdfBrowsePath(exam.slug,"chapter")} className="exam-btn exam-btn-solid">Chapter-wise</a> : <Link to="/questions/$exam" params={{ exam: exam.slug }} className="exam-btn exam-btn-solid">Chapter-wise</Link>}
+        {catalog ? <a href={catalog.paperHub} className="exam-btn">Paper-wise</a> : collection ? <a href={pdfBrowsePath(exam.slug,"paper")} className="exam-btn">Paper-wise</a> : <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="exam-btn">Paper-wise</Link>}
       </div>
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t pt-3 text-sm">
         <Link to="/questions/$exam/practice" params={{ exam: exam.slug }} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
           Timed practice <ArrowUpRight className="size-3.5" />
         </Link>
-        {collection ? <a href={collection} className="inline-flex items-center gap-1 font-semibold text-primary"><FileText className="size-3.5"/> PYQ PDFs</a> : papers > 0 && (
+        {collection ? <a href={pdfBrowsePath(exam.slug,"paper")} className="inline-flex items-center gap-1 font-semibold text-primary"><FileText className="size-3.5"/> PYQ PDFs</a> : papers > 0 && (
           <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="inline-flex items-center gap-1 font-semibold text-primary">
             <FileText className="size-3.5" /> Printable sets
           </Link>

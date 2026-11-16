@@ -22,3 +22,9 @@ export type PdfEntry = {
   date: string;
   file: string;
 };
+
+export type PdfKind = "paper" | "chapter";
+export function pdfBrowsePath(exam: string, kind: PdfKind) {
+  return "/pyq-pdfs/past-years/" + (kind === "paper" ? "year-wise/" : "") + "jee/" + exam;
+}
+export const pdfLanguages: Record<string, string> = { en: "English", hi: "हिन्दी", bn: "বাংলা" };

@@ -1,12 +1,19 @@
+import { getArchivePdf } from "@/lib/pdf-library.functions";
+import { PdfTabs } from "@/components/exams/pdf-browser";
 import { archiveCatalog } from "@/lib/jee-catalog";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import { ArchiveNav, EditionLinks } from "@/components/exams/jee-archive";
+import { EditionLinks } from "@/components/exams/jee-archive";
 import { seoHead } from "@/lib/seo";
 export const Route = createFileRoute("/pyq-pdfs/past-years/jee/$archive/$subject/$chapter")({
-  loader: ({ params: p }) => {
+  loader: async ({ params: p }) => {
     if (!Object.hasOwn(archiveCatalog(p.archive).meta, p.subject + "/" + p.chapter))
       throw notFound();
-    return p;
+    return {
+      ...p,
+      file: await getArchivePdf({
+        data: { exam: archiveCatalog(p.archive).id, edition: p.subject + "--" + p.chapter },
+      }),
+    };
   },
   head: ({ loaderData: d }) =>
     seoHead({
@@ -22,20 +29,22 @@ export const Route = createFileRoute("/pyq-pdfs/past-years/jee/$archive/$subject
     const d = Route.useLoaderData();
     const { jeeHub } = archiveCatalog(d.archive);
     return (
-      <main className="exam-wrap exam-jee-page">
-        <ArchiveNav />
+      <div className="pdf-container pdf-content">
+        <PdfTabs exam={d.archive} active="chapter" />
         <h1 className="text-3xl font-bold capitalize">{d.chapter.replaceAll("-", " ")} PDFs</h1>
         <p className="my-3 text-muted-foreground">
-          Open a Dekhoexams edition, choose whether to include solutions, then print or save as PDF.
+          {d.file
+            ? "Download the chapter or open a print edition with optional solutions."
+            : "Open the print edition to print this chapter or save it as a PDF."}
         </p>
-        <EditionLinks edition={d.subject + "--" + d.chapter} />
+        <EditionLinks file={d.file} edition={d.subject + "--" + d.chapter} />
         <a
           className="mt-4 inline-block text-primary"
           href={jeeHub + "/" + d.subject + "/" + d.chapter}
         >
           Practise this chapter →
         </a>
-      </main>
+      </div>
     );
   },
 });

@@ -115,3 +115,5 @@ WordPress-only edits are pending.
 Cloudflare/Lightsail deployment files are in deploy/lightsail. A local MySQL
 import and HTTP smoke test passed for the Node backend. Check AWS resource
 and Worker version state before treating this configuration as live.
+
+The PDF library links all eight published exam collections to separate year and chapter download lists. Each row downloads the stored file directly. The JEE Main paper list also offers the published language and dark editions.

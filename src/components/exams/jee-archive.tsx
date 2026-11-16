@@ -1,3 +1,4 @@
+import { DownloadPdf } from "./pdf-browser";
 import { useState } from "react";
 import downloadPapers from "@/data/jee-main-pdf-papers.json";
 import { useParams } from "@tanstack/react-router";
@@ -13,7 +14,7 @@ const btn =
 const label = questionKind;
 const title = (s: string) => s.replaceAll("-", " ").replace(/(^|\s)\w/g, (c) => c.toUpperCase());
 export function ArchiveNav({ owner }: { owner?: ArchiveId } = {}) {
-  const { jeeHub, paperHub, pdfHub, name, id } = useCatalog(owner);
+  const { jeeHub, paperHub, pdfHub, name } = useCatalog(owner);
   return (
     <nav className="my-4 flex flex-wrap gap-2" aria-label={name + " library"}>
       <a className={btn} href={jeeHub}>
@@ -22,7 +23,6 @@ export function ArchiveNav({ owner }: { owner?: ArchiveId } = {}) {
       <a className={btn} href={paperHub}>
         Paper-wise
       </a>
-      <a className={btn} href={"/pdf-library/"+id}>Download PDFs</a>
       <a className={btn} href={pdfHub}>
         PYQ PDFs
       </a>
@@ -112,7 +112,7 @@ export function ArchiveRows({
     </section>
   );
 }
-export function EditionLinks({ edition }: { edition: string }) {
+export function EditionLinks({ edition, file }: { edition: string; file?: string | null }) {
   const { id, printPrefix, hindiPrint } = useCatalog();
   const paper =
     id === "jee-main"
@@ -120,6 +120,7 @@ export function EditionLinks({ edition }: { edition: string }) {
       : undefined;
   return (
     <>
+      {file && <DownloadPdf file={file} title={edition.replaceAll("-", " ")} />}
       {paper !== undefined && (
         <div className="mt-3">
           <p className="mb-1 text-sm font-semibold">Download paper with answer key</p>
@@ -162,8 +163,8 @@ export function EditionLinks({ edition }: { edition: string }) {
     </>
   );
 }
-export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
-  const { papers, name, jeeHub, paperHub, id } = useCatalog();
+export function PaperCatalog() {
+  const { papers, name, paperHub, id } = useCatalog();
   const years = [
     ...new Set(papers.map((p) => p.date.match(/\d{4}/)?.[0] ?? p.title.match(/\d{4}/)![0])),
   ];
@@ -174,22 +175,12 @@ export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
       <ArchiveNav />
       <header className="exam-pastel-panel rounded-2xl border p-5">
         <h1 className="text-3xl font-extrabold">
-          {name} {pdf ? "PYQ PDFs" : "previous-year papers"}
+          {name} previous-year papers
         </h1>
         <p className="mt-2 text-muted-foreground">
-          {papers.length} papers by year.{" "}
-          {pdf
-            ? id === "jee-main"
-              ? "Download available papers with answer keys in English or Hindi, and Bengali where listed. Choose a light or dark edition. Use the print edition for worked solutions."
-              : "Open a Dekhoexams edition, choose whether to include solutions, then print or save as PDF."
-            : "Choose a paper to practise its questions in order."}
+          {papers.length} papers by year. Choose a paper to practise its questions in order.
         </p>
       </header>
-      {pdf && (
-        <a className={btn + " mt-4"} href={"/pyq-pdfs" + jeeHub}>
-          Browse chapter PDFs →
-        </a>
-      )}
       <div className="my-5 flex flex-wrap gap-3">
         <select
           className={btn}
@@ -229,7 +220,6 @@ export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
                     <h3 className="font-semibold">
                       <a href={paperHub + "/" + p.slug}>{p.title}</a>
                     </h3>
-                    {pdf && <EditionLinks edition={p.slug} />}
                   </article>
                 ))}
               </div>
@@ -242,15 +232,13 @@ export function PaperCatalog({ pdf = false }: { pdf?: boolean }) {
           (!year || p.date.includes(year) || p.title.includes(year)) &&
           p.title.toLowerCase().includes(query.toLowerCase()),
       ) && <p>No papers match this search.</p>}
-      {!pdf && (
-        <a className={btn} href={"/questions/" + id + "/papers/practice-set-1"}>
+      <a className={btn} href={"/questions/" + id + "/papers/practice-set-1"}>
           Original printable practice set
         </a>
-      )}
     </main>
   );
 }
-export function PaperPage({ paper, rows }: { paper: ArchivePaper; rows: ArchiveRow[] }) {
+export function PaperPage({ paper, rows, file }: { paper: ArchivePaper; rows: ArchiveRow[]; file: string | null }) {
   const { paperHub } = useCatalog();
   return (
     <main className="exam-wrap exam-jee-page">
@@ -265,7 +253,7 @@ export function PaperPage({ paper, rows }: { paper: ArchivePaper; rows: ArchiveR
             Start paper practice →
           </a>
         )}
-        <EditionLinks edition={paper.slug} />
+        <EditionLinks edition={paper.slug} file={file} />
       </header>
       <ArchiveRows rows={rows} paper={paper.slug} />
     </main>
@@ -507,43 +495,6 @@ export function QuestionView({
           )}
         </nav>
       </article>
-    </main>
-  );
-}
-
-export function ChapterPdfCatalog({ subject }: { subject?: string }) {
-  const { name, jeeHub, chapters: chapterOrder, meta: chapterMeta } = useCatalog();
-  return (
-    <main className="exam-wrap exam-jee-page">
-      <ArchiveNav />
-      <header className="exam-pastel-panel rounded-2xl border p-5">
-        <h1 className="text-3xl font-extrabold">
-          {name} chapter PDFs{subject ? " · " + title(subject) : ""}
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Choose a chapter to print or save a Dekhoexams edition with optional solutions.
-        </p>
-      </header>
-      {Object.entries(chapterOrder)
-        .filter(([s]) => !subject || s === subject)
-        .map(([s, chapters]) => (
-          <section key={s} className="my-6">
-            <h2 className="mb-3 text-xl font-bold">
-              <a href={"/pyq-pdfs" + jeeHub + "/" + s}>{title(s)}</a>
-            </h2>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {chapters.map((c) => (
-                <a
-                  className="exam-pastel-card rounded-xl border p-3"
-                  key={c}
-                  href={"/pyq-pdfs" + jeeHub + "/" + s + "/" + c}
-                >
-                  {(chapterMeta as Record<string, { name: string }>)[s + "/" + c]?.name ?? title(c)}
-                </a>
-              ))}
-            </div>
-          </section>
-        ))}
     </main>
   );
 }

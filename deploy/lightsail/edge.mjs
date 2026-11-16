@@ -13,7 +13,7 @@ export default {
     if (media && !collectionPdf && !/^\/(?:jee-papers\/[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9-]+\.pdf|jee-figures\/[a-f0-9]+\.png)$/.test(path)) return new Response(null, { status: 404 });
     if (media && !["GET", "HEAD"].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: "GET, HEAD" } });
     // S3 keys are public editions; query strings and cookies do not select their contents.
-    const page = path.startsWith("/past-years/") || path.startsWith("/pdf-library/");
+    const page = path.startsWith("/past-years/") || path.startsWith("/pyq-pdfs/past-years/") || path === "/pdf-library" || path.startsWith("/pdf-library/");
     const trackingOnly = [...url.searchParams.keys()].every(key => /^utm_|^(gclid|fbclid)$/.test(key));
     const anonymous = !request.headers.has("authorization") &&
       !(request.headers.get("cookie") || "").split(";").some(cookie => cookie.trim() && !/^(_ga(?:_[A-Za-z0-9]+)?|_gid)=/.test(cookie.trim()));
@@ -24,14 +24,19 @@ export default {
       (media || publicPage || (anonymous && !url.search && path.startsWith("/assets/")));
     const keyUrl = new URL(url);
     // Keep cached HTML aligned with the branded site release.
-    if (publicPage) keyUrl.pathname = "/__edge/v2" + path;
+    if (publicPage) keyUrl.pathname = "/__edge/v3" + path;
     if (media || publicPage) keyUrl.search = "";
     const cacheKey = new Request(keyUrl, { headers: media ? request.headers : undefined });
+    // Old cached PDFs also need a download filename, including language editions named en.pdf.
+    const pdfFilename = path.endsWith(".pdf") && media
+      ? "DekhoExams-" + (collectionPdf ? path.split("/").slice(3).join("-").replace(/DekhoExams_/gi, "") : path.split("/").slice(2).join("-"))
+      : null;
     if (cacheable) {
       const hit = await caches.default.match(cacheKey);
       if (hit) {
         const result = new Response(hit.body, hit);
         result.headers.set("X-Dekhoexams-Cache", "HIT");
+        if (pdfFilename) result.headers.set("Content-Disposition", 'attachment; filename="' + pdfFilename + '"');
         return result;
       }
     }
@@ -57,7 +62,10 @@ export default {
       publicHeaders.set("Content-Type", path.endsWith(".pdf") ? "application/pdf" : "image/png");
       publicHeaders.set("Cache-Control", "public, max-age=300, s-maxage=86400");
       publicHeaders.set("X-Content-Type-Options", "nosniff");
-      if (path.endsWith(".pdf")) publicHeaders.set("X-Robots-Tag", "noindex, follow");
+      if (pdfFilename) {
+        publicHeaders.set("X-Robots-Tag", "noindex, follow");
+        publicHeaders.set("Content-Disposition", 'attachment; filename="' + pdfFilename + '"');
+      }
       response = new Response(upstream.body, { status: upstream.status, headers: publicHeaders });
     } else {
       const origin = new URL(env.APP_ORIGIN);

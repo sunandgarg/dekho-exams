@@ -1,3 +1,5 @@
+import { PdfTabs, DownloadPdf } from "@/components/exams/pdf-browser";
+import { pdfBrowsePath } from "@/lib/pdf-library";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { getPdfPage } from "@/lib/pdf-library.functions";
 import { seoHead } from "@/lib/seo";
@@ -35,81 +37,61 @@ export const Route = createFileRoute("/pdf-library/$")({
 });
 function PdfPage() {
   const { entry, entries, exam, name } = Route.useLoaderData();
-  const hub = "/pdf-library/" + exam;
   return (
-    <div className="exam-wrap">
-      <nav aria-label="Breadcrumb" className="mb-5 flex gap-3 text-sm">
-        <a href="/pdf-library" className="text-primary">
-          PDF library
-        </a>
-        {entry && (
-          <a href={hub} className="text-primary">
-            {name}
-          </a>
+    <div className="pdf-view">
+      <div className="pdf-rule">
+        <div className="pdf-container">
+          <nav aria-label="Breadcrumb" className="pdf-crumb">
+            <a href="/pdf-library#exams">Exams</a> / <a href={"/pdf-library/" + exam}>{name}</a>
+          </nav>
+          <p className="pdf-kicker">{name} · PDF library</p>
+          <h1>{entry ? entry.title : name + " question papers and chapters"}</h1>
+          <p className="pdf-sub">
+            {entry
+              ? [
+                  entry.subject,
+                  entry.date || entry.year,
+                  entry.sourceType,
+                  entry.questions && entry.questions + " questions",
+                  entry.pages && entry.pages + " pages",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "Choose a full paper by year or download a chapter by subject."}
+          </p>
+          <PdfTabs
+            exam={exam}
+            active={entry?.kind === "chapter" ? "chapter" : entry ? "paper" : undefined}
+          />
+        </div>
+      </div>
+      <div className="pdf-container pdf-content">
+        {entry ? (
+          <article className="pdf-detail">
+            <h2>{entry.kind === "chapter" ? "Chapter PDF" : "Question paper PDF"}</h2>
+            {entry.years && <p>Question years: {entry.years.split(",").join(", ")}</p>}
+            <DownloadPdf file={entry.file} title={entry.title} />
+          </article>
+        ) : (
+          <div className="pdf-choices">
+            {(["paper", "chapter"] as const).map((kind) => (
+              <a
+                href={pdfBrowsePath(exam, kind)}
+                id={kind === "paper" ? "papers" : "chapters"}
+                key={kind}
+              >
+                <strong>
+                  {kind === "paper" ? "Year-wise question papers" : "Chapter-wise questions"}
+                </strong>
+                <span>
+                  {entries.filter((e) => e.kind === kind).length}{" "}
+                  {kind === "paper" ? "papers" : "chapters"} →
+                </span>
+              </a>
+            ))}
+          </div>
         )}
-      </nav>
-      <h1 className="text-3xl font-bold">{entry ? entry.title : name + " PDFs"}</h1>
-      {entry ? (
-        <article className="mt-5 space-y-4">
-          <p>
-            {[
-              name,
-              entry.kind === "chapter" ? "Chapter collection" : "Previous-year paper",
-              entry.subject,
-              entry.date || entry.year || "",
-              entry.shift === "Not specified" ? "" : entry.shift,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          {entry.sourceType && <p>{entry.sourceType}</p>}
-          {entry.years && <p>Question years: {entry.years.split(",").join(", ")}</p>}
-          <p>
-            {[
-              entry.questions && entry.questions + " questions",
-              entry.pages && entry.pages + " pages",
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          <a className="exam-btn exam-btn-solid inline-flex" href={entry.file} download>
-            Download PDF
-          </a>
-        </article>
-      ) : (
-        (["chapter", "paper"] as const).map((kind) => {
-          const list = entries.filter((e) => e.kind === kind);
-          const groups = Array.from(
-            new Set(list.map((e) => e.subject || String(e.year || "Papers"))),
-          );
-          return (
-            <section key={kind} id={kind === "chapter" ? "chapters" : "papers"} className="mt-8">
-              <h2 className="text-2xl font-bold">
-                {kind === "chapter" ? "Chapter-wise PDFs" : "Year-wise papers"} ({list.length})
-              </h2>
-              {groups.map((group) => (
-                <section key={group} className="my-5">
-                  <h3 className="mb-2 text-lg font-semibold">{group}</h3>
-                  <ul className="grid gap-2 sm:grid-cols-2">
-                    {list
-                      .filter((e) => (e.subject || String(e.year || "Papers")) === group)
-                      .map((e) => (
-                        <li key={e.path}>
-                          <a
-                            className="exam-pastel-card block rounded-lg border p-3"
-                            href={hub + "/" + e.path}
-                          >
-                            {e.title}
-                          </a>
-                        </li>
-                      ))}
-                  </ul>
-                </section>
-              ))}
-            </section>
-          );
-        })
-      )}
+      </div>
     </div>
   );
 }

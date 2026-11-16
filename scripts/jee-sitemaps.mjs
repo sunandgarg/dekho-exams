@@ -45,6 +45,7 @@ const library = data("published-pdf-collections");
 const libraryPaths = ["/pdf-library"];
 for (const [exam, entries] of Object.entries(library)) {
   const hub = "/pdf-library/" + exam;
+  if (exam !== "jee-main" && exam !== "jee-advanced") libraryPaths.push("/pyq-pdfs/past-years/jee/"+exam, "/pyq-pdfs/past-years/year-wise/jee/"+exam);
   libraryPaths.push(hub, ...entries.map(entry => hub + "/" + entry.path));
 }
 write("pdf-library", libraryPaths);

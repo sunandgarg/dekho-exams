@@ -115,7 +115,18 @@ export function SiteShell({ children }: { children: ReactNode }) {
   }, [pathname]);
   if (pathname.startsWith("/admin"))
     return <div className="min-h-screen bg-background text-foreground">{children}</div>;
+  if (pathname === "/pdf-library" || pathname.startsWith("/pdf-library/") || pathname.startsWith("/pyq-pdfs/")) {
+    return <div className="pdf-shell" data-app-ready={themeReady}>
+      <a href="#main-content" className="sr-only focus:not-sr-only">Skip to PDFs</a>
+      <header className="pdf-mast"><div className="pdf-container"><a href="/" aria-label="DekhoExams home"><Brand/></a>
+        <nav aria-label="PDF library navigation"><a href="/pdf-library#exams">Exams</a><a href="/questions">Practice ↗</a>
+          <button type="button" aria-label="Toggle theme" onClick={()=>setDark(!dark)}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button>
+        </nav></div></header>
+      <main id="main-content" tabIndex={-1}>{children}</main><Footer/><PrivacyControls/>
+    </div>;
+  }
   const libraryTopics = [
+    ["PDF library", "/pdf-library"],
     ["JEE", "/#jee"],
     ["Medical", "/#medical"],
     ["GATE", "/#gate"],
@@ -212,6 +223,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
                   <LocalLink href="my-study" className="block py-4 text-sm font-bold">
                     Your saved reading
                   </LocalLink>
+                  <a href="/pdf-library" className="block py-3 text-sm font-bold">Download exam PDFs</a>
                   <a href="/questions" className="block py-3 text-sm font-bold">
                     Question Bank
                   </a>
