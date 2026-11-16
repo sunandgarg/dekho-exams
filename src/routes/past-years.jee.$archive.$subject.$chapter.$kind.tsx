@@ -28,7 +28,7 @@ export const Route = createFileRoute("/past-years/jee/$archive/$subject/$chapter
           "/" +
           d.kind
         : "questions",
-      noindex: true,
+      noindex: !d?.rows.length,
     }),
   component: () => {
     const d = Route.useLoaderData();

@@ -28,7 +28,7 @@ export const Route = createFileRoute("/questions/$exam/$subject/$chapter")({
     title: d ? `${d.chapterName} — ${d.examName} ${d.subjectName} Questions` : "Chapter not found",
     description: d ? `Practise ${d.chapterName} questions for ${d.examName} ${d.subjectName} with step-by-step solutions.` : "This chapter is not in the question bank.",
     path: d ? `questions/${d.exam}/${d.subject}/${d.chapter}` : "questions",
-    noindex: true,
+    noindex: !d || !questionsFor(d.exam,d.subject,d.chapter).length,
   }),
   notFoundComponent: () => <div className="study-home"><h1>Chapter not found</h1><Link to="/questions">Back to the question bank</Link></div>,
   component: ChapterPage,

@@ -13,7 +13,7 @@ const btn =
 const label = questionKind;
 const title = (s: string) => s.replaceAll("-", " ").replace(/(^|\s)\w/g, (c) => c.toUpperCase());
 export function ArchiveNav({ owner }: { owner?: ArchiveId } = {}) {
-  const { jeeHub, paperHub, pdfHub, name } = useCatalog(owner);
+  const { jeeHub, paperHub, pdfHub, name, id } = useCatalog(owner);
   return (
     <nav className="my-4 flex flex-wrap gap-2" aria-label={name + " library"}>
       <a className={btn} href={jeeHub}>
@@ -22,6 +22,7 @@ export function ArchiveNav({ owner }: { owner?: ArchiveId } = {}) {
       <a className={btn} href={paperHub}>
         Paper-wise
       </a>
+      <a className={btn} href={"/pdf-library/"+id}>Download PDFs</a>
       <a className={btn} href={pdfHub}>
         PYQ PDFs
       </a>

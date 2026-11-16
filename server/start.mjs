@@ -16,7 +16,7 @@ await serve({
       url.pathname = path.slice("/assets".length);
       return clientFile(new Request(url, { method: request.method }), () => new Response(null, { status: 404 }));
     }
-    if (path === "/jee-archive/math.svg" || path === "/jee-advanced-archive/math.svg" || /^\/(?:exam-logos|fonts|images|jee-figures|jee-papers|logos)\/|^\/(?:[\w-]+\.(?:svg|png|css|js|webmanifest)|sitemap-jee-[\w-]+\.xml)$/.test(path)) {
+    if (path === "/sitemap-pdf-library.xml" || path === "/favicon.ico" || path === "/jee-archive/math.svg" || path === "/jee-advanced-archive/math.svg" || /^\/(?:exam-logos|fonts|images|jee-figures|jee-papers|logos)\/|^\/(?:[\w-]+\.(?:svg|png|css|js|webmanifest)|sitemap-jee-[\w-]+\.xml)$/.test(path)) {
       const response = await env.ASSETS.fetch(request);
       if (path.startsWith("/jee-papers/")) response.headers.set("X-Robots-Tag", "noindex, follow");
       return response;

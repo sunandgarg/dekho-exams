@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound, redirect } from "@tanstack/react-router";
 import { seoHead } from "@/lib/seo";
-import { categoryOf, examBySlug } from "@/lib/question-bank";
+import { categoryOf, examBySlug, questionsFor } from "@/lib/question-bank";
 import { ArchiveNav } from "@/components/exams/jee-archive";
 import {archiveCatalog,archiveUnits,isArchive} from "@/lib/jee-catalog";
 import { PracticeNotice } from "@/components/question-bank";
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/questions/$exam/")({
     title: loaderData ? `${loaderData.name} Chapter-wise Questions with Solutions` : "Exam not found",
     description: loaderData ? `${loaderData.name} chapter-wise questions with solutions, grouped by subject and unit.` : "This exam is not in the question bank.",
     path: loaderData ? `questions/${loaderData.slug}` : "questions",
-    noindex: true,
+    noindex: !loaderData || !questionsFor(loaderData.slug).length,
   }),
   notFoundComponent: () => <div className="exam-wrap"><h1 className="text-2xl font-bold">Exam not found</h1><Link to="/" className="text-primary">Back to all exams</Link></div>,
   component: ExamPage,

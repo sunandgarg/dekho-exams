@@ -9,10 +9,11 @@ export default {
     }
     const path = url.pathname;
     const media = path.startsWith("/jee-papers/") || path.startsWith("/jee-figures/");
-    if (media && !/^\/(?:jee-papers\/[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9-]+\.pdf|jee-figures\/[a-f0-9]+\.png)$/.test(path)) return new Response(null, { status: 404 });
+    const collectionPdf = /^\/jee-papers\/collections\/[a-z0-9-]+\/(?:[A-Za-z0-9_-]+\/)+[A-Za-z0-9_-]+\.pdf$/.test(path);
+    if (media && !collectionPdf && !/^\/(?:jee-papers\/[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9-]+\.pdf|jee-figures\/[a-f0-9]+\.png)$/.test(path)) return new Response(null, { status: 404 });
     if (media && !["GET", "HEAD"].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: "GET, HEAD" } });
     // S3 keys are public editions; query strings and cookies do not select their contents.
-    const page = path.startsWith("/past-years/");
+    const page = path.startsWith("/past-years/") || path.startsWith("/pdf-library/");
     const trackingOnly = [...url.searchParams.keys()].every(key => /^utm_|^(gclid|fbclid)$/.test(key));
     const anonymous = !request.headers.has("authorization") &&
       !(request.headers.get("cookie") || "").split(";").some(cookie => cookie.trim() && !/^(_ga(?:_[A-Za-z0-9]+)?|_gid)=/.test(cookie.trim()));
@@ -22,6 +23,8 @@ export default {
     const cacheable = request.method === "GET" &&
       (media || publicPage || (anonymous && !url.search && path.startsWith("/assets/")));
     const keyUrl = new URL(url);
+    // Keep cached HTML aligned with the branded site release.
+    if (publicPage) keyUrl.pathname = "/__edge/v2" + path;
     if (media || publicPage) keyUrl.search = "";
     const cacheKey = new Request(keyUrl, { headers: media ? request.headers : undefined });
     if (cacheable) {

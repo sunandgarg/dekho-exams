@@ -90,7 +90,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/dekhoexams-icon-192.png", type: "image/png", sizes: "192x192" },
-      { rel: "icon", href: "/dekhoexams-icon.svg", type: "image/svg+xml" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
       { rel: "manifest", href: "/site.webmanifest" },
       { rel: "stylesheet", href: oziCss },

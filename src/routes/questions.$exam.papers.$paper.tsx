@@ -18,7 +18,7 @@ export const Route = createFileRoute("/questions/$exam/papers/$paper")({
     title: loaderData ? loaderData.title : "Paper not found",
     description: loaderData ? `${loaderData.title}: every question in order with an answer key at the end. Print or save as PDF.` : "This paper is not available.",
     path: loaderData ? `questions/${loaderData.exam}/papers/${loaderData.paper}` : "questions",
-    noindex: true,
+    noindex: !loaderData,
   }),
   notFoundComponent: () => <div className="exam-wrap"><h1 className="text-2xl font-bold">Paper not found</h1><Link to="/" className="text-primary">Back to all exams</Link></div>,
   component: PaperPage,

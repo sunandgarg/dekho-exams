@@ -323,9 +323,7 @@ function NavigationProgress({ booting }: { booting: boolean }) {
 function Brand() {
   return (
     <span className="trove-brand">
-      <span className="trove-brand-wordmark">
-        dekho<span className="dekhoexams-wordmark">exams</span>
-      </span>
+      <picture><source media="(max-width: 380px)" srcSet="/dekhoexams-icon-192.png" /><img className="site-wordmark" src="/logos/dekhoexams-wordmark.png" width="176" height="26" alt="DekhoExams" /></picture>
     </span>
   );
 }

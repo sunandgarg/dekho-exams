@@ -1,3 +1,4 @@
+import { pdfExams } from "@/lib/pdf-library";
 import {archiveCatalog,isArchive} from "@/lib/jee-catalog";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, ChevronRight, FileText } from "lucide-react";
@@ -30,6 +31,7 @@ export function Crumbs({ items }: { items: [label: string, to?: ReactNode][] }) 
 
 function ExamCard({ exam }: { exam: Exam }) {
   const catalog=isArchive(exam.slug)?archiveCatalog(exam.slug):null;
+  const collection=Object.hasOwn(pdfExams, exam.slug) ? "/pdf-library/"+exam.slug : null;
   const n = questionsFor(exam.slug).length;
   const papers = papersFor(exam.slug).length;
   return (
@@ -39,19 +41,19 @@ function ExamCard({ exam }: { exam: Exam }) {
         <div>
           <h3 className="text-base font-bold leading-6">{exam.name}</h3>
           <p className="text-sm text-muted-foreground">
-            {catalog ? Object.keys(catalog.meta).length+" chapters · "+catalog.papers.length+" previous-year papers" : n > 0 ? `${n} practice ${n === 1 ? "question" : "questions"} with solutions` : "Chapters listed · questions coming soon"}
+            {catalog ? Object.keys(catalog.meta).length+" chapters · "+catalog.papers.length+" previous-year papers" : collection ? "Chapter-wise PDFs and previous-year papers" : n > 0 ? `${n} practice ${n === 1 ? "question" : "questions"} with solutions` : "Chapters listed · questions coming soon"}
           </p>
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        {catalog ? <a href={catalog.jeeHub} className="exam-btn exam-btn-solid">Chapter-wise</a> : <Link to="/questions/$exam" params={{ exam: exam.slug }} className="exam-btn exam-btn-solid">Chapter-wise</Link>}
-        {catalog ? <a href={catalog.paperHub} className="exam-btn">Paper-wise</a> : <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="exam-btn">Paper-wise</Link>}
+        {catalog ? <a href={catalog.jeeHub} className="exam-btn exam-btn-solid">Chapter-wise</a> : collection ? <a href={collection+"#chapters"} className="exam-btn exam-btn-solid">Chapter-wise</a> : <Link to="/questions/$exam" params={{ exam: exam.slug }} className="exam-btn exam-btn-solid">Chapter-wise</Link>}
+        {catalog ? <a href={catalog.paperHub} className="exam-btn">Paper-wise</a> : collection ? <a href={collection+"#papers"} className="exam-btn">Paper-wise</a> : <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="exam-btn">Paper-wise</Link>}
       </div>
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t pt-3 text-sm">
         <Link to="/questions/$exam/practice" params={{ exam: exam.slug }} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
           Timed practice <ArrowUpRight className="size-3.5" />
         </Link>
-        {catalog ? <a href={catalog.pdfHub} className="inline-flex items-center gap-1 font-semibold text-primary"><FileText className="size-3.5"/> PYQ PDFs</a> : papers > 0 && (
+        {collection ? <a href={collection} className="inline-flex items-center gap-1 font-semibold text-primary"><FileText className="size-3.5"/> PYQ PDFs</a> : papers > 0 && (
           <Link to="/questions/$exam/papers" params={{ exam: exam.slug }} className="inline-flex items-center gap-1 font-semibold text-primary">
             <FileText className="size-3.5" /> Printable sets
           </Link>
@@ -77,6 +79,7 @@ export function ExamDirectory() {
             {c.short} <b>{examsIn(c.slug).length}</b>
           </a>
         ))}
+        <a href="/pdf-library" className="exam-chip">PDF library</a>
         <Link to="/questions/bookmarks" className="exam-chip">🔖 Bookmarks</Link>
       </div>
       {CATEGORIES.map((c) => (

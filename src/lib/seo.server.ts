@@ -1,3 +1,5 @@
+import { EXAMS, questionsFor, papersFor } from "./question-bank";
+import { isArchive } from "./jee-catalog";
 import { JEE_SITEMAPS } from "./jee-search";
 import type { Entry } from "./content-types";
 import { canonicalUrl, IS_PREVIEW, JEE_SEARCH_LIVE, isSeoReady, SITE_ORIGIN } from "./seo";
@@ -103,7 +105,7 @@ async function metadataPage(page: number): Promise<MetadataPage> {
 
 function urlset(items: SitemapEntry[], includeHome: boolean): string {
   const urls = includeHome
-    ? ["", "about", "privacy"].map(
+    ? ["about", "privacy"].map(
         (path) => `<url><loc>${xmlEscape(canonicalUrl(path))}</loc></url>`,
       )
     : [];
@@ -139,13 +141,30 @@ export async function seoFileResponse(request: Request): Promise<Response | null
       },
     );
   }
-  if (JEE_SEARCH_LIVE && url.origin === SITE_ORIGIN && url.pathname === "/sitemap.xml") {
+  if (IS_PREVIEW && JEE_SEARCH_LIVE && url.origin === SITE_ORIGIN && url.pathname === "/sitemap.xml") {
     const xml = '<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
       JEE_SITEMAPS.map(name => '<sitemap><loc>' + SITE_ORIGIN + '/sitemap-' + name + '.xml</loc></sitemap>').join("") + '</sitemapindex>';
     return new Response(request.method === "HEAD" ? null : xml, {headers: {"content-type":"application/xml; charset=utf-8","cache-control":"public, max-age=300"}});
   }
-  const match = url.pathname.match(/^\/sitemap(?:-(\d+|education))?\.xml$/);
+  const match = url.pathname.match(/^\/sitemap(?:-(\d+|education|practice))?\.xml$/);
   if (!match) return null;
+  if (match[1] === "practice" && !IS_PREVIEW) {
+    const paths = new Set<string>();
+    for (const exam of EXAMS) {
+      const questions = questionsFor(exam.slug);
+      if (!questions.length) continue;
+      const hub = "questions/" + exam.slug;
+      if (!isArchive(exam.slug)) {
+        paths.add(hub);
+        paths.add(hub + "/papers");
+        for (const question of questions) paths.add([hub, question.subject, question.chapter].join("/"));
+      }
+      for (const paper of papersFor(exam.slug)) paths.add(hub + "/papers/" + paper.id);
+    }
+    const xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+      [...paths].sort().map(path => `<url><loc>${xmlEscape(canonicalUrl(path))}</loc></url>`).join("") + '</urlset>';
+    return new Response(request.method === "HEAD" ? null : xml, {headers: {"content-type":"application/xml; charset=utf-8","cache-control":"public, max-age=300"}});
+  }
   if (match[1] === "education") {
     const ready = IS_PREVIEW ? [] : EDUCATION_PAGES.filter(educationIndexable);
     const xml = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${ready.map((p) => `<url><loc>${xmlEscape(canonicalUrl(p.path))}</loc></url>`).join("")}</urlset>`;
@@ -179,7 +198,10 @@ export async function seoFileResponse(request: Request): Promise<Response | null
       (_, index) =>
         `<sitemap><loc>${xmlEscape(`${SITE_ORIGIN}/sitemap-${index + 1}.xml`)}</loc></sitemap>`,
     );
-    indexes.unshift(
+    indexes.push(...[...JEE_SITEMAPS, "pdf-library", "practice"].map(name =>
+      `<sitemap><loc>${SITE_ORIGIN}/sitemap-${name}.xml</loc></sitemap>`
+    ));
+    if (EDUCATION_PAGES.some(educationIndexable)) indexes.unshift(
       `<sitemap><loc>${xmlEscape(`${SITE_ORIGIN}/sitemap-education.xml`)}</loc></sitemap>`,
     );
     xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${indexes.join("")}</sitemapindex>`;

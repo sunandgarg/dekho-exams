@@ -1,5 +1,9 @@
 # Dekhoexams Implementation Status
 
+## PDF library (2026-11-17)
+
+The public PDF library uses a release snapshot of the Mumbai MySQL collection catalog. All eight exam hubs link to chapter and paper pages. The JEE Main files are individual extracts of the indexed page ranges. Only PDF editions are copied to the S3 delivery prefix. The production sitemap includes the library, reviewed JEE questions, populated practice pages and eligible editorial content.
+
 ## JEE Advanced archive (2026-11-08)
 
 - The chapter directory covers 81 chapters and 3,959 questions in Physics, Chemistry and Mathematics. The 79-paper directory spans 1978–2026 and contains 3,920 paper positions. 3,919 link to their matching chapter question. One IIT-JEE 1987 question is available only through its paper.

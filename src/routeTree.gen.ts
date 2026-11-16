@@ -17,6 +17,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StudyRouteImport } from './routes/study'
+import { Route as PdfLibraryIndexRouteImport } from './routes/pdf-library.index'
+import { Route as PdfLibrarySplatRouteImport } from './routes/pdf-library.$'
 import { Route as QuestionsIndexRouteImport } from './routes/questions.index'
 import { Route as QuestionsBookmarksRouteImport } from './routes/questions.bookmarks'
 import { Route as StudyIndexRouteImport } from './routes/study.index'
@@ -80,6 +82,16 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const StudyRoute = StudyRouteImport.update({
   id: '/study',
   path: '/study',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PdfLibraryIndexRoute = PdfLibraryIndexRouteImport.update({
+  id: '/pdf-library/',
+  path: '/pdf-library/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PdfLibrarySplatRoute = PdfLibrarySplatRouteImport.update({
+  id: '/pdf-library/$',
+  path: '/pdf-library/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QuestionsIndexRoute = QuestionsIndexRouteImport.update({
@@ -228,9 +240,11 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/study': typeof StudyRouteWithChildren
+  '/pdf-library/$': typeof PdfLibrarySplatRoute
   '/questions/bookmarks': typeof QuestionsBookmarksRoute
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
+  '/pdf-library/': typeof PdfLibraryIndexRoute
   '/questions/': typeof QuestionsIndexRoute
   '/study/': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
@@ -261,9 +275,11 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/pdf-library/$': typeof PdfLibrarySplatRoute
   '/questions/bookmarks': typeof QuestionsBookmarksRoute
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
+  '/pdf-library': typeof PdfLibraryIndexRoute
   '/questions': typeof QuestionsIndexRoute
   '/study': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
@@ -296,9 +312,11 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/study': typeof StudyRouteWithChildren
+  '/pdf-library/$': typeof PdfLibrarySplatRoute
   '/questions/bookmarks': typeof QuestionsBookmarksRoute
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
+  '/pdf-library/': typeof PdfLibraryIndexRoute
   '/questions/': typeof QuestionsIndexRoute
   '/study/': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
@@ -332,9 +350,11 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/study'
+    | '/pdf-library/$'
     | '/questions/bookmarks'
     | '/study/$'
     | '/study/search'
+    | '/pdf-library/'
     | '/questions/'
     | '/study/'
     | '/questions/$exam/practice'
@@ -365,9 +385,11 @@ export interface FileRouteTypes {
     | '/auth'
     | '/privacy'
     | '/reset-password'
+    | '/pdf-library/$'
     | '/questions/bookmarks'
     | '/study/$'
     | '/study/search'
+    | '/pdf-library'
     | '/questions'
     | '/study'
     | '/questions/$exam/practice'
@@ -399,9 +421,11 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/study'
+    | '/pdf-library/$'
     | '/questions/bookmarks'
     | '/study/$'
     | '/study/search'
+    | '/pdf-library/'
     | '/questions/'
     | '/study/'
     | '/questions/$exam/practice'
@@ -434,7 +458,9 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   StudyRoute: typeof StudyRouteWithChildren
+  PdfLibrarySplatRoute: typeof PdfLibrarySplatRoute
   QuestionsBookmarksRoute: typeof QuestionsBookmarksRoute
+  PdfLibraryIndexRoute: typeof PdfLibraryIndexRoute
   QuestionsIndexRoute: typeof QuestionsIndexRoute
   QuestionsExamPracticeRoute: typeof QuestionsExamPracticeRoute
   QuestionsExamIndexRoute: typeof QuestionsExamIndexRoute
@@ -513,6 +539,20 @@ declare module '@tanstack/react-router' {
       path: '/study'
       fullPath: '/study'
       preLoaderRoute: typeof StudyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pdf-library/': {
+      id: '/pdf-library/'
+      path: '/pdf-library'
+      fullPath: '/pdf-library/'
+      preLoaderRoute: typeof PdfLibraryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pdf-library/$': {
+      id: '/pdf-library/$'
+      path: '/pdf-library/$'
+      fullPath: '/pdf-library/$'
+      preLoaderRoute: typeof PdfLibrarySplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/questions/': {
@@ -709,7 +749,9 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   StudyRoute: StudyRouteWithChildren,
+  PdfLibrarySplatRoute: PdfLibrarySplatRoute,
   QuestionsBookmarksRoute: QuestionsBookmarksRoute,
+  PdfLibraryIndexRoute: PdfLibraryIndexRoute,
   QuestionsIndexRoute: QuestionsIndexRoute,
   QuestionsExamPracticeRoute: QuestionsExamPracticeRoute,
   QuestionsExamIndexRoute: QuestionsExamIndexRoute,

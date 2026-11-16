@@ -25,6 +25,12 @@ for (const [exam, folder] of [["jee-main","jee-archive"],["jee-advanced","jee-ad
   for (const [subject, units] of Object.entries(chapters)) {
     for (const path of [hub+"/"+subject,...units.map(c=>hub+"/"+subject+"/"+c)]) paths.push(path,"/pyq-pdfs"+path);
   }
+  for (const [subject, chapterSlugs] of Object.entries(chapters)) {
+    for (const chapter of chapterSlugs) {
+      const rows = JSON.parse(gunzipSync(readFileSync(`public/${folder}/chapter/${subject}/${chapter}.bin`)));
+      for (const kind of new Set(rows.map(row => row.group))) paths.push(`${hub}/${subject}/${chapter}/${kind}`);
+    }
+  }
   write(exam,[...paths,...papers.map(p=>year+"/"+p.slug)]);
   const questions=[];
   for (const shard of readdirSync("public/"+folder+"/q")) {
@@ -34,3 +40,11 @@ for (const [exam, folder] of [["jee-main","jee-archive"],["jee-advanced","jee-ad
   }
   write(exam+"-questions",questions);
 }
+
+const library = data("published-pdf-collections");
+const libraryPaths = ["/pdf-library"];
+for (const [exam, entries] of Object.entries(library)) {
+  const hub = "/pdf-library/" + exam;
+  libraryPaths.push(hub, ...entries.map(entry => hub + "/" + entry.path));
+}
+write("pdf-library", libraryPaths);

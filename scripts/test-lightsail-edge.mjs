@@ -53,7 +53,8 @@ test("shared media and anonymous chapters reuse clean URLs", async (t) => {
     for (const [path,cookie] of [["/jee-papers/jee-main/test/en.pdf?download=1","session=1"],["/past-years/jee/test?utm_source=test","_ga=1"]]) {
       const response = await worker.fetch(new Request(origin+path,{headers:{cookie}}),env,{});
       assert.equal(response.headers.get("X-Dekhoexams-Cache"), "HIT");
-      assert.equal(keys.at(-1),origin+path.split("?")[0]);
+      const prefix = path.startsWith("/past-years/") ? "/__edge/v2" : "";
+      assert.equal(keys.at(-1),origin+prefix+path.split("?")[0]);
     }
     for (const [suffix,cookie] of [["?filter=a",""],["","session=1"]]) {
       const response = await worker.fetch(new Request(origin+"/past-years/jee/test"+suffix,{headers:{cookie}}),env,{});

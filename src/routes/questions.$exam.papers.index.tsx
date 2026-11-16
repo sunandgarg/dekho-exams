@@ -16,7 +16,7 @@ export const Route = createFileRoute("/questions/$exam/papers/")({
     title: loaderData ? `${loaderData.name} Question Papers, Paper-wise` : "Exam not found",
     description: loaderData ? `${loaderData.name} original practice sets with answer keys and printable copies. Verified past papers will be listed when available.` : "This exam is not in the question bank.",
     path: loaderData ? `questions/${loaderData.slug}/papers` : "questions",
-    noindex: true,
+    noindex: !loaderData || !papersFor(loaderData.slug).length,
   }),
   notFoundComponent: () => <div className="exam-wrap"><h1 className="text-2xl font-bold">Exam not found</h1><Link to="/" className="text-primary">Back to all exams</Link></div>,
   component: PapersPage,
