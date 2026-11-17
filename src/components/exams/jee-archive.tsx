@@ -292,54 +292,56 @@ export function QuestionView({
   const suffix = language === "hi" ? "?lang=hi" : "";
   const prefix = inPaper ? paperHub + "/" + q.paper + "/" : "/past-years/jee/question/";
   return (
-    <main className="exam-wrap exam-jee-page">
+    <div className="exam-wrap exam-jee-page question-reader">
       <ArchiveNav owner={id} />
-      <article className="exam-pastel-card mx-auto max-w-4xl rounded-2xl border p-5 sm:p-8">
+      <article className="question-panel" data-subject={q.subject}>
         <p className="text-sm font-semibold text-primary">
           {paper ? <a href={paperHub + "/" + q.paper}>{paper.title}</a> : q.paperTitle}
         </p>
         <h1 className="mt-2 text-2xl font-extrabold">{title(q.chapter || q.subject)} question</h1>
-        <p className="mb-5 text-sm text-muted-foreground">{title(label(q.kind))}</p>
-        <div className="mb-4 flex items-center gap-3">
-          <button
-            className={btn}
-            aria-pressed={saved}
-            onClick={() =>
-              setSaveError(
-                !progress.togglePyq({
-                  href: bookmarkHref,
-                  title:
-                    (paper?.title || q.paperTitle || name) + " · " + title(q.chapter || q.subject),
-                }),
-              )
-            }
-          >
-            {saved ? "Bookmarked" : "Bookmark"}
-          </button>
-          <a className="text-sm text-primary" href="/questions/bookmarks">
-            My bookmarks
-          </a>
-          {saveError && <small role="status">Your browser could not save this bookmark.</small>}
+        <p className="mt-1 text-sm text-muted-foreground">{title(label(q.kind))}</p>
+        <div className="question-tools">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              className={btn}
+              aria-pressed={saved}
+              onClick={() =>
+                setSaveError(
+                  !progress.togglePyq({
+                    href: bookmarkHref,
+                    title:
+                      (paper?.title || q.paperTitle || name) + " · " + title(q.chapter || q.subject),
+                  }),
+                )
+              }
+            >
+              {saved ? "Bookmarked" : "Bookmark"}
+            </button>
+            <a className="text-sm text-primary" href="/questions/bookmarks">
+              My bookmarks
+            </a>
+            {saveError && <small role="status">Your browser could not save this bookmark.</small>}
+          </div>
+          {q.hi && (
+            <nav aria-label="Question language" className="flex gap-2">
+              <a
+                className={btn}
+                aria-current={language === "en" ? "page" : undefined}
+                href="?lang=en"
+              >
+                English
+              </a>
+              <a
+                className={btn}
+                aria-current={language === "hi" ? "page" : undefined}
+                href="?lang=hi"
+                lang="hi"
+              >
+                हिन्दी
+              </a>
+            </nav>
+          )}
         </div>
-        {q.hi && (
-          <nav aria-label="Question language" className="mb-4 flex gap-2">
-            <a
-              className={btn}
-              aria-current={language === "en" ? "page" : undefined}
-              href="?lang=en"
-            >
-              English
-            </a>
-            <a
-              className={btn}
-              aria-current={language === "hi" ? "page" : undefined}
-              href="?lang=hi"
-              lang="hi"
-            >
-              हिन्दी
-            </a>
-          </nav>
-        )}
         {promptFigurePending && (
           <p className="mb-3 text-sm text-muted-foreground">
             {language === "hi"
@@ -348,20 +350,20 @@ export function QuestionView({
           </p>
         )}
         <div
-          className="jee-prose"
+          className="question-prompt jee-prose"
           lang={content === q ? "en" : "hi"}
           dangerouslySetInnerHTML={{ __html: content.body }}
         />
         {content.options.length > 0 && (
-          <fieldset className="mt-5 grid gap-2">
+          <fieldset className="mt-5 grid min-w-0 gap-2" data-graded={checked || undefined}>
             <legend className="mb-2 font-semibold">Your answer</legend>
             {content.options.map((opt, i) => (
               <label
                 key={i}
-                className="flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 has-checked:border-primary"
+                className="answer-choice"
+                data-correct={checked && keys?.includes(i) || undefined}
               >
                 <input
-                  className="mt-2"
                   type={q.kind === "mcqm" ? "checkbox" : "radio"}
                   name="choice"
                   checked={choices.includes(i)}
@@ -376,7 +378,7 @@ export function QuestionView({
                     );
                   }}
                 />
-                <b>{String.fromCharCode(65 + i)}</b>
+                <b className="choice-letter">{String.fromCharCode(65 + i)}</b>
                 <span
                   className="jee-prose min-w-0"
                   lang={content === q ? "en" : "hi"}
@@ -402,7 +404,7 @@ export function QuestionView({
               aria-label="Your numerical answer"
               type="text"
               inputMode="decimal"
-              className={btn}
+              className="question-number mt-2 block w-full max-w-xs rounded-lg border px-3"
               value={numeric}
               onChange={(e) => {
                 setNumeric(e.target.value);
@@ -412,7 +414,7 @@ export function QuestionView({
           </label>
         )}
         {keys && !promptFigurePending && (
-          <div className="mt-3 flex items-center gap-3">
+          <div className="question-actions mt-4 flex flex-wrap items-center gap-3">
             <button className={btn} disabled={!choices.length} onClick={() => setChecked(true)}>
               Check selected answer
             </button>
@@ -426,7 +428,7 @@ export function QuestionView({
           </div>
         )}
         {bounds && !promptFigurePending && (
-          <div className="mt-3 flex items-center gap-3">
+          <div className="question-actions mt-4 flex flex-wrap items-center gap-3">
             <button
               className={btn}
               disabled={!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(numeric.trim())}
@@ -447,16 +449,16 @@ export function QuestionView({
         {content.solution ? (
           <>
             <button
-              className={btn + " mt-5"}
+              className={btn + " solution-toggle mt-4"}
               aria-expanded={revealed}
               onClick={() => setRevealed(!revealed)}
             >
-              {revealed ? "Hide explanation" : "Show explanation"}
+              {revealed ? "Hide solution" : "Show solution"}
             </button>
             {revealed && (
-              <section className="mt-4 rounded-lg border p-4">
-                <h2 className="mb-2 font-bold">Explanation</h2>
-                <div className="jee-prose" dangerouslySetInnerHTML={{ __html: content.solution }} />
+              <section className="question-solution">
+                <h2 className="mb-2 font-bold">Solution</h2>
+                <div className="jee-prose" lang={content === q ? "en" : "hi"} dangerouslySetInnerHTML={{ __html: content.solution }} />
               </section>
             )}
           </>
@@ -493,6 +495,6 @@ export function QuestionView({
           )}
         </nav>
       </article>
-    </main>
+    </div>
   );
 }

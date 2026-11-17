@@ -37,7 +37,7 @@ export function QuestionCard({ q, index }: { q: Question; index: number }) {
   }
 
   return (
-    <article className="rounded-xl border bg-card p-5 text-card-foreground" aria-labelledby={`${q.id}-t`}>
+    <article className="question-panel" data-subject={q.subject} aria-labelledby={`${q.id}-t`}>
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
         <span className="font-bold">Q{index + 1}</span>
         <Badge variant="secondary">{q.difficulty}</Badge>
@@ -52,38 +52,38 @@ export function QuestionCard({ q, index }: { q: Question; index: number }) {
           {marked ? "Bookmarked" : "Bookmark"}
         </Button>
       </div>
-      <p id={`${q.id}-t`} className="mb-4 font-medium leading-7">{q.text}</p>
+      <p id={`${q.id}-t`} className="question-prompt mb-4">{q.text}</p>
       {q.type === "mcq" ? (
-        <div className="grid gap-2" role="radiogroup">
-          {q.options!.map((o, i) => {
-            const state = checked && i === q.answer ? "border-primary bg-primary/10" : checked && i === choice ? "border-destructive bg-destructive/10" : choice === i ? "border-primary" : "";
-            return (
-              <button key={i} type="button" role="radio" aria-checked={choice === i}
-                onClick={() => { setChoice(i); setChecked(false); }}
-                className={`rounded-lg border px-4 py-2 text-left text-sm hover:bg-accent ${state}`}>
-                <span className="mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>{o}
-              </button>
-            );
-          })}
-        </div>
+        <fieldset className="grid min-w-0 gap-2" data-graded={checked || undefined}>
+          <legend className="sr-only">Your answer for question {index + 1}</legend>
+          {q.options!.map((o, i) => (
+            <label key={i} className="answer-choice" data-correct={checked && i === q.answer || undefined}>
+              <input type="radio" name={q.id} checked={choice === i}
+                onChange={() => { setChoice(i); setChecked(false); }} />
+              <b className="choice-letter">{String.fromCharCode(65 + i)}</b>
+              <span>{o}</span>
+            </label>
+          ))}
+        </fieldset>
       ) : (
         <Input inputMode="decimal" aria-label="Your answer" placeholder="Type your numerical answer"
           value={text} onChange={(e) => { setText(e.target.value); setChecked(false); }} className="max-w-xs" />
       )}
-      <div className="mt-4 flex flex-wrap items-center gap-3">
+      <div className="question-actions mt-4 flex flex-wrap items-center gap-3">
         <Button size="sm" onClick={check}>Check answer</Button>
         <Button size="sm" variant="outline" onClick={() => setShowSol(!showSol)} aria-expanded={showSol}>
           {showSol ? "Hide solution" : "Show solution"}
         </Button>
         {checked && (
-          <span className={`flex items-center gap-1 text-sm font-bold ${ok ? "text-primary" : "text-destructive"}`}>
+          <span role="status" className={`flex items-center gap-1 text-sm font-bold ${ok ? "text-primary" : "text-destructive"}`}>
             {ok ? <Check className="size-4" /> : <X className="size-4" />}
-            {ok ? "Correct" : "Not quite"}
+            {ok ? "Correct" : q.type === "mcq" ? `Correct answer: ${String.fromCharCode(65 + q.answer)}` : "Not quite"}
           </span>
         )}
       </div>
       {showSol && (
-        <div className="mt-4 rounded-lg bg-muted p-4 text-sm leading-6">
+        <div className="question-solution">
+          <h3 className="mb-2 font-bold">Solution</h3>
           <p className="font-bold">Answer: {q.type === "mcq" ? `${String.fromCharCode(65 + q.answer)}. ${q.options![q.answer]}` : q.answer}</p>
           <p className="mt-1">{q.solution}</p>
         </div>

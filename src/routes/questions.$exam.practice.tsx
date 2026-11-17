@@ -80,7 +80,7 @@ function PracticePage() {
   const result = scoreAttempt(exam.marking, set, res);
   return (
     <div className="study-home study-lesson">
-      <div className="sticky top-0 z-10 mb-4 flex items-center justify-between rounded-lg border bg-background px-4 py-3">
+      <div className="sticky top-[var(--site-header-height,84px)] z-10 mb-4 flex items-center justify-between rounded-lg border bg-background px-4 py-3">
         <b>{done ? "Finished" : `Time left ${fmt(left)}`}</b>
         {!done ? <Button size="sm" onClick={submit}>Submit</Button> : <Button size="sm" variant="outline" onClick={() => setSet(null)}>New set</Button>}
       </div>
@@ -95,15 +95,16 @@ function PracticePage() {
           const r = res[q.id];
           const ok = isCorrect(q, r);
           return (
-            <li key={q.id} className="rounded-xl border bg-card p-5">
-              <p className="mb-3 font-medium"><b>Q{i + 1}.</b> {q.text}</p>
+            <li key={q.id} className="question-panel" data-subject={q.subject}>
+              <p className="question-prompt mb-3"><b>Q{i + 1}.</b> {q.text}</p>
               {q.type === "mcq" ? (
-                <div className="grid gap-2">
+                <div className="grid gap-2" data-graded={done || undefined}>
                   {q.options!.map((o, j) => (
                     <button key={j} type="button" disabled={done} aria-pressed={r === j}
                       onClick={() => setRes({ ...res, [q.id]: r === j ? null : j })}
-                      className={`rounded-lg border px-4 py-2 text-left text-sm ${r === j ? "border-primary bg-primary/10" : ""} ${done && j === q.answer ? "border-primary font-bold" : ""}`}>
-                      {String.fromCharCode(65 + j)}. {o}
+                      className="answer-choice" data-correct={done && j === q.answer || undefined}>
+                      <b className="choice-letter">{String.fromCharCode(65 + j)}</b>
+                      <span>{o}</span>
                     </button>
                   ))}
                 </div>
@@ -113,7 +114,7 @@ function PracticePage() {
                   onChange={(e) => setRes({ ...res, [q.id]: e.target.value.trim() === "" ? null : Number(e.target.value) })} />
               )}
               {done && (
-                <div className="mt-3 rounded-lg bg-muted p-3 text-sm">
+                <div className="question-solution">
                   <p className={`font-bold ${ok ? "text-primary" : "text-destructive"}`}>{r === null || r === undefined ? "Skipped" : ok ? "Correct" : "Wrong"} · Answer: {q.type === "mcq" ? String.fromCharCode(65 + q.answer) : q.answer}</p>
                   <p>{q.solution}</p>
                 </div>

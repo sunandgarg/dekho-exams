@@ -254,12 +254,12 @@ function QuizWorkspace({ entry, result }: { entry: Entry; result: boolean }) {
         <h2 className="mb-4 font-display text-xl font-bold">Answer review</h2>
         <div className="grid gap-4">
           {qs.map((q, i) => (
-            <section key={i} className="rounded-lg border bg-card p-5">
+            <section key={i} className="question-panel">
               <div className="flex gap-3">
                 <Badge variant={stored.answers[i] === q.answer ? "default" : "secondary"}>
                   {i + 1}
                 </Badge>
-                <h3 className="font-bold">{q.prompt}</h3>
+                <h3 className="question-prompt">{q.prompt}</h3>
               </div>
               <p className="mt-3 text-sm">
                 Your answer: {q.options[stored.answers[i] ?? -1] ?? "Not answered"}
@@ -267,7 +267,7 @@ function QuizWorkspace({ entry, result }: { entry: Entry; result: boolean }) {
               <p className="mt-1 text-sm font-semibold text-primary">
                 Correct answer: {q.options[q.answer]}
               </p>
-              <p className="mt-3 text-sm text-muted-foreground">{q.explanation}</p>
+              <p className="question-solution">{q.explanation}</p>
             </section>
           ))}
         </div>
@@ -286,7 +286,7 @@ function QuizWorkspace({ entry, result }: { entry: Entry; result: boolean }) {
         </Badge>
       </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
-        <section className="rounded-xl border bg-card p-6">
+        <section className="question-panel">
           <p className="text-xs text-muted-foreground">
             Question {current + 1} of {qs.length}
           </p>
@@ -296,7 +296,7 @@ function QuizWorkspace({ entry, result }: { entry: Entry; result: boolean }) {
             {q.options.map((option, i) => (
               <label
                 key={i}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 ${answers[current] === i ? "border-primary bg-primary-soft" : "hover:bg-accent"}`}
+                className="answer-choice"
               >
                 <input
                   type="radio"
@@ -306,6 +306,7 @@ function QuizWorkspace({ entry, result }: { entry: Entry; result: boolean }) {
                   onChange={() => setAnswers((p) => p.map((a, n) => (n === current ? i : a)))}
                   className="accent-primary"
                 />
+                <b className="choice-letter">{String.fromCharCode(65 + i)}</b>
                 <span>{option}</span>
               </label>
             ))}

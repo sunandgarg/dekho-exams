@@ -72,10 +72,10 @@ function PaperPage() {
                 n += 1;
                 return (
                   <li key={q.id} className="paper-q">
-                    <p className="leading-7"><b className="mr-2">Q{n}.</b>{q.text}</p>
+                    <p className="question-prompt"><b className="mr-2">Q{n}.</b>{q.text}</p>
                     {q.type === "mcq" ? (
-                      <ol className="mt-2 grid gap-1 pl-7 text-sm sm:grid-cols-2">
-                        {q.options!.map((o, i) => <li key={i}><b>({letter(i)})</b> {o}</li>)}
+                      <ol className="paper-options mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                        {q.options!.map((o, i) => <li key={i} className="answer-choice"><b className="choice-letter">{letter(i)}</b> <span>{o}</span></li>)}
                       </ol>
                     ) : (
                       <p className="mt-2 pl-7 text-sm text-muted-foreground">Numerical answer type</p>
