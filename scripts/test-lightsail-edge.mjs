@@ -91,3 +91,13 @@ test("S3 HEAD uses a tiny signed GET and returns full object metadata", async t 
   assert.equal(result.status,200); assert.equal(result.headers.get("content-length"),"938");
   assert.equal(result.headers.get("content-range"),null); assert.equal(result.body,null);
 });
+
+test("resuming an older edition restarts the download", async t => {
+  t.mock.method(globalThis, "fetch", async req => {
+    assert.equal(req.headers.get("range"),null);
+    return new Response("%PDF-",{headers:{etag:edition.etag}});
+  });
+  const r = await worker.fetch(new Request("https://dekhoexams.com"+paper,{headers:{range:"bytes=5-","if-range":'"old-edition"'}}),
+    {AWS_REGION:"ap-south-1",MEDIA_BUCKET:"example",S3_KEY_ID:"test",S3_SECRET:"test"}, {});
+  assert.equal(r.status,200);assert.equal(await r.text(),"%PDF-");
+});

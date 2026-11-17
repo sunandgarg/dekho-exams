@@ -35,7 +35,7 @@ export default {
     const html = !request.headers.has("accept") || /text\/html|\*\/\*/.test(request.headers.get("accept"));
     const publicPage = page && html && anonymous && trackingOnly && request.method === "GET" &&
       !request.headers.has("range") && !request.headers.has("x-tsr-serverfn");
-    const cacheable = request.method === "GET" &&
+    const cacheable = request.method === "GET" && !request.headers.has("if-range") &&
       (media || publicPage || (anonymous && !url.search && path.startsWith("/assets/")));
     const keyUrl = new URL(url);
     // Keep cached HTML aligned with the branded site release.
@@ -71,6 +71,8 @@ export default {
       for (const name of ["Range"]) {
         if (request.headers.has(name)) headers.set(name, request.headers.get(name));
       }
+      const validator = request.headers.get("if-range");
+      if (validator && ![approved?.sha, approved?.etag, approved?.multipart, figures[path]].some(v => v && validator === '"' + v + '"')) headers.delete("Range");
       const objectPath = approved?.sha ? "/jee-papers/reviewed/" + approved.sha + ".pdf" : path;
       let upstream;
       let metadataOnly = false;
