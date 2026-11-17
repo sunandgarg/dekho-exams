@@ -56,6 +56,7 @@ function PracticePage() {
       <div className="study-home study-lesson">
         <p className="text-sm"><Link to="/questions">Question Bank</Link> / <Link to="/questions/$exam" params={{ exam: exam.slug }}>{exam.name}</Link> / Timed practice</p>
         <h1>{exam.name} timed practice</h1>
+        {exam.slug === "jee-main" && <a className="my-3 inline-block font-bold text-primary" href="/questions/jee-main/mock-tests">Open JEE Main mock tests →</a>}
         <p className="study-intro">
           A short practice set from the questions we have so far. It is not a full mock test. Scoring uses practice marks: +{exam.marking.correct} for correct, {exam.marking.wrong.toFixed(2).replace(/\.00$/, "")} for a wrong option, 0 for a wrong numerical answer or a skipped question.
         </p>

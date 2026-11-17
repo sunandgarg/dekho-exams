@@ -15,7 +15,7 @@ const btn =
 const label = questionKind;
 const title = (s: string) => s.replaceAll("-", " ").replace(/(^|\s)\w/g, (c) => c.toUpperCase());
 export function ArchiveNav({ owner }: { owner?: ArchiveId } = {}) {
-  const { jeeHub, paperHub, pdfHub, name } = useCatalog(owner);
+  const { id, jeeHub, paperHub, pdfHub, name } = useCatalog(owner);
   const path = useRouterState({ select: state => state.location.pathname });
   return (
     <nav className="archive-nav" aria-label={name + " library"}>
@@ -24,6 +24,7 @@ export function ArchiveNav({ owner }: { owner?: ArchiveId } = {}) {
           <Icon size={18} aria-hidden="true"/>{text}
         </a>
       ))}
+      {id === "jee-main" && <a href="/questions/jee-main/mock-tests">Mock tests</a>}
     </nav>
   );
 }

@@ -1,5 +1,9 @@
 # Dekhoexams Implementation Status
 
+## JEE Main timed practice (2026-11-17)
+
+The mock library builds timed sets from existing English past-paper questions with explicit keys, worked solutions and no external figures. Full mocks contain 20 single-choice and 5 integer questions per subject. Remaining questions are available as subject sets. Attempts and scores are local to the current browser tab. These sets have not been independently reviewed and remain outside the sitemap.
+
 ## PDF library (2026-11-17)
 
 The public PDF library uses a release snapshot of the Mumbai MySQL collection catalog. All eight exam hubs link to chapter and paper pages. The JEE Main files are individual extracts of the indexed page ranges. Only PDF editions are copied to the S3 delivery prefix. The production sitemap includes the library, reviewed JEE questions, populated practice pages and eligible editorial content.
