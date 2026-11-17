@@ -1,3 +1,4 @@
+import { paperMockUrl } from "@/lib/pdf-library";
 import { DownloadPdf } from "./pdf-browser";
 import { useState } from "react";
 import downloadPapers from "@/data/jee-main-pdf-papers.json";
@@ -219,6 +220,7 @@ export function PaperCatalog() {
                     <h3 className="font-semibold">
                       <a href={paperHub + "/" + p.slug}>{p.title}</a>
                     </h3>
+                    {id === "jee-main" && <a className="text-sm font-semibold text-primary" href={paperMockUrl(p.slug)}>Take timed mock →</a>}
                   </article>
                 ))}
               </div>
@@ -238,7 +240,7 @@ export function PaperCatalog() {
   );
 }
 export function PaperPage({ paper, rows, file }: { paper: ArchivePaper; rows: ArchiveRow[]; file: string | null }) {
-  const { paperHub } = useCatalog();
+  const { paperHub, id } = useCatalog();
   return (
     <main className="exam-wrap exam-jee-page">
       <ArchiveNav />
@@ -252,6 +254,7 @@ export function PaperPage({ paper, rows, file }: { paper: ArchivePaper; rows: Ar
             Start paper practice →
           </a>
         )}
+        {id === "jee-main" && <a className={btn} href={paperMockUrl(paper.slug)}>Take timed mock →</a>}
         <EditionLinks edition={paper.slug} file={file} />
       </header>
       <ArchiveRows rows={rows} paper={paper.slug} />

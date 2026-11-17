@@ -1,3 +1,4 @@
+import { paperMockUrl } from "@/lib/pdf-library";
 import { ArrowDownToLine, BookOpen, ChevronDown, ChevronRight, Files, Search } from "lucide-react";
 import { useState } from "react";
 import type { PdfBrowse } from "@/lib/pdf-browse.server";
@@ -191,6 +192,7 @@ export function PdfBrowser({ data }: { data: PdfBrowse }) {
                               </small>
                             </div>
                             <div className="pdf-actions">
+                              {papers && exam === "jee-main" && e.archiveSlug && <a className="font-semibold text-primary" href={paperMockUrl(e.archiveSlug)}>Take timed mock</a>}
                               <DownloadPdf file={e.file} title={e.title} compact={!papers} />
                               {e.languages.length > 0 && <PaperEditions row={e} />}
                             </div>

@@ -62,14 +62,99 @@ def eligible(q):
     return parser.safe and not parser.math
 
 
+def write_archive_sets(records, paper_ids, old_mock_hashes, old_mock_count):
+    """Each canonical question belongs to one paper position or one chapter-only set."""
+    dest = OUT / "archive"
+    dest.mkdir(exist_ok=True)
+    emitted = set()
+    used = set()
+
+    def save(name, ids):
+        rows = [records[k] for k in ids]
+        assert not used.intersection(ids) and len(set(ids)) == len(rows)
+        used.update(ids)
+        data = json.dumps(rows, ensure_ascii=False, separators=(",", ":"))
+        assert not re.search(r'exam\s*(?:side|goal)|watermark|<(?:script|iframe)\b|(?:src|href)="(?:https?:)?//', data, re.I)
+        path = dest / f"{name}.{len(rows)}.json.gz"
+        path.write_bytes(gzip.compress(data.encode(), compresslevel=6, mtime=0))
+        emitted.add(path)
+
+    archive = ROOT / "public/jee-archive"
+    for f in sorted((archive / "paper").glob("*.bin")):
+        rows = json.loads(gzip.decompress(f.read_bytes()))
+        save(f.stem, [paper_ids[f.stem, r["id"]] for r in rows])
+    for subject in SUBJECTS:
+        extra = sorted(k for k in records.keys() - used if records[k]["subject"] == subject)
+        for i in range(0, len(extra), 25):
+            save(f"extra-{subject}-{i//25+1:02}", extra[i:i+25])
+    assert used == records.keys()
+    # Mix scored PYQs into further non-overlapping mocks; individual paper attempts stay intact.
+    unique = set(old_mock_hashes)
+    pools = defaultdict(list)
+    for k, item in records.items():
+        if item.get("review") or "jee-figure-pending" in item["solution"]:
+            continue
+        kind = item["kind"]
+        if not (kind == "mcq" and "choiceKey" in item or kind == "integer" and "numericKey" in item and float(item["numericKey"]).is_integer()):
+            continue
+        digest = fingerprint(item)
+        if digest not in unique:
+            unique.add(digest)
+            pools[item["subject"],kind].append(item)
+    n = old_mock_count
+    while all(len(pools[s,k]) >= size for s in SUBJECTS for k,size in BLUEPRINT):
+        n += 1
+        rows = take_mock(pools)
+        path = dest / f"combined-{n:02}.75.json.gz"
+        path.write_bytes(gzip.compress(json.dumps(rows, ensure_ascii=False, separators=(",",":")).encode(),compresslevel=6,mtime=0))
+        emitted.add(path)
+    print(f"{n-old_mock_count} additional mixed mocks; {n} in total.")
+    for f in dest.glob("*.json.gz"):
+        if f not in emitted:
+            f.unlink()
+    print(f"Archive mocks: {len(paper_ids)} paper positions, {len(records)-len(paper_ids)} additional chapter questions; {len(used)} unique.")
+
+BLUEPRINT = (("mcq", 20), ("integer", 5))
+
+def fingerprint(q):
+    return sha256(json.dumps([q["body"], q["options"]], ensure_ascii=False).encode()).digest()
+
+def take_mock(pools):
+    rows = []
+    for subject in SUBJECTS:
+        for kind, size in BLUEPRINT:
+            pool = pools[subject, kind]
+            rows.extend(pool[:size])
+            del pool[:size]
+    return rows
+
 def build():
     pools = defaultdict(list)
     seen = set()
+    records = {}
+    paper_ids = {}
+    pdf_keys = json.loads((ROOT / "scripts/jee/main-mock-pdf-keys.json").read_text())
     for shard in sorted((ROOT / "public/jee-archive/q").glob("*.bin")):
         for q in json.loads(gzip.decompress(shard.read_bytes())).values():
+            if not q["chapter"]:
+                paper_ids[q["paper"], q["slug"]] = q["canonical"]
+                continue
+            assert q["complete"] and q["solution"] and q["slug"] not in records
+            item = {k: q[k] for k in ("body", "subject", "options", "solution", "kind", "choiceKey", "choiceKeys", "numericKey", "numericRange") if k in q}
+            if q["kind"] == "mcq" and "choiceKey" not in item:
+                pdf_key = pdf_keys.get(fingerprint(q).hex())
+                if pdf_key is not None:
+                    assert pdf_key in range(len(q["options"]))
+                    item["choiceKey"] = pdf_key
+            # A missing prompt/choice figure can change the answer; a solution-only figure cannot.
+            if any("jee-figure-pending" in part for part in [q["body"], *q["options"]]):
+                item["review"] = "Diagram pending"
+            elif not any(k in item for k in ("choiceKey", "choiceKeys", "numericKey", "numericRange")):
+                item["review"] = "Answer key unavailable"
+            records[q["slug"]] = item
             if not eligible(q):
                 continue
-            digest = sha256(json.dumps([q["body"], q["options"]], ensure_ascii=False).encode()).digest()
+            digest = fingerprint(q)
             if digest in seen:
                 continue
             seen.add(digest)
@@ -88,15 +173,13 @@ def build():
         count += len(rows)
 
     n = 0
-    while all(len(pools[s, k]) >= size for s in SUBJECTS for k, size in (("mcq", 20), ("integer", 5))):
+    old_mock_hashes = set()
+    while all(len(pools[s,k]) >= size for s in SUBJECTS for k,size in BLUEPRINT):
         n += 1
-        rows = []
-        for subject in SUBJECTS:
-            for kind, size in (("mcq", 20), ("integer", 5)):
-                pool = pools[subject, kind]
-                rows.extend(pool[:size])
-                del pool[:size]
+        rows = take_mock(pools)
+        old_mock_hashes.update(fingerprint(q) for q in rows)
         save(f"mock-{n:02}", rows)
+    write_archive_sets(records, paper_ids, old_mock_hashes, n)
     for subject in SUBJECTS:
         rows = pools[subject, "mcq"] + pools[subject, "integer"]
         for start in range(0, len(rows), 25):

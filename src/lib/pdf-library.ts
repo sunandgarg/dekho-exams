@@ -28,3 +28,5 @@ export function pdfBrowsePath(exam: string, kind: PdfKind) {
   return "/pyq-pdfs/past-years/" + (kind === "paper" ? "year-wise/" : "") + "jee/" + exam;
 }
 export const pdfLanguages: Record<string, string> = { en: "English", hi: "हिन्दी", bn: "বাংলা" };
+
+export const paperMockUrl = (paper: string) => "/questions/jee-main/mock-tests?paper=" + encodeURIComponent(paper);

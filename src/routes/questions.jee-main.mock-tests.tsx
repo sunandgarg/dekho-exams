@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useHydrated } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import papers from "@/data/jee-main-papers.json";
 import { seoHead } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import type { ArchiveQuestion } from "@/lib/jee-archive.functions";
@@ -25,13 +26,68 @@ const sets = Object.entries(files)
   })
   .sort((a, b) => Number(b.full) - Number(a.full) || a.id.localeCompare(b.id));
 type SetInfo = (typeof sets)[number];
+const archiveFiles = import.meta.glob<string>("../generated/jee-main-mocks/archive/*.json.gz", {
+  eager: true,
+  query: "?url&no-inline",
+  import: "default",
+});
+const archiveSets = new Map(
+  Object.entries(archiveFiles).map(([path, url]) => {
+    const [id, n] = path.split("/").pop()!.split(".");
+    const count = Number(n);
+    const name = id!.replace(
+      /^extra-(.+)-0?(\d+)$/,
+      (_, subject, index) => subject[0].toUpperCase() + subject.slice(1) + " · Set " + index,
+    );
+    return [
+      id!,
+      {
+        id: id!,
+        count,
+        name,
+        url,
+        full: false,
+        minutes: id!.startsWith("extra-") ? Math.ceil(count * 2.4) : 180,
+      },
+    ];
+  }),
+);
+const paperSets = papers.map((p) => ({ ...archiveSets.get(p.slug)!, name: p.title }));
+const extraSets = [...archiveSets.values()].filter((s) => s.id.startsWith("extra-"));
+const moreMocks = [...archiveSets.values()]
+  .filter((s) => s.id.startsWith("combined-"))
+  .map((s) => ({
+    ...s,
+    full: true,
+    minutes: 180,
+    name: "Mock test " + Number(s.id.slice("combined-".length)),
+  }));
+const groups = {
+  mixed: [...sets.filter((s) => s.full), ...moreMocks, ...sets.filter((s) => !s.full)],
+  papers: paperSets,
+  extra: extraSets,
+};
+type Group = keyof typeof groups;
 type Item = Pick<
   ArchiveQuestion,
-  "body" | "subject" | "options" | "solution" | "kind" | "choiceKey" | "numericKey"
->;
+  | "body"
+  | "subject"
+  | "options"
+  | "solution"
+  | "kind"
+  | "choiceKey"
+  | "numericKey"
+  | "numericRange"
+  | "choiceKeys"
+> & { review?: string };
 type Attempt = { end: number; index: number; done: boolean; answers: string[] };
-const count = sets.reduce((n, s) => n + s.count, 0);
 export const Route = createFileRoute("/questions/jee-main/mock-tests")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    paper:
+      typeof search["paper"] === "string" && paperSets.some((p) => p.id === search["paper"])
+        ? search["paper"]
+        : undefined,
+  }),
   head: () =>
     seoHead({
       title: "JEE Main mock tests with worked solutions | DekhoExams",
@@ -43,9 +99,13 @@ export const Route = createFileRoute("/questions/jee-main/mock-tests")({
   component: Library,
 });
 function Library() {
-  const [chosen, select] = useState(sets[0]?.id);
+  const { paper } = Route.useSearch();
+  const interactive = useHydrated();
+  const [group, setGroup] = useState<Group>(paper ? "papers" : "mixed");
+  const [chosen, select] = useState(paper ?? sets[0]?.id);
+  const options = groups[group];
   const [active, start] = useState<SetInfo | null>(null);
-  const choice = sets.find((s) => s.id === chosen);
+  const choice = options.find((s) => s.id === chosen);
   return (
     <div className="exam-wrap max-w-4xl">
       <a className="text-sm font-semibold text-primary" href="/past-years/jee/jee-main">
@@ -57,19 +117,43 @@ function Library() {
       ) : (
         <>
           <p className="my-4">
-            {sets.filter((s) => s.full).length} full mocks built from previous-year questions. Each
-            full mock has 75 questions across Physics, Chemistry and Mathematics. Subject sets cover
-            the remaining questions in the {count.toLocaleString("en-IN")}-question pool.
+            Take a previous-year paper under a timer, or build up to it with mixed mocks and shorter
+            subject sets.
           </p>
           <div className="question-panel">
+            <label className="mb-4 grid gap-2 font-semibold">
+              Practice mode
+              <select
+                className="rounded-lg border bg-card p-2"
+                disabled={!interactive}
+                value={group}
+                onChange={(e) => {
+                  const g = e.target.value as Group;
+                  setGroup(g);
+                  select(groups[g][0]?.id);
+                }}
+              >
+                <option value="mixed">
+                  Mixed practice · {groups.mixed.filter((s) => s.full).length} full mocks and
+                  subject tests
+                </option>
+                <option value="papers">
+                  Previous-year paper mocks · {paperSets.length} papers
+                </option>
+                <option value="extra">
+                  Chapter questions outside the papers · {extraSets.length} sets
+                </option>
+              </select>
+            </label>
             <label className="grid gap-2 font-semibold">
               Choose a test
               <select
-                className="rounded-lg border bg-card p-2"
+                className="w-full min-w-0 rounded-lg border bg-card p-2"
+                disabled={!interactive}
                 value={chosen}
                 onChange={(e) => select(e.target.value)}
               >
-                {sets.map((s) => (
+                {options.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} · {s.count} questions
                   </option>
@@ -79,10 +163,14 @@ function Library() {
             {choice && (
               <>
                 <p className="my-4">
-                  {choice.minutes} minutes · +4 for correct, −1 for incorrect, 0 for skipped. Review
-                  worked solutions after submitting.
+                  {choice.minutes} minutes · Practice scoring: +4 correct, −1 incorrect, 0 skipped.
+                  {group === "papers" &&
+                    " Attempt all listed questions in archive order. This practice score does not reproduce historical optional-section rules."}
+                  {group !== "mixed" &&
+                    " Questions with a missing answer key or prompt diagram are for review only and do not affect your score."}{" "}
+                  Read the worked solutions after submitting.
                 </p>
-                <Button onClick={() => start(choice)}>Open test</Button>
+                <Button disabled={!interactive} onClick={() => start(choice)}>Open test</Button>
               </>
             )}
           </div>
@@ -117,8 +205,22 @@ function initial(set: SetInfo): Attempt {
   };
 }
 const validNumber = (s: string) => /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(s);
-const correct = (q: Item, v: string) =>
-  validNumber(v) && Number(v) === (q.kind === "mcq" ? q.choiceKey : q.numericKey);
+const answerKey = (q: Item) => q.choiceKeys ?? (q.choiceKey === undefined ? [] : [q.choiceKey]);
+const correct = (q: Item, v: string) => {
+  if (q.review || !v) return false;
+  if (q.options.length) return v === answerKey(q).join(",");
+  const n = Number(v);
+  return (
+    validNumber(v) &&
+    (q.numericRange ? n >= q.numericRange[0] && n <= q.numericRange[1] : n === q.numericKey)
+  );
+};
+const displayKey = (q: Item) =>
+  q.options.length
+    ? answerKey(q)
+        .map((i) => String.fromCharCode(65 + i))
+        .join(", ")
+    : (q.numericRange?.join(" to ") ?? q.numericKey);
 function Runner({ set, back }: { set: SetInfo; back: () => void }) {
   const [items, load] = useState<Item[]>([]);
   const [a, update] = useState<Attempt | null>(null);
@@ -177,6 +279,9 @@ function Runner({ set, back }: { set: SetInfo; back: () => void }) {
     answer = a.answers[a.index]!,
     attempted = a.answers.filter(Boolean).length;
   const hits = a.done ? items.filter((q, i) => correct(q, a.answers[i]!)).length : 0;
+  const graded = items.filter((q) => !q.review).length;
+  const gradedAttempts = a.done ? items.filter((q, i) => !q.review && a.answers[i]).length : 0;
+  const misses = gradedAttempts - hits;
   const seconds = Math.max(0, Math.ceil((a.end - now) / 1000));
   const respond = (value: string) =>
     update((v) => {
@@ -192,7 +297,7 @@ function Runner({ set, back }: { set: SetInfo; back: () => void }) {
       <h2 className="mt-4 text-xl font-bold">{set.name}</h2>
       <p className="my-2" role="status">
         {a.done
-          ? `Score ${4 * hits - (attempted - hits)} / ${4 * items.length} · ${hits} correct · ${attempted - hits} incorrect · ${items.length - attempted} skipped`
+          ? `Score ${4 * hits - misses} / ${4 * graded} · ${hits} correct · ${misses} incorrect · ${graded - gradedAttempts} skipped${graded === items.length ? "" : " · " + (items.length - graded) + " review only"}`
           : `${attempted} of ${items.length} answered`}
       </p>
       {!a.done && (
@@ -218,20 +323,34 @@ function Runner({ set, back }: { set: SetInfo; back: () => void }) {
           <span className="capitalize">{q.subject}</span>
         </label>
         <div className="question-prompt jee-prose" dangerouslySetInnerHTML={{ __html: q.body }} />
-        {q.kind === "mcq" ? (
+        {q.review && (
+          <p className="my-2 font-semibold">
+            Review only · {q.review}. This question does not affect your score.
+          </p>
+        )}
+        {q.options.length > 0 ? (
           <fieldset className="mt-4 grid min-w-0 gap-2" disabled={a.done}>
             <legend className="sr-only">Your answer</legend>
             {q.options.map((option, i) => (
               <label
                 className="answer-choice"
                 key={i}
-                data-correct={(a.done && i === q.choiceKey) || undefined}
+                data-correct={(a.done && answerKey(q).includes(i) && !q.review) || undefined}
               >
                 <input
-                  type="radio"
+                  type={q.kind === "mcqm" ? "checkbox" : "radio"}
                   name="answer"
-                  checked={answer === String(i)}
-                  onChange={() => respond(String(i))}
+                  checked={answer.split(",").includes(String(i))}
+                  onChange={() => {
+                    if (q.kind !== "mcqm") return respond(String(i));
+                    const prev = answer ? answer.split(",").map(Number) : [];
+                    respond(
+                      (prev.includes(i)
+                        ? prev.filter((x) => x !== i)
+                        : [...prev, i].sort((a, b) => a - b)
+                      ).join(","),
+                    );
+                  }}
                 />
                 <b className="choice-letter">{String.fromCharCode(65 + i)}</b>
                 <span className="jee-prose" dangerouslySetInnerHTML={{ __html: option }} />
@@ -256,8 +375,11 @@ function Runner({ set, back }: { set: SetInfo; back: () => void }) {
         {a.done && (
           <section className="question-solution">
             <h3 className="font-bold">
-              {!answer ? "Skipped" : correct(q, answer) ? "Correct" : "Incorrect"} · Answer{" "}
-              {q.kind === "mcq" ? String.fromCharCode(65 + q.choiceKey!) : q.numericKey}
+              {q.review
+                ? "Review only · " + q.review
+                : (!answer ? "Skipped" : correct(q, answer) ? "Correct" : "Incorrect") +
+                  " · Answer " +
+                  displayKey(q)}
             </h3>
             <div className="jee-prose" dangerouslySetInnerHTML={{ __html: q.solution }} />
           </section>

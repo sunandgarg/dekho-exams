@@ -4,6 +4,8 @@
 
 The mock library builds timed sets from existing English past-paper questions with explicit keys, worked solutions and no external figures. Full mocks contain 20 single-choice and 5 integer questions per subject. Remaining questions are available as subject sets. Attempts and scores are local to the current browser tab. These sets have not been independently reviewed and remain outside the sitemap.
 
+Year-wise paper and PDF lists also link to timed attempts for all 202 JEE Main papers in archive order. Additional chapter-only sets include canonical questions outside those lists. Keys and diagrams use the existing archive; missing prompt figures and missing keys exclude a question from scoring, not from practice. Additional mixed mocks use scored PYQs without repeating a question between full mixed mocks. The offline PDF key matcher requires an exact normalized prompt, four complete ordered choices, and a numbered printed key; its output is bound to a digest of the prompt and choices. Scores use DekhoExams practice rules.
+
 ## PDF library (2026-11-17)
 
 The public PDF library uses a release snapshot of the Mumbai MySQL collection catalog. All eight exam hubs link to chapter and paper pages. The JEE Main files are individual extracts of the indexed page ranges. Only PDF editions are copied to the S3 delivery prefix. The production sitemap includes the library, reviewed JEE questions, populated practice pages and eligible editorial content.
