@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useHydrated } from "@tanstack/react-router";
 import { Bookmark, BookmarkCheck, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ export function PracticeNotice() {
 }
 
 export function QuestionCard({ q, index }: { q: Question; index: number }) {
+  const interactive = useHydrated();
   const p = useQuestionProgress();
   const prev = p.state.attempts[q.id];
   const [choice, setChoice] = useState<number | null>(null);
@@ -45,7 +47,7 @@ export function QuestionCard({ q, index }: { q: Question; index: number }) {
         {prev && <Badge variant={prev.ok ? "default" : "destructive"}>{prev.ok ? "Solved" : "Got wrong before"}</Badge>}
         <Button
           variant="ghost" size="sm" className="ml-auto"
-          aria-pressed={marked}
+          disabled={!interactive} aria-pressed={marked}
           onClick={() => { if (!p.toggleBookmark(q.id)) toast.error("Your browser blocked saving bookmarks."); }}
         >
           {marked ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}
@@ -54,7 +56,7 @@ export function QuestionCard({ q, index }: { q: Question; index: number }) {
       </div>
       <p id={`${q.id}-t`} className="question-prompt mb-4">{q.text}</p>
       {q.type === "mcq" ? (
-        <fieldset className="grid min-w-0 gap-2" data-graded={checked || undefined}>
+        <fieldset disabled={!interactive} className="grid min-w-0 gap-2" data-graded={checked || undefined}>
           <legend className="sr-only">Your answer for question {index + 1}</legend>
           {q.options!.map((o, i) => (
             <label key={i} className="answer-choice" data-correct={checked && i === q.answer || undefined}>
@@ -66,12 +68,12 @@ export function QuestionCard({ q, index }: { q: Question; index: number }) {
           ))}
         </fieldset>
       ) : (
-        <Input inputMode="decimal" aria-label="Your answer" placeholder="Type your numerical answer"
+        <Input disabled={!interactive} inputMode="decimal" aria-label="Your answer" placeholder="Type your numerical answer"
           value={text} onChange={(e) => { setText(e.target.value); setChecked(false); }} className="max-w-xs" />
       )}
       <div className="question-actions mt-4 flex flex-wrap items-center gap-3">
-        <Button size="sm" onClick={check}>Check answer</Button>
-        <Button size="sm" variant="outline" onClick={() => setShowSol(!showSol)} aria-expanded={showSol}>
+        <Button size="sm" disabled={!interactive} onClick={check}>Check answer</Button>
+        <Button size="sm" disabled={!interactive} variant="outline" onClick={() => setShowSol(!showSol)} aria-expanded={showSol}>
           {showSol ? "Hide solution" : "Show solution"}
         </Button>
         {checked && (

@@ -2,7 +2,7 @@ import { DownloadPdf } from "./pdf-browser";
 import { useState } from "react";
 import downloadPapers from "@/data/jee-main-pdf-papers.json";
 import { BookOpen, CalendarDays, Download } from "lucide-react";
-import { useParams, useRouterState } from "@tanstack/react-router";
+import { useHydrated, useParams, useRouterState } from "@tanstack/react-router";
 import { archiveCatalog, questionKind, type ArchiveId, type ArchivePaper } from "@/lib/jee-catalog";
 import { useQuestionProgress } from "@/lib/question-progress";
 import type { ArchiveQuestion, ArchiveRow } from "@/lib/jee-archive.functions";
@@ -268,6 +268,7 @@ export function QuestionView({
   inPaper?: boolean;
   language?: "en" | "hi";
 }) {
+  const interactive = useHydrated();
   const [choices, setChoices] = useState<number[]>([]),
     [revealed, setRevealed] = useState(false),
     [numeric, setNumeric] = useState(""),
@@ -304,6 +305,7 @@ export function QuestionView({
           <div className="flex flex-wrap items-center gap-3">
             <button
               className={btn}
+              disabled={!interactive}
               aria-pressed={saved}
               onClick={() =>
                 setSaveError(
@@ -355,7 +357,7 @@ export function QuestionView({
           dangerouslySetInnerHTML={{ __html: content.body }}
         />
         {content.options.length > 0 && (
-          <fieldset className="mt-5 grid min-w-0 gap-2" data-graded={checked || undefined}>
+          <fieldset disabled={!interactive} className="mt-5 grid min-w-0 gap-2" data-graded={checked || undefined}>
             <legend className="mb-2 font-semibold">Your answer</legend>
             {content.options.map((opt, i) => (
               <label
@@ -393,6 +395,7 @@ export function QuestionView({
             Your response
             <textarea
               className="mt-2 block w-full rounded-lg border bg-background p-3 font-normal"
+              disabled={!interactive}
               rows={q.kind === "subjective" ? 4 : 2}
             />
           </label>
@@ -405,6 +408,7 @@ export function QuestionView({
               type="text"
               inputMode="decimal"
               className="question-number mt-2 block w-full max-w-xs rounded-lg border px-3"
+              disabled={!interactive}
               value={numeric}
               onChange={(e) => {
                 setNumeric(e.target.value);
@@ -450,6 +454,7 @@ export function QuestionView({
           <>
             <button
               className={btn + " solution-toggle mt-4"}
+              disabled={!interactive}
               aria-expanded={revealed}
               onClick={() => setRevealed(!revealed)}
             >

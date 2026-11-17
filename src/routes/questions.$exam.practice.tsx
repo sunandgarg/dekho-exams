@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useHydrated } from "@tanstack/react-router";
 import { seoHead } from "@/lib/seo";
 import { examBySlug, isCorrect, questionsFor, scoreAttempt, type Question } from "@/lib/question-bank";
 import { useQuestionProgress } from "@/lib/question-progress";
@@ -26,6 +26,7 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "
 
 function PracticePage() {
   const exam = examBySlug(Route.useLoaderData().slug)!;
+  const interactive = useHydrated();
   const p = useQuestionProgress();
   const [subject, setSubject] = useState("all");
   const [minutes, setMinutes] = useState(10);
@@ -68,7 +69,7 @@ function PracticePage() {
           <label className="grid gap-1 text-sm">Minutes
             <Input type="number" min={1} max={180} value={minutes} onChange={(e) => setMinutes(Math.max(1, Math.min(180, Number(e.target.value) || 1)))} className="w-24" />
           </label>
-          <Button disabled={pool.length === 0} onClick={() => {
+          <Button disabled={!interactive || pool.length === 0} onClick={() => {
             setSet([...pool].sort(() => Math.random() - 0.5).slice(0, 20)); setRes({}); setDone(false); setLeft(minutes * 60);
           }}>Start ({Math.min(20, pool.length)} questions)</Button>
         </div>
