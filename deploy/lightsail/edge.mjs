@@ -73,6 +73,7 @@ export default {
       }
       const objectPath = approved?.sha ? "/jee-papers/reviewed/" + approved.sha + ".pdf" : path;
       let upstream;
+      let metadataOnly = false;
       if (approved?.sha && env.REVIEWED_PDFS_ON_ORIGIN === "true") {
         headers.set("X-Origin-Key", env.ORIGIN_KEY);
         headers.set("X-Dekho-Host", url.hostname);
@@ -82,7 +83,10 @@ export default {
           return new Response(null, {status:503, headers:{"Cache-Control":"no-store"}});
         }
       } else {
-        upstream = await s3.fetch(`https://${env.MEDIA_BUCKET}.s3.${env.AWS_REGION}.amazonaws.com${objectPath}`, { method: request.method, headers });
+        // Some edge locations turn signed HEAD into GET upstream. A one-byte signed GET keeps the signature valid.
+        metadataOnly = request.method === "HEAD" && !headers.has("Range");
+        if (metadataOnly) headers.set("Range", "bytes=0-0");
+        upstream = await s3.fetch(`https://${env.MEDIA_BUCKET}.s3.${env.AWS_REGION}.amazonaws.com${objectPath}`, { method: "GET", headers });
         const etag = (upstream.headers.get("etag") || "").replaceAll('"', "");
         if ((upstream.ok || upstream.status === 304) && etag !== (approved?.etag ?? figures[path]) && (!approved?.multipart || etag !== approved.multipart)) {
           await upstream.body?.cancel();
@@ -107,7 +111,14 @@ export default {
         publicHeaders.set("X-Robots-Tag", "noindex, follow");
         publicHeaders.set("Content-Disposition", 'attachment; filename="' + pdfFilename + '"');
       }
-      response = new Response(upstream.body, { status: upstream.status, headers: publicHeaders });
+      if (metadataOnly && upstream.status === 206) {
+        const total = /^bytes 0-0\/(\d+)$/.exec(publicHeaders.get("Content-Range") || "")?.[1];
+        if (!total) { await upstream.body?.cancel(); return new Response(null,{status:502}); }
+        publicHeaders.set("Content-Length", total);
+        publicHeaders.delete("Content-Range");
+      }
+      if (request.method === "HEAD") await upstream.body?.cancel();
+      response = new Response(request.method === "HEAD" ? null : upstream.body, { status: metadataOnly && upstream.status === 206 ? 200 : upstream.status, headers: publicHeaders });
     } else {
       const origin = new URL(env.APP_ORIGIN);
       if (origin.protocol !== "https:" || !env.ORIGIN_KEY) throw Error("Invalid origin configuration");

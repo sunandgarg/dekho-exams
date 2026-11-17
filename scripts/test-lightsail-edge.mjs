@@ -81,3 +81,13 @@ test("incorrect object versions never reach students", async t => {
   assert.equal(result.status,503);
   assert.equal(result.headers.get("Cache-Control"),"no-store");
 });
+
+test("S3 HEAD uses a tiny signed GET and returns full object metadata", async t => {
+  t.mock.method(globalThis, "fetch", async req => {
+    assert.equal(req.method, "GET"); assert.equal(req.headers.get("range"), "bytes=0-0");
+    return new Response("%",{status:206,headers:{etag:edition.etag,"content-length":"1","content-range":"bytes 0-0/938"}});
+  });
+  const result = await worker.fetch(new Request("https://dekhoexams.com"+paper,{method:"HEAD"}),{AWS_REGION:"ap-south-1",MEDIA_BUCKET:"example",S3_KEY_ID:"test",S3_SECRET:"test"},{});
+  assert.equal(result.status,200); assert.equal(result.headers.get("content-length"),"938");
+  assert.equal(result.headers.get("content-range"),null); assert.equal(result.body,null);
+});
