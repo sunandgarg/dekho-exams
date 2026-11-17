@@ -134,6 +134,9 @@ def build():
     records = {}
     paper_ids = {}
     pdf_keys = json.loads((ROOT / "scripts/jee/main-mock-pdf-keys.json").read_text())
+    review = json.loads((ROOT / "scripts/jee/main-pdf-review.json").read_text())
+    reader = {}
+    applied = set()
     for shard in sorted((ROOT / "public/jee-archive/q").glob("*.bin")):
         for q in json.loads(gzip.decompress(shard.read_bytes())).values():
             if not q["chapter"]:
@@ -141,18 +144,47 @@ def build():
                 continue
             assert q["complete"] and q["solution"] and q["slug"] not in records
             item = {k: q[k] for k in ("body", "subject", "options", "solution", "kind", "choiceKey", "choiceKeys", "numericKey", "numericRange") if k in q}
+            h = fingerprint(q).hex()
             if q["kind"] == "mcq" and "choiceKey" not in item:
-                pdf_key = pdf_keys.get(fingerprint(q).hex())
+                pdf_key = pdf_keys.get(h)
                 if pdf_key is not None:
                     assert pdf_key in range(len(q["options"]))
                     item["choiceKey"] = pdf_key
-            # A missing prompt/choice figure can change the answer; a solution-only figure cannot.
-            if any("jee-figure-pending" in part for part in [q["body"], *q["options"]]):
-                item["review"] = "Diagram pending"
-            elif not any(k in item for k in ("choiceKey", "choiceKeys", "numericKey", "numericRange")):
-                item["review"] = "Answer key unavailable"
+            entry = review.get(h, {})
+            key_fields = ("choiceKey", "choiceKeys", "numericKey", "numericRange")
+            if entry:
+                applied.add(h)
+            if entry.get("hold"):
+                for field in key_fields:
+                    item.pop(field, None)
+                item["review"] = "Answer key conflict"
+            else:
+                key = entry.get("key", {})
+                if key:
+                    assert len(key) == 1 and set(key) <= set(key_fields)
+                    assert not any(k in item and item[k] != v for k,v in key.items())
+                    assert all(i in range(len(q["options"])) for i in key.get("choiceKeys", [key["choiceKey"]] if "choiceKey" in key else []))
+                    item.update(key)
+                if "figures" in entry:
+                    pieces = [item["body"], *item["options"]]
+                    for fid, image, slot in entry["figures"]:
+                        assert re.fullmatch("[a-f0-9]{24}", fid) and re.fullmatch("[a-f0-9]{64}", image)
+                        path = "/images/jee-main-reviewed/" + image + ".png"
+                        assert (ROOT / "public" / path[1:]).is_file()
+                        pattern = r'<span class="jee-figure-pending" data-figure="' + fid + r'">[^<]*</span>'
+                        pieces[slot], count = re.subn(pattern, '<img src="' + path + '" alt="Question diagram" loading="lazy">', pieces[slot])
+                        assert count == 1
+                    item["body"], item["options"] = pieces[0], pieces[1:]
+                # A solution-only figure cannot change the mark.
+                if any("jee-figure-pending" in part for part in [item["body"], *item["options"]]):
+                    item["review"] = "Diagram pending"
+                elif not any(k in item for k in key_fields):
+                    item["review"] = "Answer key unavailable"
+            changes = {k:v for k,v in item.items() if k != "review" and q.get(k) != v}
+            if changes or entry.get("hold"):
+                reader[h] = {"hold": True} if entry.get("hold") else changes
             records[q["slug"]] = item
-            if not eligible(q):
+            if entry.get("hold") or not eligible(q):
                 continue
             digest = fingerprint(q)
             if digest in seen:
@@ -160,6 +192,8 @@ def build():
             seen.add(digest)
             pools[q["subject"], q["kind"]].append({k: q[k] for k in ("slug", "subject", "body", "options", "solution", "kind", "choiceKey" if q["kind"] == "mcq" else "numericKey")})
     OUT.mkdir(parents=True, exist_ok=True)
+    assert applied == set(review)
+    (OUT / "reader.json").write_text(json.dumps(reader, ensure_ascii=False, separators=(",",":")))
     emitted = set()
     count = 0
 

@@ -22,6 +22,8 @@ export type ArchiveQuestion = {
   choiceKeys?: number[];
   numericRange?: [number, number];
   hi?: { body: string; options: string[]; solution: string };
+  englishKey?: { choiceKey?: number; choiceKeys?: number[]; numericKey?: number; numericRange?: [number, number] };
+  keyConflict?: boolean;
   canonical?: string;
   prev: string | null;
   next: string | null;
@@ -93,9 +95,10 @@ export const archiveQuestion = createServerFn({ method: "GET" })
     const owners: ArchiveId[] = data.exam ? [data.exam] : ["jee-main", "jee-advanced"];
     for (const exam of owners) {
       const record = await wordpressRecord<ArchiveQuestion>(exam, "q", data.id);
-      if (record?.slug === data.id) return { ...record, exam };
-      const shard = await asset<Record<string, ArchiveQuestion>>(exam, path);
-      if (shard && Object.hasOwn(shard, data.id)) return { ...shard[data.id]!, exam };
+      const q = record?.slug === data.id ? record : (await asset<Record<string, ArchiveQuestion>>(exam, path))?.[data.id];
+      if (q?.slug === data.id) {
+        return { ...(exam === "jee-main" ? await (await import("./jee-main-pdf-review.server")).applyPdfReview(q) : q), exam };
+      }
     }
     return null;
   });

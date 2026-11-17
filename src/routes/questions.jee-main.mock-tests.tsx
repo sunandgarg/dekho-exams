@@ -167,7 +167,7 @@ function Library() {
                   {group === "papers" &&
                     " Attempt all listed questions in archive order. This practice score does not reproduce historical optional-section rules."}
                   {group !== "mixed" &&
-                    " Questions with a missing answer key or prompt diagram are for review only and do not affect your score."}{" "}
+                    " Questions with a missing diagram, an unverified answer, or conflicting keys are for review only and do not affect your score."}{" "}
                   Read the worked solutions after submitting.
                 </p>
                 <Button disabled={!interactive} onClick={() => start(choice)}>Open test</Button>

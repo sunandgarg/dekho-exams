@@ -279,9 +279,10 @@ export function QuestionView({
     [checked, setChecked] = useState(false);
   const { id, name, jeeHub, paperHub, papers } = useCatalog(owner);
   const paper = papers.find((p) => p.slug === q.paper);
-  const keys = q.choiceKeys ?? (q.choiceKey === undefined ? undefined : [q.choiceKey]);
+  const grading = language === "en" && q.englishKey ? { ...q, ...q.englishKey } : q;
+  const keys = grading.choiceKeys ?? (grading.choiceKey === undefined ? undefined : [grading.choiceKey]);
   const bounds =
-    q.numericRange ?? (q.numericKey === undefined ? undefined : [q.numericKey, q.numericKey]);
+    grading.numericRange ?? (grading.numericKey === undefined ? undefined : [grading.numericKey, grading.numericKey]);
   const content = language === "hi" && q.hi ? q.hi : q;
   const promptFigurePending = [content.body, ...content.options].some((part) =>
     part.includes('class="jee-figure-pending"'),
@@ -348,6 +349,7 @@ export function QuestionView({
             </nav>
           )}
         </div>
+        {q.keyConflict && <p role="note">{language === "hi" ? "उत्तर कुंजियों में अंतर है। इस प्रश्न के अंक नहीं दिए जाते।" : "The answer keys disagree. This question is available for review only."}</p>}
         {promptFigurePending && (
           <p className="mb-3 text-sm text-muted-foreground">
             {language === "hi"
