@@ -167,12 +167,16 @@ def build():
                     item.update(key)
                 if "figures" in entry:
                     pieces = [item["body"], *item["options"]]
+                    for slot, part in enumerate(pieces):
+                        assert re.findall(r'data-figure="([a-f0-9]{24})"', part) == [
+                            fid for fid, _, at in entry["figures"] if at == slot
+                        ], "Reviewed diagrams must cover every occurrence in printed order"
                     for fid, image, slot in entry["figures"]:
                         assert re.fullmatch("[a-f0-9]{24}", fid) and re.fullmatch("[a-f0-9]{64}", image)
                         path = "/images/jee-main-reviewed/" + image + ".png"
                         assert (ROOT / "public" / path[1:]).is_file()
                         pattern = r'<span class="jee-figure-pending" data-figure="' + fid + r'">[^<]*</span>'
-                        pieces[slot], count = re.subn(pattern, '<img src="' + path + '" alt="Question diagram" loading="lazy">', pieces[slot])
+                        pieces[slot], count = re.subn(pattern, '<img src="' + path + '" alt="Question diagram" loading="lazy">', pieces[slot], count=1)
                         assert count == 1
                     item["body"], item["options"] = pieces[0], pieces[1:]
                 # A solution-only figure cannot change the mark.

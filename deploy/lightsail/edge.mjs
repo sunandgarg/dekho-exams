@@ -24,7 +24,7 @@ export default {
       (media || publicPage || (anonymous && !url.search && path.startsWith("/assets/")));
     const keyUrl = new URL(url);
     // Keep cached HTML aligned with the branded site release.
-    if (publicPage) keyUrl.pathname = "/__edge/v10" + path;
+    if (publicPage) keyUrl.pathname = "/__edge/v11" + path;
     if (media || publicPage) keyUrl.search = "";
     const cacheKey = new Request(keyUrl, { headers: media ? request.headers : undefined });
     // Old cached PDFs also need a download filename, including language editions named en.pdf.
