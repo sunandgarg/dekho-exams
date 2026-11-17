@@ -98,7 +98,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
     const measure = () => {
       document.documentElement.style.setProperty(
         "--site-header-height",
-        `${header.getBoundingClientRect().height}px`,
+        `${header.offsetHeight}px`,
       );
       const topics = header.querySelector<HTMLElement>(".ozi-topic-nav");
       const active = topics?.querySelector<HTMLElement>('a[aria-current="page"]');

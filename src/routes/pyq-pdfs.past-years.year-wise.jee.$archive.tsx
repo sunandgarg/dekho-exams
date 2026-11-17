@@ -14,7 +14,7 @@ export const Route = createFileRoute("/pyq-pdfs/past-years/year-wise/jee/$archiv
       ? seoHead({
           title: [d.name, d.subject, "previous year question paper PDFs"].filter(Boolean).join(" "),
           description:
-            "Download " + d.entries.length + " papers by year and shift for " + d.name + ".",
+            `Browse ${d.entries.length} ${d.name} question papers by year. Find your exam date or shift and download the full PDF from DekhoExams.`,
           path: pdfBrowsePath(d.exam, d.kind).slice(1) + (d.subject ? "/" + d.subject : ""),
         })
       : seoHead({ title: "PDF collection unavailable", description: "", noindex: true }),

@@ -8,14 +8,14 @@ export function PdfTabs({ exam, active }: { exam: string; active?: PdfKind | und
     <nav className="pdf-tabs" aria-label="Browse PDFs">
       <a href={pdfBrowsePath(exam, "paper")} aria-current={active === "paper" ? "page" : undefined}>
         <Files size={16} />
-        Question papers
+        Year-wise papers
       </a>
       <a
         href={pdfBrowsePath(exam, "chapter")}
         aria-current={active === "chapter" ? "page" : undefined}
       >
         <BookOpen size={16} />
-        Chapter wise
+        Chapter-wise PDFs
       </a>
     </nav>
   );
@@ -40,7 +40,7 @@ function PaperEditions({ row }: { row: PdfBrowse["entries"][number] }) {
   return (
     <details className="pdf-more">
       <summary>
-        Editions <ChevronDown size={14} />
+        Language & theme <ChevronDown size={14} />
       </summary>
       <div>
         {row.languages.flatMap((lang) =>
@@ -69,6 +69,7 @@ export function PdfBrowser({ data }: { data: PdfBrowse }) {
   const { exam, name, kind, entries, subject } = data;
   const papers = kind === "paper";
   const [search, setSearch] = useState("");
+  const [year, setYear] = useState("");
   const groupOf = (e: PdfBrowse["entries"][number]) =>
     papers ? String(e.year || "Other papers") : e.subject;
   const groups = [...new Set(entries.map(groupOf))];
@@ -79,9 +80,12 @@ export function PdfBrowser({ data }: { data: PdfBrowse }) {
         (subjects.includes(b) ? subjects.indexOf(b) : 10),
     );
   const term = search.trim().toLowerCase();
-  const matching = entries.filter((e) =>
-    [e.title, e.subject, e.year || "", e.date, e.unit].join(" ").toLowerCase().includes(term),
-  );
+  const words = term.split(/\s+/);
+  const matching = entries.filter((e) => {
+    if (papers && year && groupOf(e) !== year) return false;
+    const details = [e.title, e.subject, e.year || "", e.date, e.unit].join(" ").toLowerCase();
+    return words.every((word) => details.includes(word));
+  });
   const label = papers ? "papers" : "chapters";
   return (
     <div className="pdf-view">
@@ -94,33 +98,43 @@ export function PdfBrowser({ data }: { data: PdfBrowse }) {
             {subject && <> / {entries[0]?.subject}</>}
           </nav>
           <p className="pdf-kicker">
-            {name} · {entries.length} {label}
+            {papers ? "DekhoExams PDF library" : name} · {entries.length} {label}
             {papers && groups.length > 1 && " · " + groups.at(-1) + "–" + groups[0]}
           </p>
           <h1>
             {papers
-              ? "Previous year question papers"
+              ? name + " previous year question papers"
               : subject
                 ? entries[0]?.subject + " chapter-wise questions"
                 : "Chapter-wise previous year questions"}
           </h1>
           <p className="pdf-sub">
             {papers
-              ? "Choose a year and shift to download the full paper."
+              ? exam === "jee-main"
+                ? "Find your shift and download the full paper as a PDF. Looking for an older exam? The collection includes AIEEE papers."
+                : "Choose a year to find and download a full question paper."
               : "Pick a subject and download the questions for one chapter at a time."}
           </p>
           <PdfTabs active={kind} exam={exam} />
         </div>
       </header>
       <div className="pdf-container pdf-content">
-        <div className="pdf-tools">
-          <nav aria-label={papers ? "Jump to year" : "Jump to subject"} className="pdf-jumps">
-            {groups.map((g) => (
-              <a key={g} href={"#" + anchor(g)} onClick={() => setSearch("")}>
-                {g}
-              </a>
-            ))}
-          </nav>
+        <div className={papers ? "pdf-tools pdf-paper-filters" : "pdf-tools"}>
+          {papers ? (
+            <label className="pdf-year-filter">
+              Exam year
+              <select value={year} onChange={(event) => setYear(event.target.value)}>
+                <option value="">All years</option>
+                {groups.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </label>
+          ) : (
+            <nav aria-label="Jump to subject" className="pdf-jumps">
+              {groups.map((g) => (
+                <a key={g} href={"#" + anchor(g)} onClick={() => setSearch("")}>{g}</a>
+              ))}
+            </nav>
+          )}
           <label className="pdf-search">
             <Search size={16} />
             <input
@@ -128,15 +142,15 @@ export function PdfBrowser({ data }: { data: PdfBrowse }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label={papers ? "Search papers" : "Search chapters"}
-              placeholder={papers ? "Find a year or shift" : "Find a chapter"}
+              placeholder={papers ? "Search by year, date or shift" : "Find a chapter"}
             />
           </label>
         </div>
         {!matching.length && (
           <p role="status">
-            No {label} match “{search}”.{" "}
-            <button type="button" className="underline" onClick={() => setSearch("")}>
-              Clear search
+            No {label} match your {papers ? "filters" : "search"}.{" "}
+            <button type="button" className="underline" onClick={() => { setSearch(""); setYear(""); }}>
+              {papers ? "Clear filters" : "Clear search"}
             </button>
           </p>
         )}
