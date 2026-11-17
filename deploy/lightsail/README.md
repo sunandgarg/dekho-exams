@@ -84,3 +84,7 @@ secrets for that Worker, then deploy with the same variables and
 `--name dekhoexams-frontend`. Verify HTTPS, canonical URLs, archive and media
 requests via dekhoexams.com. Roll back to the recorded Worker version if the
 production checks fail.
+
+## Reviewed media
+
+Only the paths in the diagram and PDF manifests can be served from the public media prefixes. Byte versions are part of the cache key. Currently the revised editions are staged as `/srv/dekhoexams/public/verified-pdf/<sha256>.pdf` on the existing Mumbai instance. Verify the staged SHA-256 checksums against `approved-pdfs.json` before updating the Worker; use `REVIEWED_PDFS_ON_ORIGIN:true` for this release. The other PDFs and archive figures continue to use private S3. To move revised editions to S3, copy them to `jee-papers/reviewed/<sha256>.pdf`, verify object ETags against the manifest, then set the flag to false. Never fall back to the old original when an approved version is unavailable. Deploy the same policy to both the public frontend and the AWS preview Worker.

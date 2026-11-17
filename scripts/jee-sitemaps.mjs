@@ -1,3 +1,7 @@
+import { pdfStatus } from "../src/lib/pdf-status.ts";
+import { pdfSubjectSlug } from "../src/lib/pdf-subject.ts";
+import { reviewedQuestion } from "../src/lib/reviewed-diagrams.ts";
+import { applyPdfReview } from "../src/lib/jee-main-pdf-review.server.ts";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
@@ -35,8 +39,12 @@ for (const [exam, folder] of [["jee-main","jee-archive"],["jee-advanced","jee-ad
   const questions=[];
   for (const shard of readdirSync("public/"+folder+"/q")) {
     const records=JSON.parse(gunzipSync(readFileSync("public/"+folder+"/q/"+shard)));
-    for (const q of Object.values(records)) if(readyQuestion(q))
+    for (const raw of Object.values(records)) {
+      if (raw.canonical) continue;
+      const q = reviewedQuestion(exam === "jee-main" ? await applyPdfReview(raw) : raw);
+      if(readyQuestion(q))
       questions.push(q.chapter ? "/past-years/jee/question/"+q.slug : year+"/"+q.paper+"/"+q.slug);
+    }
   }
   write(exam+"-questions",questions);
 }
@@ -45,7 +53,11 @@ const library = data("published-pdf-collections");
 const libraryPaths = ["/pdf-library"];
 for (const [exam, entries] of Object.entries(library)) {
   const hub = "/pdf-library/" + exam;
-  if (exam !== "jee-main" && exam !== "jee-advanced") libraryPaths.push("/pyq-pdfs/past-years/jee/"+exam, "/pyq-pdfs/past-years/year-wise/jee/"+exam);
-  libraryPaths.push(hub, ...entries.map(entry => hub + "/" + entry.path));
+  const chapters = "/pyq-pdfs/past-years/jee/" + exam;
+  if (!seen.has(chapters)) libraryPaths.push(chapters, "/pyq-pdfs/past-years/year-wise/jee/" + exam);
+  for (const subject of new Set(entries.filter(e => e.kind === "chapter").map(e => pdfSubjectSlug(e.subject)))) {
+    if (!seen.has(chapters + "/" + subject)) libraryPaths.push(chapters + "/" + subject);
+  }
+  libraryPaths.push(hub, ...entries.filter(entry => pdfStatus(entry.file) !== "held").map(entry => hub + "/" + entry.path));
 }
 write("pdf-library", libraryPaths);

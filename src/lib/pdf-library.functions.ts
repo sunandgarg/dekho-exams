@@ -26,7 +26,14 @@ export const getPdfPage = createServerFn({ method: "GET" })
         entry: null,
       };
     const entry = entries.find((row) => row.path === segments.join("/"));
-    return entry ? { exam, name, entries: [], entry } : null;
+    if (!entry) return null;
+    let printable: string | undefined;
+    if ((exam === "jee-main" || exam === "jee-advanced") && (await import("./pdf-status")).pdfStatus(entry.file) === "held") {
+      const rows = (await import("./pdf-browse.server")).browsePdfExam(exam, entry.kind === "chapter" ? "chapter" : "paper");
+      const slug = rows?.entries.find(e => e.path === entry.path)?.archiveSlug;
+      if (slug) printable = (await import("./jee-catalog")).archiveCatalog(exam).printPrefix + slug + "/en";
+    }
+    return { exam, name, entries: [], entry: { ...entry, printable } };
   });
 
 const browseInput = z.object({

@@ -135,6 +135,12 @@ def build():
     paper_ids = {}
     pdf_keys = json.loads((ROOT / "scripts/jee/main-mock-pdf-keys.json").read_text())
     review = json.loads((ROOT / "scripts/jee/main-pdf-review.json").read_text())
+    approved = json.loads((ROOT / "src/data/approved-diagrams.json").read_text())
+    def checked(part):
+        def img(m):
+            src = re.search(r'\bsrc="([^"]+)"', m[0])
+            return m[0] if src and src[1] in approved else '<span class="jee-figure-pending">Diagram pending review</span>'
+        return re.sub(r"<img\b[^>]*>", img, part, flags=re.I)
     reader = {}
     applied = set()
     for shard in sorted((ROOT / "public/jee-archive/q").glob("*.bin")):
@@ -179,14 +185,18 @@ def build():
                         pieces[slot], count = re.subn(pattern, '<img src="' + path + '" alt="Question diagram" loading="lazy">', pieces[slot], count=1)
                         assert count == 1
                     item["body"], item["options"] = pieces[0], pieces[1:]
+                restored = {k:v for k,v in item.items() if q.get(k) != v}
+                item.update(body=checked(item["body"]), options=[checked(o) for o in item["options"]], solution=checked(item["solution"]))
                 # A solution-only figure cannot change the mark.
                 if any("jee-figure-pending" in part for part in [item["body"], *item["options"]]):
                     item["review"] = "Diagram pending"
                 elif not any(k in item for k in key_fields):
                     item["review"] = "Answer key unavailable"
-            changes = {k:v for k,v in item.items() if k != "review" and q.get(k) != v}
+            changes = {} if entry.get("hold") else restored
             if changes or entry.get("hold"):
                 reader[h] = {"hold": True} if entry.get("hold") else changes
+            if entry.get("hold"):
+                item.update(body=checked(item["body"]), options=[checked(o) for o in item["options"]], solution=checked(item["solution"]))
             records[q["slug"]] = item
             if entry.get("hold") or not eligible(q):
                 continue

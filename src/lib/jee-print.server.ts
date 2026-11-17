@@ -1,3 +1,4 @@
+import { reviewedHtml } from "./reviewed-diagrams";
 import { env } from "cloudflare:workers";
 import { archiveCatalog, type ArchiveId } from "./jee-catalog";
 
@@ -15,7 +16,8 @@ export async function printEdition(exam: ArchiveId, paper: string, language: str
   );
   if (!res.ok || !res.body)
     return new Response("Edition unavailable", { status: res.status === 404 ? 404 : 503 });
-  return new Response(res.body.pipeThrough(new DecompressionStream("gzip")), {
+  const html = await new Response(res.body.pipeThrough(new DecompressionStream("gzip"))).text();
+  return new Response(reviewedHtml(html), {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "X-Robots-Tag": "noindex, follow",

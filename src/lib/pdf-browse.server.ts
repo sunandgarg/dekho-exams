@@ -1,3 +1,4 @@
+import { pdfSubjectSlug } from "./pdf-subject";
 import collections from "@/data/published-pdf-collections.json";
 import variants from "@/data/jee-main-pdf-papers.json";
 import { archiveCatalog, isArchive } from "./jee-catalog";
@@ -37,7 +38,7 @@ export function browsePdfExam(exam: string, kind: PdfKind, subject?: string) {
   if (!Object.hasOwn(pdfExams, exam)) return null;
   const info = archiveInfo(exam, kind);
   const entries = (catalogs[exam] ?? [])
-    .filter((e) => e.kind === kind && (!subject || e.subject.toLowerCase() === subject))
+    .filter((e) => e.kind === kind && (!subject || pdfSubjectSlug(e.subject) === subject))
     .map((e) => {
       const archive = info.get(
         (kind === "chapter" ? e.subject.toLowerCase() + "/" : "") + key(e.title),

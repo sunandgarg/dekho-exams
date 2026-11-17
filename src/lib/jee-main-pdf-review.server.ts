@@ -1,4 +1,4 @@
-import review from "../generated/jee-main-mocks/reader.json";
+import review from "../generated/jee-main-mocks/reader.json" with { type: "json" };
 import type { ArchiveQuestion } from "./jee-archive.functions";
 
 type Update = Partial<Pick<ArchiveQuestion, "body" | "options" | "choiceKey" | "choiceKeys" | "numericKey" | "numericRange">> & { hold?: boolean };

@@ -1,3 +1,5 @@
+import { pdfStatus } from "@/lib/pdf-status";
+import { pdfSubjectSlug } from "@/lib/pdf-subject";
 import { paperMockUrl } from "@/lib/pdf-library";
 import { ArrowDownToLine, BookOpen, ChevronDown, ChevronRight, Files, Search } from "lucide-react";
 import { useState } from "react";
@@ -30,10 +32,11 @@ export function DownloadPdf({
   title: string;
   compact?: boolean;
 }) {
+  if (pdfStatus(file) === "held") return <span className="text-sm text-muted-foreground">PDF pending figure review</span>;
   return (
     <a href={file} download className="pdf-download" aria-label={"Download " + title + " PDF"}>
       <ArrowDownToLine size={16} />
-      {compact ? "PDF" : "Download PDF"}
+      {compact ? "PDF" : "Download PDF"}{pdfStatus(file) === "partial" && <small> · Figures pending</small>}
     </a>
   );
 }
@@ -47,15 +50,17 @@ function PaperEditions({ row }: { row: PdfBrowse["entries"][number] }) {
         {row.languages.flatMap((lang) =>
           ["", "-dark"].map((theme) => {
             const text = (pdfLanguages[lang] || lang) + (theme ? " · Dark" : " · Light");
+            const file = "/jee-papers/jee-main/" + row.archiveSlug + "/" + lang + theme + ".pdf";
+            if (pdfStatus(file) === "held") return null;
             return (
               <a
                 key={lang + theme}
                 download
-                href={"/jee-papers/jee-main/" + row.archiveSlug + "/" + lang + theme + ".pdf"}
+                href={file}
                 aria-label={"Download " + row.title + " · " + text}
               >
                 <ArrowDownToLine size={14} />
-                {text}
+                {text}{pdfStatus(file) === "partial" ? " · Figures pending" : ""}
               </a>
             );
           }),
@@ -165,7 +170,7 @@ export function PdfBrowser({ data }: { data: PdfBrowse }) {
               className={papers ? "pdf-section pdf-year" : "pdf-section"}
             >
               <header className="pdf-group">
-                <h2>{g}</h2>
+                <h2>{!papers && !subject ? <a href={pdfBrowsePath(exam, "chapter") + "/" + pdfSubjectSlug(g)}>{g}</a> : g}</h2>
                 <span>
                   {rows.length} {rows.length === 1 ? (papers ? "paper" : "chapter") : label}
                 </span>

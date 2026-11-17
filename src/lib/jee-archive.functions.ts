@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { env } from "cloudflare:workers";
+import { reviewedQuestion } from "./reviewed-diagrams";
 import type { ArchiveId } from "./jee-catalog";
 import { z } from "zod";
 
@@ -97,7 +98,7 @@ export const archiveQuestion = createServerFn({ method: "GET" })
       const record = await wordpressRecord<ArchiveQuestion>(exam, "q", data.id);
       const q = record?.slug === data.id ? record : (await asset<Record<string, ArchiveQuestion>>(exam, path))?.[data.id];
       if (q?.slug === data.id) {
-        return { ...(exam === "jee-main" ? await (await import("./jee-main-pdf-review.server")).applyPdfReview(q) : q), exam };
+        return { ...reviewedQuestion(exam === "jee-main" ? await (await import("./jee-main-pdf-review.server")).applyPdfReview(q) : q), exam };
       }
     }
     return null;

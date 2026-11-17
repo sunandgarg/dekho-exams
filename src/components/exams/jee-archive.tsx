@@ -1,4 +1,5 @@
 import { paperMockUrl } from "@/lib/pdf-library";
+import { pdfStatus } from "@/lib/pdf-status";
 import { DownloadPdf } from "./pdf-browser";
 import { useState } from "react";
 import downloadPapers from "@/data/jee-main-pdf-papers.json";
@@ -128,15 +129,17 @@ export function EditionLinks({ edition, file }: { edition: string; file?: string
             {paper.languages.flatMap((lang) =>
               ["", "-dark"].map((theme) => {
                 const file = lang + theme + ".pdf";
+                const href = "/jee-papers/jee-main/" + edition + "/" + file;
+                if (pdfStatus(href) === "held") return null;
                 return (
                   <a
                     key={file}
                     className={btn}
-                    href={"/jee-papers/jee-main/" + edition + "/" + file}
+                    href={href}
                     download={"DekhoExams-" + edition + "-" + file}
                   >
                     {lang === "en" ? "English" : lang === "hi" ? "Hindi" : "Bengali"} ·{" "}
-                    {theme ? "Dark" : "Light"}
+                    {theme ? "Dark" : "Light"}{pdfStatus(href) === "partial" ? " · Figures pending" : ""}
                   </a>
                 );
               }),

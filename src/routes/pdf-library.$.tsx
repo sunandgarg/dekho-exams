@@ -1,3 +1,4 @@
+import { pdfStatus } from "@/lib/pdf-status";
 import { PdfTabs, DownloadPdf } from "@/components/exams/pdf-browser";
 import { pdfBrowsePath } from "@/lib/pdf-library";
 import { createFileRoute, notFound } from "@tanstack/react-router";
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/pdf-library/$")({
       : d.name + " chapter-wise and year-wise PDFs";
     return seoHead({
       title,
+      noindex: !!e && pdfStatus(e.file) === "held",
       description: e
         ? [
             "Download",
@@ -71,6 +73,7 @@ function PdfPage() {
             <h2>{entry.kind === "chapter" ? "Chapter PDF" : "Question paper PDF"}</h2>
             {entry.years && <p>Question years: {entry.years.split(",").join(", ")}</p>}
             <DownloadPdf file={entry.file} title={entry.title} />
+            {entry.printable && <p><a className="pdf-download" href={entry.printable}>Open the printable questions</a></p>}
           </article>
         ) : (
           <div className="pdf-choices">

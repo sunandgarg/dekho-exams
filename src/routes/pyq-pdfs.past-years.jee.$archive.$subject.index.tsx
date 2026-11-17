@@ -1,12 +1,15 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { pdfSubjectSlug } from "@/lib/pdf-subject";
+import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
 import { PdfBrowser } from "@/components/exams/pdf-browser";
 import { getPdfBrowse } from "@/lib/pdf-library.functions";
 import { pdfBrowsePath } from "@/lib/pdf-library";
 import { seoHead } from "@/lib/seo";
 export const Route = createFileRoute("/pyq-pdfs/past-years/jee/$archive/$subject/")({
   loader: async ({ params }) => {
+    const subject = pdfSubjectSlug(params.subject);
+    if (subject !== params.subject) throw redirect({ href: pdfBrowsePath(params.archive, "chapter") + "/" + subject, statusCode: 301 });
     const data = await getPdfBrowse({
-      data: { exam: params.archive, kind: "chapter", subject: params.subject },
+      data: { exam: params.archive, kind: "chapter", subject },
     });
     if (!data) throw notFound();
     return data;
@@ -14,7 +17,7 @@ export const Route = createFileRoute("/pyq-pdfs/past-years/jee/$archive/$subject
   head: ({ loaderData: d }) =>
     d
       ? seoHead({
-          title: [d.name, d.subject, "chapter-wise previous year question PDFs"]
+          title: [d.name, d.entries[0]?.subject, "chapter-wise previous year question PDFs"]
             .filter(Boolean)
             .join(" "),
           description:

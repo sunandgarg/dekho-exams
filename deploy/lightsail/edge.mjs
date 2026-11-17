@@ -1,3 +1,5 @@
+import figures from "../../src/data/approved-diagrams.json" with { type: "json" };
+import pdfs from "./approved-pdfs.json" with { type: "json" };
 import { AwsClient } from "aws4fetch";
 
 export default {
@@ -8,9 +10,22 @@ export default {
       return Response.redirect(url.href, 308);
     }
     const path = url.pathname;
-    const media = path.startsWith("/jee-papers/") || path.startsWith("/jee-figures/");
+    // Apply review before cache lookup, including on direct, range and conditional requests.
+    let decoded;
+    try { decoded = decodeURIComponent(path); } catch { return new Response(null, { status: 400 }); }
+    const canonical = new URL(decoded.replaceAll("\\", "/").replace(/\/{2,}/g, "/"), url.origin).pathname;
+    if (/^\/(?:jee-(?:figures|papers)|images\/jee-main-reviewed|verified-pdf)(?:\/|$)/i.test(canonical) &&
+        (decoded !== path || canonical !== path || canonical.startsWith("/verified-pdf/"))) return new Response(null, { status: 404 });
+    const diagram = path.startsWith("/jee-figures/") || path.startsWith("/images/jee-main-reviewed/");
+    const pdf = path.startsWith("/jee-papers/");
+    if ((diagram && !Object.hasOwn(figures, path)) || (pdf && !Object.hasOwn(pdfs, path))) {
+      return new Response(null, { status: 404, headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
+    }
+    const approved = pdf ? pdfs[path] : null;
+    const originDiagram = path.startsWith("/images/jee-main-reviewed/");
+    const media = pdf || diagram;
     const collectionPdf = /^\/jee-papers\/collections\/[a-z0-9-]+\/(?:[A-Za-z0-9_-]+\/)+[A-Za-z0-9_-]+\.pdf$/.test(path);
-    if (media && !collectionPdf && !/^\/(?:jee-papers\/[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9-]+\.pdf|jee-figures\/[a-f0-9]+\.png)$/.test(path)) return new Response(null, { status: 404 });
+    if (media && !originDiagram && !collectionPdf && !/^\/(?:jee-papers\/[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9-]+\.pdf|jee-figures\/[a-f0-9]+\.png)$/.test(path)) return new Response(null, { status: 404 });
     if (media && !["GET", "HEAD"].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: "GET, HEAD" } });
     // S3 keys are public editions; query strings and cookies do not select their contents.
     const page = path.startsWith("/past-years/") || path.startsWith("/pyq-pdfs/past-years/") || path === "/pdf-library" || path.startsWith("/pdf-library/");
@@ -24,7 +39,7 @@ export default {
       (media || publicPage || (anonymous && !url.search && path.startsWith("/assets/")));
     const keyUrl = new URL(url);
     // Keep cached HTML aligned with the branded site release.
-    if (publicPage) keyUrl.pathname = "/__edge/v11" + path;
+    if (publicPage || media) keyUrl.pathname = "/__edge/v12" + (media ? "/" + (approved?.sha ?? approved?.etag ?? figures[path]) : "") + path;
     if (media || publicPage) keyUrl.search = "";
     const cacheKey = new Request(keyUrl, { headers: media ? request.headers : undefined });
     // Old cached PDFs also need a download filename, including language editions named en.pdf.
@@ -41,13 +56,39 @@ export default {
       }
     }
     let response;
-    if (media) {
+    if (originDiagram) {
+      const upstream = await fetch(new URL(path, env.APP_ORIGIN), {headers:{"X-Origin-Key":env.ORIGIN_KEY, "X-Dekho-Host":url.hostname}, redirect:"manual"});
+      if (!upstream.ok) return new Response(null,{status:upstream.status,headers:{"Cache-Control":"no-store"}});
+      const bytes = await upstream.arrayBuffer();
+      const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)), b => b.toString(16).padStart(2,"0")).join("");
+      if (hash !== figures[path]) return new Response(null,{status:503,headers:{"Cache-Control":"no-store"}});
+      response = new Response(request.method === "HEAD" ? null : bytes,{headers:{
+        "Content-Type":"image/png","Content-Length":String(bytes.byteLength), "ETag":'"'+hash+'"', "Cache-Control":"public, max-age=300, s-maxage=86400",
+      }});
+    } else if (media) {
       const s3 = new AwsClient({ accessKeyId: env.S3_KEY_ID, secretAccessKey: env.S3_SECRET, region: env.AWS_REGION, service: "s3", retries: 1 });
       const headers = new Headers();
-      for (const name of ["Range", "If-None-Match", "If-Modified-Since"]) {
+      for (const name of ["Range"]) {
         if (request.headers.has(name)) headers.set(name, request.headers.get(name));
       }
-      const upstream = await s3.fetch(`https://${env.MEDIA_BUCKET}.s3.${env.AWS_REGION}.amazonaws.com${path}`, { method: request.method, headers });
+      const objectPath = approved?.sha ? "/jee-papers/reviewed/" + approved.sha + ".pdf" : path;
+      let upstream;
+      if (approved?.sha && env.REVIEWED_PDFS_ON_ORIGIN === "true") {
+        headers.set("X-Origin-Key", env.ORIGIN_KEY);
+        headers.set("X-Dekho-Host", url.hostname);
+        upstream = await fetch(new URL("/verified-pdf/" + approved.sha + ".pdf", env.APP_ORIGIN), { method: request.method, headers, redirect: "manual" });
+        if (upstream.ok && upstream.headers.get("etag") !== '"' + approved.sha + '"') {
+          await upstream.body?.cancel();
+          return new Response(null, {status:503, headers:{"Cache-Control":"no-store"}});
+        }
+      } else {
+        upstream = await s3.fetch(`https://${env.MEDIA_BUCKET}.s3.${env.AWS_REGION}.amazonaws.com${objectPath}`, { method: request.method, headers });
+        const etag = (upstream.headers.get("etag") || "").replaceAll('"', "");
+        if ((upstream.ok || upstream.status === 304) && etag !== (approved?.etag ?? figures[path]) && (!approved?.multipart || etag !== approved.multipart)) {
+          await upstream.body?.cancel();
+          return new Response(null, {status: 503, headers: {"Cache-Control": "no-store"}});
+        }
+      }
       const publicHeaders = new Headers();
       for (const name of ["Content-Length", "Content-Range", "Accept-Ranges", "Last-Modified", "ETag"]) {
         if (upstream.headers.has(name)) publicHeaders.set(name, upstream.headers.get(name));

@@ -3,6 +3,9 @@ import { serveStatic } from "srvx/static";
 import app from "../dist/server/server.js";
 import { env } from "./assets.mjs";
 
+import { stat } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { Readable } from "node:stream";
 const clientFile = serveStatic({ dir: "dist/client/assets" });
 await serve({
   manual: true,
@@ -12,6 +15,27 @@ await serve({
   async fetch(request) {
     const url = new URL(request.url);
     const path = url.pathname;
+    if (/^\/verified-pdf\/[a-f0-9]{64}\.pdf$/.test(path)) {
+      if (!["GET","HEAD"].includes(request.method)) return new Response(null, {status:405});
+      const file = "public" + path;
+      const size = (await stat(file).catch(() => null))?.size;
+      if (!size) return new Response(null, {status:404});
+      let start = 0, end = size - 1;
+      const range = request.headers.get("range");
+      const headers = new Headers({"Accept-Ranges":"bytes", "Content-Type":"application/pdf", ETag:'"' + path.slice(-68,-4) + '"'});
+      if (range) {
+        const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+        if (match) {
+          start = match[1] ? Number(match[1]) : Math.max(0, size - Number(match[2]));
+          end = match[1] && match[2] ? Math.min(end, Number(match[2])) : end;
+        }
+        if (!match || start > end || start >= size) return new Response(null,{status:416, headers:{"Content-Range":"bytes */"+size}});
+        headers.set("Content-Range", "bytes "+start+"-"+end+"/"+size);
+      }
+      headers.set("Content-Length", String(end - start + 1));
+      const body = request.method === "HEAD" ? null : Readable.toWeb(createReadStream(file, {start,end}));
+      return new Response(body, {status:range ? 206 : 200, headers});
+    }
     if (path.startsWith("/assets/")) {
       url.pathname = path.slice("/assets".length);
       return clientFile(new Request(url, { method: request.method }), () => new Response(null, { status: 404 }));
