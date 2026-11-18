@@ -503,6 +503,6 @@ test("JEE Advanced preserves its chapter inventory and paper identifiers alongsi
     }
   }
   assert.equal(Object.keys(metadata).length,81);
-  assert.equal(Object.values(counts).reduce((sum,count)=>sum+count,0),3959);
+  assert.equal(Object.values(counts).reduce((sum,count)=>sum+count,0),3961);
   assert.equal(new Set(papers.map(p=>p.slug)).size,79);
 });

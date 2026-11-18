@@ -26,7 +26,7 @@ export function ArchiveNav({ owner }: { owner?: ArchiveId } = {}) {
           <Icon size={18} aria-hidden="true"/>{text}
         </a>
       ))}
-      {id === "jee-main" && <a href="/questions/jee-main/mock-tests">Mock tests</a>}
+      <a href={"/questions/" + id + "/mock-tests"}>Mock tests</a>
     </nav>
   );
 }
@@ -223,7 +223,7 @@ export function PaperCatalog() {
                     <h3 className="font-semibold">
                       <a href={paperHub + "/" + p.slug}>{p.title}</a>
                     </h3>
-                    {id === "jee-main" && <a className="text-sm font-semibold text-primary" href={paperMockUrl(p.slug)}>Take timed mock →</a>}
+                    <a className="text-sm font-semibold text-primary" href={paperMockUrl(p.slug, id)}>Take timed mock →</a>
                   </article>
                 ))}
               </div>
@@ -257,7 +257,7 @@ export function PaperPage({ paper, rows, file }: { paper: ArchivePaper; rows: Ar
             Start paper practice →
           </a>
         )}
-        {id === "jee-main" && <a className={btn} href={paperMockUrl(paper.slug)}>Take timed mock →</a>}
+        <a className={btn} href={paperMockUrl(paper.slug, id)}>Take timed mock →</a>
         <EditionLinks edition={paper.slug} file={file} />
       </header>
       <ArchiveRows rows={rows} paper={paper.slug} />

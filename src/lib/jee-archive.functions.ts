@@ -98,7 +98,7 @@ export const archiveQuestion = createServerFn({ method: "GET" })
       const record = await wordpressRecord<ArchiveQuestion>(exam, "q", data.id);
       const q = record?.slug === data.id ? record : (await asset<Record<string, ArchiveQuestion>>(exam, path))?.[data.id];
       if (q?.slug === data.id) {
-        return { ...reviewedQuestion(exam === "jee-main" ? await (await import("./jee-main-pdf-review.server")).applyPdfReview(q) : q), exam };
+        return { ...reviewedQuestion(await (await import("./jee-main-pdf-review.server")).applyPdfReview(q, exam)), exam };
       }
     }
     return null;

@@ -27,6 +27,7 @@ import { Route as StudySplatRouteImport } from './routes/study.$'
 import { Route as StudySearchRouteImport } from './routes/study.search'
 import { Route as QuestionsExamIndexRouteImport } from './routes/questions.$exam.index'
 import { Route as QuestionsExamPracticeRouteImport } from './routes/questions.$exam.practice'
+import { Route as QuestionsJeeAdvancedMockTestsRouteImport } from './routes/questions.jee-advanced.mock-tests'
 import { Route as QuestionsJeeMainMockTestsRouteImport } from './routes/questions.jee-main.mock-tests'
 import { Route as PastYearsJeeArchiveIndexRouteImport } from './routes/past-years.jee.$archive.index'
 import { Route as PastYearsJeeQuestionSlugRouteImport } from './routes/past-years.jee.question.$slug'
@@ -136,6 +137,12 @@ const QuestionsExamPracticeRoute = QuestionsExamPracticeRouteImport.update({
   path: '/questions/$exam/practice',
   getParentRoute: () => rootRouteImport,
 } as any)
+const QuestionsJeeAdvancedMockTestsRoute =
+  QuestionsJeeAdvancedMockTestsRouteImport.update({
+    id: '/questions/jee-advanced/mock-tests',
+    path: '/questions/jee-advanced/mock-tests',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const QuestionsJeeMainMockTestsRoute =
   QuestionsJeeMainMockTestsRouteImport.update({
     id: '/questions/jee-main/mock-tests',
@@ -262,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/questions/': typeof QuestionsIndexRoute
   '/study/': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
+  '/questions/jee-advanced/mock-tests': typeof QuestionsJeeAdvancedMockTestsRoute
   '/questions/jee-main/mock-tests': typeof QuestionsJeeMainMockTestsRoute
   '/questions/$exam/': typeof QuestionsExamIndexRoute
   '/past-years/jee/question/$slug': typeof PastYearsJeeQuestionSlugRoute
@@ -299,6 +307,7 @@ export interface FileRoutesByTo {
   '/questions': typeof QuestionsIndexRoute
   '/study': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
+  '/questions/jee-advanced/mock-tests': typeof QuestionsJeeAdvancedMockTestsRoute
   '/questions/jee-main/mock-tests': typeof QuestionsJeeMainMockTestsRoute
   '/questions/$exam': typeof QuestionsExamIndexRoute
   '/past-years/jee/question/$slug': typeof PastYearsJeeQuestionSlugRoute
@@ -338,6 +347,7 @@ export interface FileRoutesById {
   '/questions/': typeof QuestionsIndexRoute
   '/study/': typeof StudyIndexRoute
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
+  '/questions/jee-advanced/mock-tests': typeof QuestionsJeeAdvancedMockTestsRoute
   '/questions/jee-main/mock-tests': typeof QuestionsJeeMainMockTestsRoute
   '/questions/$exam/': typeof QuestionsExamIndexRoute
   '/past-years/jee/question/$slug': typeof PastYearsJeeQuestionSlugRoute
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/questions/'
     | '/study/'
     | '/questions/$exam/practice'
+    | '/questions/jee-advanced/mock-tests'
     | '/questions/jee-main/mock-tests'
     | '/questions/$exam/'
     | '/past-years/jee/question/$slug'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/questions'
     | '/study'
     | '/questions/$exam/practice'
+    | '/questions/jee-advanced/mock-tests'
     | '/questions/jee-main/mock-tests'
     | '/questions/$exam'
     | '/past-years/jee/question/$slug'
@@ -453,6 +465,7 @@ export interface FileRouteTypes {
     | '/questions/'
     | '/study/'
     | '/questions/$exam/practice'
+    | '/questions/jee-advanced/mock-tests'
     | '/questions/jee-main/mock-tests'
     | '/questions/$exam/'
     | '/past-years/jee/question/$slug'
@@ -489,6 +502,7 @@ export interface RootRouteChildren {
   PyqPdfsIndexRoute: typeof PyqPdfsIndexRoute
   QuestionsIndexRoute: typeof QuestionsIndexRoute
   QuestionsExamPracticeRoute: typeof QuestionsExamPracticeRoute
+  QuestionsJeeAdvancedMockTestsRoute: typeof QuestionsJeeAdvancedMockTestsRoute
   QuestionsJeeMainMockTestsRoute: typeof QuestionsJeeMainMockTestsRoute
   QuestionsExamIndexRoute: typeof QuestionsExamIndexRoute
   PastYearsJeeQuestionSlugRoute: typeof PastYearsJeeQuestionSlugRoute
@@ -636,6 +650,13 @@ declare module '@tanstack/react-router' {
       path: '/questions/$exam/practice'
       fullPath: '/questions/$exam/practice'
       preLoaderRoute: typeof QuestionsExamPracticeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/questions/jee-advanced/mock-tests': {
+      id: '/questions/jee-advanced/mock-tests'
+      path: '/questions/jee-advanced/mock-tests'
+      fullPath: '/questions/jee-advanced/mock-tests'
+      preLoaderRoute: typeof QuestionsJeeAdvancedMockTestsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/questions/jee-main/mock-tests': {
@@ -796,6 +817,7 @@ const rootRouteChildren: RootRouteChildren = {
   PyqPdfsIndexRoute: PyqPdfsIndexRoute,
   QuestionsIndexRoute: QuestionsIndexRoute,
   QuestionsExamPracticeRoute: QuestionsExamPracticeRoute,
+  QuestionsJeeAdvancedMockTestsRoute: QuestionsJeeAdvancedMockTestsRoute,
   QuestionsJeeMainMockTestsRoute: QuestionsJeeMainMockTestsRoute,
   QuestionsExamIndexRoute: QuestionsExamIndexRoute,
   PastYearsJeeQuestionSlugRoute: PastYearsJeeQuestionSlugRoute,

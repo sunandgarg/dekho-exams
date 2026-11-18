@@ -41,7 +41,7 @@ for (const [exam, folder] of [["jee-main","jee-archive"],["jee-advanced","jee-ad
     const records=JSON.parse(gunzipSync(readFileSync("public/"+folder+"/q/"+shard)));
     for (const raw of Object.values(records)) {
       if (raw.canonical) continue;
-      const q = reviewedQuestion(exam === "jee-main" ? await applyPdfReview(raw) : raw);
+      const q = reviewedQuestion(await applyPdfReview(raw, exam));
       if(readyQuestion(q))
       questions.push(q.chapter ? "/past-years/jee/question/"+q.slug : year+"/"+q.paper+"/"+q.slug);
     }

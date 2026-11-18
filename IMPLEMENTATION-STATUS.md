@@ -46,8 +46,8 @@ The public PDF library uses a release snapshot of the Mumbai MySQL collection ca
 
 ## JEE Advanced archive (2026-11-08)
 
-- The chapter directory covers 81 chapters and 3,959 questions in Physics, Chemistry and Mathematics. The 79-paper directory spans 1978–2026 and contains 3,920 paper positions. 3,919 link to their matching chapter question. One IIT-JEE 1987 question is available only through its paper.
-- All 3,960 distinct questions have English and Hindi editions and an explanation. The reader and print editions retain the common passage for all 284 passage questions. The archive includes single and multiple correct, numerical, written-response, fill-in-the-blank and true/false questions.
+- The chapter directory covers 81 chapters and 3,961 questions in Physics, Chemistry and Mathematics. The 79-paper directory spans 1978–2026 and contains 3,922 paper positions. 3,921 link to their matching chapter question. One IIT-JEE 1987 question is available only through its paper.
+- All 3,962 distinct questions have English and Hindi editions and an explanation. The reader and print editions retain the common passage for all 284 passage questions. The archive includes single and multiple correct, numerical, written-response, fill-in-the-blank and true/false questions.
 - Every chapter and paper has printable English and Hindi Dekhoexams editions with optional solutions. PDF catalogs, practice links, print assets and approved figures stay on Dekhoexams. Unverified figures are marked in place. Paper identifiers are unchanged; the 32 JEE Main question URLs that contained a vendor name redirect to their new canonical URLs. Across both exams, 1,432 distinct questions have a pending diagram in a prompt or option in at least one language; another 4,055 have a pending diagram only in a solution. Full coverage reports are stored in `docs/jee-main/coverage.json` and `docs/jee-advanced/coverage.json`.
 
 ## JEE Main archive (2026-11-09)
@@ -157,3 +157,11 @@ import and HTTP smoke test passed for the Node backend. Check AWS resource
 and Worker version state before treating this configuration as live.
 
 The PDF library links all eight published exam collections to separate year and chapter download lists. Each row downloads the stored file directly. The JEE Main paper list also offers the published language and dark editions.
+
+## JEE Advanced recovery · 2026-11-18
+
+- Reconciled every currently listed public source chapter/paper question and retained older archive records. Added two missing canonical questions and their English/Hindi paper aliases.
+- Recovered 989 printed keys and 16 native official-PDF diagram crops across nine questions. Matching uses the original English stem and ordered options; ambiguous keys and six disagreements remain unscored.
+- 1,814 of 3,962 distinct questions are scorable. Remaining: 1,407 need a usable key, 469 need a reviewed prompt/option diagram, 266 need both, six have key conflicts. Written-response and ambiguous multiple numerical answers require review.
+- Added 79 timed paper attempts and 12 balanced mixed practice mocks (60 questions each). Practice scoring is +4/−1 with no partial credit, explicitly different from official year-specific marking. English PDF key recovery does not silently alter Hindi keys.
+- Current evidence: `scripts/jee/advanced-pdf-review.json` and `docs/media-review/jee-advanced-2026-11-18.json`. Deployment and live validation recorded in the recovery report.

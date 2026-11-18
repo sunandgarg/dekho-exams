@@ -29,4 +29,4 @@ export function pdfBrowsePath(exam: string, kind: PdfKind) {
 }
 export const pdfLanguages: Record<string, string> = { en: "English", hi: "हिन्दी", bn: "বাংলা" };
 
-export const paperMockUrl = (paper: string) => "/questions/jee-main/mock-tests?paper=" + encodeURIComponent(paper);
+export const paperMockUrl = (paper: string, exam = "jee-main") => "/questions/" + exam + "/mock-tests?paper=" + encodeURIComponent(paper);
