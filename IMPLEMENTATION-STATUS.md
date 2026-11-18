@@ -1,5 +1,11 @@
 # Dekhoexams Implementation Status
 
+## JEE Advanced full remaining-bank recovery (2026-11-19)
+
+Rechecked all 1,358 remaining records against the supplied chapter/year PDF collection and 38 official papers from the archive (including OCR on older scans). Added 122 printed keys after full text, mathematical glyph and ordered-option matching. Restored 581 distinct clean diagrams across 177 questions: 121 from complete embedded PDF objects and 56 from unmodified official-paper crops, with source hashes and exact image slots recorded. Normal/24x contrast inspection and full-resolution OCR were applied to the candidates. Seventy-one source image candidates remain withheld for branding or unresolved artefacts. Two newly identified alternative-key cases remain held; no answers were solved or guessed. Raw archives and Hindi records are unchanged.
+
+**2,781 of 3,962 questions are now scorable**, up 177. The 1,181 remaining comprise 1,033 missing keys only, 74 missing diagrams only, 66 missing both, and eight conflicts/unsupported alternative keys. Among those remaining are 777 subjective/fill-in questions that the current automatic scorer does not support. One clean diagram was restored to an ambiguous-key question without enabling scoring; 20 further keys were retained while their figures remain pending. The bank now generates 21 mixed mocks (1,260 positions), plus 79 paper sets and four extra sets. Evidence: `docs/media-review/jee-advanced-final-2026-11-19.json`. Printed-key matching is not an independent academic correctness review. Release checks and publication are in progress; no hosting plan has changed.
+
 ## JEE Advanced supplied-PDF recovery (2026-11-19)
 
 Rechecked the remaining 1,625 questions against the supplied chapter/year PDF collection. Added 26 printed keys after visual comparison of mathematical layout and ordered choices, and restored clean diagrams for 244 questions (241 with existing keys, three with new keys). All image bytes are complete embedded PDF objects, unaltered and hash-approved after normal/contrast visual inspection and OCR. Sixteen additional diagram candidates remain withheld for branding or unresolved artefacts. No inferred answers or watermark removal was used; original question records and Hindi content are preserved.
