@@ -220,3 +220,10 @@ Recovered two true/false keys after decoding previously uncached vector glyphs, 
 - Added 59 missing keys and 22 prompt diagrams (20 distinct image files) from official papers. Normal visual, amplified faint-ink and full-resolution OCR checks passed for these image crops. Original PDF pixels are preserved.
 - Build now yields 2,295 of 3,962 scorable questions (+81). Remaining 1,667: 1,070 need keys, 402 diagrams, 191 both, and four conflicts. Fifteen mixed mocks contain 900 questions; 79 papers and four extra sets remain available.
 - Raw archive/Hindi records and unresolved questions are unchanged. Hash-bound patches and official PDF evidence: `docs/media-review/jee-advanced-next-2026-11-18.json`. Release verification: `docs/jee-advanced-next-verification-2026-11-18.md`.
+
+## JEE Advanced additional evidence pass · 2026-11-19
+
+- Recovered 67 printed keys and published 94 clean official diagram crops for 46 questions. Complete stems, formulas, passage context and local option order were compared before approval. All new images passed normal visual inspection, amplified-contrast inspection and full-resolution OCR.
+- Now 2,875 of 3,962 questions are scorable, up 94 from 2,781. The remaining 1,087 comprise 984 needing keys, 47 needing prompt/option diagrams, 48 needing both, and eight key conflicts. Of the missing-key records, 777 use unsupported written-response/fill-in formats. Incomplete formulas, alternative answer sets and unverified figures remain unscored.
+- There are 22 balanced mixed mocks with 1,320 questions, 79 paper attempts and four extra sets. Existing marking rules, raw archive records and Hindi keys are unchanged. No infrastructure upgrade.
+- Evidence and hashes: `docs/media-review/jee-advanced-next-2026-11-19.json`. Deployment and live checks will be recorded in `docs/jee-advanced-next-verification-2026-11-19.md` after publication.
