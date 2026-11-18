@@ -1,5 +1,15 @@
 # Dekhoexams Implementation Status
 
+## Media cache follow-up and storage verification (2026-11-18)
+
+Question, solution, print and generated mock images now include the approved file digest in their URLs. PDF download links, including English/Hindi and light/dark editions, also carry the current edition digest. This prevents revised files from reusing a browser's older copy at the same URL. Cloudflare's public page/media cache namespace was advanced to v13. The existing approval checks still run before cache access; the allowlists were not widened.
+
+An additional rotated, contrast-amplified OCR pass covered all 5,654 distinct approved web images and 8,419 further PDF figure views after pixel-signature deduplication. Visual examination of the flagged candidates found circuit/chemistry symbols and DekhoExams logos, with no additional confirmed competitor marks. This supplements the previous native-resolution and faint-ink review; it is not a proof that every possible mark is detectable. The 181 held diagram URLs, 12 held scanned PDFs and 1,284 partial PDF editions remain unchanged.
+
+The production release passed version checks on question, bilingual print and chapter/year PDF links, ten complete PDF downloads with three concurrent transfers and byte-range resumption, and all 193 held media URL checks. A narrow mobile layout showed the approved diagram and revealed solution; the withheld photo was absent, with no horizontal overflow. The sitemap contains 23,852 unique URLs across eleven files. Search Console showed Success, last read 17 November, and 23,284 discovered pages on this check; discovery is not an indexed-page count.
+
+Live storage verification: `published_assets` contains 18,321 compressed archive assets (243,815,529 stored bytes) for the active release. These are file/shard records, not one database row per question. The three PDF collection tables contain the eight imported catalogs with 1,246 entries. The private Mumbai S3 bucket holds original collection archives, main question figures, original/revised PDFs and site-release backups. Logos and supplemental reviewed diagrams are served from app files on Lightsail through Cloudflare; the whole site does not read every file directly from S3. WordPress is not configured for the live question reader. [Follow-up verification record](docs/media-review/followup-2026-11-18.json).
+
 ## Reviewed PDF storage (2026-11-18)
 
 The revised PDF editions are now served from the existing private S3 bucket in Mumbai through Cloudflare. The 1,284 objects retain their content-addressed filenames and manifest checksums. Lightsail keeps verified rollback copies; no server/database plan was upgraded. Public URLs, figure holds and sitemap eligibility are unchanged.
