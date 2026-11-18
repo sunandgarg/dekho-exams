@@ -1,7 +1,8 @@
 import { useHydrated } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { validNumber, answerKey, correct, displayKey, type Item } from "@/lib/mock-scoring";
+import { validNumber, selectQuestions, type Item } from "@/lib/mock-scoring";
+import { MockResults } from "./mock-results";
 export type SetInfo = {
   id: string;
   name: string;
@@ -27,16 +28,17 @@ export function MockLibrary({
   const [group, setGroup] = useState<Group>(paper ? "papers" : "mixed");
   const [chosen, select] = useState(paper ?? groups.mixed[0]?.id);
   const options = groups[group];
+  const [scoredOnly, setScoredOnly] = useState(true);
   const [active, start] = useState<SetInfo | null>(null);
   const choice = options.find((s) => s.id === chosen);
   return (
-    <div className="exam-wrap max-w-4xl">
+    <div className="exam-wrap max-w-6xl">
       <a className="text-sm font-semibold text-primary" href={"/past-years/jee/" + exam}>
         ← {label}
       </a>
       <h1 className="mt-3 text-3xl font-extrabold">{label} mock tests</h1>
       {active ? (
-        <Runner key={active.url} set={active} back={() => start(null)} />
+        <Runner key={active.url} set={active} scoredOnly={scoredOnly} back={() => start(null)} />
       ) : (
         <>
           <p className="my-4">
@@ -88,12 +90,27 @@ export function MockLibrary({
                 <p className="my-4">
                   {choice.minutes} minutes · Practice scoring: +4 correct, −1 incorrect, 0 skipped.
                   {group === "papers" &&
-                    " Attempt all listed questions in archive order. This practice score does not reproduce the official year-specific marking or optional-section rules."}
-                  {" "}Questions with a missing diagram, an unverified answer, or conflicting keys are
-                  for review only and do not affect your score. Multiple-answer questions receive
-                  credit only when every correct option, and no other option, is selected. No
-                  partial credit. Read the available solutions after submitting.
+                    " Questions retain their original archive numbering. This practice score does not reproduce the official year-specific marking or optional-section rules."}{" "}
+                  Scored tests exclude questions awaiting a verified key or required diagram.
+                  Full-paper review includes them without assigning marks. Multiple-answer questions
+                  receive credit only when every correct option, and no other option, is selected.
+                  No partial credit. Read the available solutions after submitting.
                 </p>
+                <label className="mb-4 flex items-start gap-3">
+                  <input
+                    className="mt-1 size-5"
+                    type="checkbox"
+                    checked={scoredOnly}
+                    disabled={!interactive}
+                    onChange={(e) => setScoredOnly(e.target.checked)}
+                  />
+                  <span>
+                    <strong>Scored questions only</strong>
+                    <br />
+                    Uncheck to include every listed question for full-paper review. Unverified
+                    questions stay unscored.
+                  </span>
+                </label>
                 <Button disabled={!interactive} onClick={() => start(choice)}>
                   Open test
                 </Button>
@@ -130,38 +147,59 @@ function initial(set: SetInfo): Attempt {
     answers: Array(set.count).fill(""),
   };
 }
-function Runner({ set, back }: { set: SetInfo; back: () => void }) {
-  const [items, load] = useState<Item[]>([]);
+function Runner({
+  set,
+  scoredOnly,
+  back,
+}: {
+  set: SetInfo;
+  scoredOnly: boolean;
+  back: () => void;
+}) {
+  const [items, load] = useState<ReturnType<typeof selectQuestions>>([]);
+  const storageUrl = set.url + (scoredOnly ? "#scored-v1" : "");
   const [a, update] = useState<Attempt | null>(null);
   const [now, tick] = useState(Date.now);
-  const [error, fail] = useState(false);
+  const [error, fail] = useState("");
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
       const r = await fetch(set.url, { signal: controller.signal });
       if (!r.ok || !r.body) throw Error();
+      // Some servers send Content-Encoding: gzip, so the browser has already decoded it.
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      const body = new Blob([bytes]).stream();
       const data: Item[] = await new Response(
-        r.body.pipeThrough(new DecompressionStream("gzip")),
+        bytes[0] === 0x1f && bytes[1] === 0x8b
+          ? body.pipeThrough(new DecompressionStream("gzip"))
+          : body,
       ).json();
       if (data.length !== set.count) throw Error();
       if (!controller.signal.aborted) {
-        load(data);
-        update(initial(set));
+        const selected = selectQuestions(data, scoredOnly);
+        if (!selected.length) {
+          fail(
+            "This paper does not yet have verified, scorable questions. Choose another test or uncheck ‘Scored questions only’ for a full-paper review.",
+          );
+          return;
+        }
+        load(selected);
+        update(initial({ ...set, count: selected.length, url: storageUrl }));
         tick(Date.now());
       }
     })().catch(() => {
-      if (!controller.signal.aborted) fail(true);
+      if (!controller.signal.aborted) fail("This test could not load. Open it again to retry.");
     });
     return () => controller.abort();
-  }, [set]);
+  }, [set, scoredOnly, storageUrl]);
   useEffect(() => {
     if (a)
       try {
-        sessionStorage.setItem("de-mock:" + set.url, JSON.stringify(a));
+        sessionStorage.setItem("de-mock:" + storageUrl, JSON.stringify(a));
       } catch {
         /* Practice still works in memory. */
       }
-  }, [a, set.url]);
+  }, [a, storageUrl]);
   const end = a?.end,
     done = a?.done;
   useEffect(() => {
@@ -176,9 +214,7 @@ function Runner({ set, back }: { set: SetInfo; back: () => void }) {
   if (!a)
     return (
       <div className="my-4">
-        <p role="status">
-          {error ? "This test could not load. Open it again to retry." : "Loading questions…"}
-        </p>
+        <p role="status">{error || "Loading questions…"}</p>
         <Button variant="outline" onClick={back}>
           Test library
         </Button>
@@ -187,10 +223,6 @@ function Runner({ set, back }: { set: SetInfo; back: () => void }) {
   const q = items[a.index]!,
     answer = a.answers[a.index]!,
     attempted = a.answers.filter(Boolean).length;
-  const hits = a.done ? items.filter((q, i) => correct(q, a.answers[i]!)).length : 0;
-  const graded = items.filter((q) => !q.review).length;
-  const gradedAttempts = a.done ? items.filter((q, i) => !q.review && a.answers[i]).length : 0;
-  const misses = gradedAttempts - hits;
   const seconds = Math.max(0, Math.ceil((a.end - now) / 1000));
   const respond = (value: string) =>
     update((v) => {
@@ -204,109 +236,106 @@ function Runner({ set, back }: { set: SetInfo; back: () => void }) {
   return (
     <>
       <h2 className="mt-4 text-xl font-bold">{set.name}</h2>
-      <p className="my-2" role="status">
-        {a.done
-          ? `Score ${4 * hits - misses} / ${4 * graded} · ${hits} correct · ${misses} incorrect · ${graded - gradedAttempts} skipped${graded === items.length ? "" : " · " + (items.length - graded) + " review only"}`
-          : `${attempted} of ${items.length} answered`}
-      </p>
+      {a.done ? (
+        <MockResults
+          name={set.name}
+          id={set.id}
+          items={items}
+          answers={a.answers}
+          total={set.count}
+        />
+      ) : (
+        <p className="my-2" role="status">
+          {attempted} of {items.length} answered
+          {scoredOnly &&
+            items.length < set.count &&
+            ` · ${set.count - items.length} questions awaiting verification excluded`}
+        </p>
+      )}
       {!a.done && (
         <p className="mb-3">
           Time left {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}
         </p>
       )}
-      <article className="question-panel" data-subject={q.subject}>
-        <label className="mb-3 flex flex-wrap items-center gap-2 font-bold">
-          Question
-          <select
-            value={a.index}
-            className="rounded-lg border bg-card p-2"
-            onChange={(e) => jump(Number(e.target.value))}
-          >
-            {items.map((_, i) => (
-              <option key={i} value={i}>
-                {i + 1}
-                {a.answers[i] ? " · answered" : ""}
-              </option>
-            ))}
-          </select>
-          <span className="capitalize">{q.subject}</span>
-        </label>
-        <div className="question-prompt jee-prose" dangerouslySetInnerHTML={{ __html: q.body }} />
-        {q.review && (
-          <p className="my-2 font-semibold">
-            Review only · {q.review}. This question does not affect your score.
-          </p>
-        )}
-        {q.options.length > 0 ? (
-          <fieldset className="mt-4 grid min-w-0 gap-2" disabled={a.done}>
-            <legend className="sr-only">Your answer</legend>
-            {q.options.map((option, i) => (
-              <label
-                className="answer-choice"
-                key={i}
-                data-correct={(a.done && answerKey(q).includes(i) && !q.review) || undefined}
-              >
-                <input
-                  type={q.kind === "mcqm" ? "checkbox" : "radio"}
-                  name="answer"
-                  checked={answer.split(",").includes(String(i))}
-                  onChange={() => {
-                    if (q.kind !== "mcqm") return respond(String(i));
-                    const prev = answer ? answer.split(",").map(Number) : [];
-                    respond(
-                      (prev.includes(i)
-                        ? prev.filter((x) => x !== i)
-                        : [...prev, i].sort((a, b) => a - b)
-                      ).join(","),
-                    );
-                  }}
-                />
-                <b className="choice-letter">{String.fromCharCode(65 + i)}</b>
-                <span className="jee-prose" dangerouslySetInnerHTML={{ __html: option }} />
-              </label>
-            ))}
-          </fieldset>
-        ) : (
-          <label className="mt-4 grid gap-1">
-            {q.kind === "integer" ? "Numerical answer" : "Your answer (review only)"}
-            <input
-              className="rounded-lg border p-2"
-              inputMode={q.kind === "integer" ? "decimal" : "text"}
-              disabled={a.done}
-              value={answer}
-              onChange={(e) => respond(e.target.value)}
-            />
-            {q.kind === "integer" && answer && !validNumber(answer) && (
-              <span role="status">Enter a number to receive credit.</span>
-            )}
+      {!a.done && (
+        <article className="question-panel" data-subject={q.subject}>
+          <label className="mb-3 flex flex-wrap items-center gap-2 font-bold">
+            Question
+            <select
+              value={a.index}
+              className="rounded-lg border bg-card p-2"
+              onChange={(e) => jump(Number(e.target.value))}
+            >
+              {items.map((item, i) => (
+                <option key={i} value={i}>
+                  {item.number}
+                  {a.answers[i] ? " · answered" : ""}
+                </option>
+              ))}
+            </select>
+            <span className="capitalize">{q.subject}</span>
           </label>
-        )}
-        {a.done && (
-          <section className="question-solution">
-            <h3 className="font-bold">
-              {q.review
-                ? "Review only · " + q.review
-                : (!answer ? "Skipped" : correct(q, answer) ? "Correct" : "Incorrect") +
-                  " · Answer " +
-                  displayKey(q)}
-            </h3>
-            <div className="jee-prose" dangerouslySetInnerHTML={{ __html: q.solution }} />
-          </section>
-        )}
-        <nav className="mt-4 flex flex-wrap gap-2" aria-label="Test questions">
-          <Button variant="outline" disabled={a.index === 0} onClick={() => jump(a.index - 1)}>
-            Previous
-          </Button>
-          <Button disabled={a.index === items.length - 1} onClick={() => jump(a.index + 1)}>
-            Next
-          </Button>
-          {!a.done && (
-            <Button variant="ghost" disabled={!answer} onClick={() => respond("")}>
-              Clear answer
-            </Button>
+          <div className="question-prompt jee-prose" dangerouslySetInnerHTML={{ __html: q.body }} />
+          {q.review && (
+            <p className="my-2 font-semibold">
+              Not graded · {q.review}. Included for review while verification is pending.
+            </p>
           )}
-        </nav>
-      </article>
+          {q.options.length > 0 ? (
+            <fieldset className="mt-4 grid min-w-0 gap-2" disabled={a.done}>
+              <legend className="sr-only">Your answer</legend>
+              {q.options.map((option, i) => (
+                <label className="answer-choice" key={i}>
+                  <input
+                    type={q.kind === "mcqm" ? "checkbox" : "radio"}
+                    name="answer"
+                    checked={answer.split(",").includes(String(i))}
+                    onChange={() => {
+                      if (q.kind !== "mcqm") return respond(String(i));
+                      const prev = answer ? answer.split(",").map(Number) : [];
+                      respond(
+                        (prev.includes(i)
+                          ? prev.filter((x) => x !== i)
+                          : [...prev, i].sort((a, b) => a - b)
+                        ).join(","),
+                      );
+                    }}
+                  />
+                  <b className="choice-letter">{String.fromCharCode(65 + i)}</b>
+                  <span className="jee-prose" dangerouslySetInnerHTML={{ __html: option }} />
+                </label>
+              ))}
+            </fieldset>
+          ) : (
+            <label className="mt-4 grid gap-1">
+              {q.kind === "integer" ? "Numerical answer" : "Your answer (review only)"}
+              <input
+                className="rounded-lg border p-2"
+                inputMode={q.kind === "integer" ? "decimal" : "text"}
+                disabled={a.done}
+                value={answer}
+                onChange={(e) => respond(e.target.value)}
+              />
+              {q.kind === "integer" && answer && !validNumber(answer) && (
+                <span role="status">Enter a number to receive credit.</span>
+              )}
+            </label>
+          )}
+          <nav className="mt-4 flex flex-wrap gap-2" aria-label="Test questions">
+            <Button variant="outline" disabled={a.index === 0} onClick={() => jump(a.index - 1)}>
+              Previous
+            </Button>
+            <Button disabled={a.index === items.length - 1} onClick={() => jump(a.index + 1)}>
+              Next
+            </Button>
+            {!a.done && (
+              <Button variant="ghost" disabled={!answer} onClick={() => respond("")}>
+                Clear answer
+              </Button>
+            )}
+          </nav>
+        </article>
+      )}
       <div className="my-4 flex flex-wrap gap-2">
         <Button variant="outline" onClick={back}>
           Test library
@@ -315,9 +344,9 @@ function Runner({ set, back }: { set: SetInfo; back: () => void }) {
           <Button
             onClick={() => {
               try {
-                sessionStorage.removeItem("de-mock:" + set.url);
+                sessionStorage.removeItem("de-mock:" + storageUrl);
               } catch {}
-              update(initial(set));
+              update(initial({ ...set, count: items.length, url: storageUrl }));
               tick(Date.now());
             }}
           >

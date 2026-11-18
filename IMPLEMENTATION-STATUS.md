@@ -166,3 +166,11 @@ The PDF library links all eight published exam collections to separate year and 
 - Solution illustrations remain pending in 1,051 questions (368 otherwise scorable); these questions are excluded from mixed mocks, and the figures stay blocked.
 - Added 79 timed paper attempts and 12 balanced mixed practice mocks (60 questions each). Practice scoring is +4/−1 with no partial credit, explicitly different from official year-specific marking. English PDF key recovery does not silently alter Hindi keys.
 - Current evidence: `scripts/jee/advanced-pdf-review.json` and `docs/media-review/jee-advanced-2026-11-18.json`. Deployment and live validation recorded in the recovery report.
+
+## Mock result reports · 2026-11-18
+
+- Main and Advanced mocks default to scorable questions, retaining archive numbering. Full-paper review remains available and preserves the prior full-paper attempt storage; filtered attempts use a separate key. Missing keys and diagrams remain unscored.
+- Submission and timer expiry show all attempt questions, their options, larger answer panels and available solutions. Desktop uses two columns; mobile stacks the answer below the question.
+- Download report creates an offline HTML file with embedded approved diagrams, the DekhoExams wordmark and MathJax glyphs. Print / Save PDF opens the same self-contained report through the browser print dialog. No reporting service or infrastructure upgrade.
+- Practice readiness is the clamped net score percentage, never an admission/selection probability. Reports disclose how many source questions could be scored. Empty scorable sets cannot start; full-review sets with no keys report “Not graded”.
+- Automated grading, media and education checks pass. Local checks covered 33-question scored and 48-question full-review attempts, reload persistence, automatic expiry, original numbering, answer panels, report embedding and 390px mobile layout. Content recovery counts above remain unchanged.

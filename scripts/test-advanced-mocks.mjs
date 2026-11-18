@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
-import { correct, displayKey } from "../src/lib/mock-scoring.ts";
+import { correct, displayKey, selectQuestions, summarize } from "../src/lib/mock-scoring.ts";
 import { applyPdfReview } from "../src/lib/jee-main-pdf-review.server.ts";
 import { createHash } from "node:crypto";
 import figures from "../src/data/approved-diagrams.json" with { type: "json" };
@@ -57,6 +57,42 @@ assert(correct(numeric, "1.385"));
 assert(!correct(numeric, "1.4"));
 assert(!correct(numeric, "1.38garbage"));
 assert(!correct({ ...numeric, review: "Answer key conflict" }, "1.385"));
+// Reports and scored-only attempts must use the same grading and original numbering.
+const sample = [
+  { options: ["A", "B"], choiceKey: 0 },
+  { options: ["A", "B"], review: "Answer key unavailable" },
+  multi,
+  numeric,
+];
+assert.deepEqual(
+  selectQuestions(sample, true).map((q) => q.number),
+  [1, 3, 4],
+);
+assert.equal(selectQuestions(sample, false).length, 4);
+assert.deepEqual(summarize(sample, ["0", "0", "0", ""]), {
+  graded: 3,
+  hits: 1,
+  misses: 1,
+  score: 3,
+  max: 12,
+  skipped: 1,
+  review: 1,
+  readiness: 25,
+});
+assert.deepEqual(summarize([sample[1]], ["0"]), {
+  graded: 0,
+  hits: 0,
+  misses: 0,
+  score: 0,
+  max: 0,
+  skipped: 0,
+  review: 1,
+  readiness: null,
+});
+assert.equal(summarize([sample[0]], ["1"]).score, -1);
+assert.equal(summarize([sample[0]], ["1"]).readiness, 0);
+assert.equal(summarize([sample[0]], [""]).readiness, 0);
+assert.equal(summarize([multi, numeric], ["0,3", "1.385"]).readiness, 100);
 let checked = 0;
 for (const f of readdirSync(new URL("../public/jee-advanced-archive/q/", import.meta.url))) {
   const rows = JSON.parse(
