@@ -186,3 +186,7 @@ The PDF library links all eight published exam collections to separate year and 
 - Evidence and file hashes: `docs/media-review/jee-advanced-remaining-2026-11-18.json`. Media and recovery backups are in the existing private S3 bucket under `jee-figures/` and `content/jee-advanced/recovery/2026-11-18-remaining/`. No infrastructure upgrade.
 - Build, deployment and live verification are tracked in `docs/jee-advanced-remaining-verification-2026-11-18.md`.
 - Deployed and verified: 104 preview and 104 production checks, all 97 mock/set assets, mobile restored-key grading, the new mixed mock report download and the live sitemap passed. See the verification report for versions and exact counts.
+
+## JEE Advanced third PDF pass · 2026-11-18
+
+Recovered two true/false keys after decoding previously uncached vector glyphs, and two clean vector diagrams from 2017 papers. The rope-wave question remains held: printed A,D differs from archived A,B,D. Now 2149 / 3,962 scorable; remaining categories: {'key': 1155, 'diagram': 460, 'key_and_diagram': 191, 'conflict': 7}. Fourteen mixed mocks and 79 paper attempts remain. Evidence: `docs/media-review/jee-advanced-third-2026-11-18.json`. No guesses, watermark removal, raw-record changes or Hindi key changes.
