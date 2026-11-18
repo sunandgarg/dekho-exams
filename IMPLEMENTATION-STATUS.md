@@ -191,3 +191,11 @@ The PDF library links all eight published exam collections to separate year and 
 
 Recovered two true/false keys after decoding previously uncached vector glyphs, and two clean vector diagrams from 2017 papers. The rope-wave question remains held: printed A,D differs from archived A,B,D. Now 2149 / 3,962 scorable; remaining categories: {'key': 1155, 'diagram': 460, 'key_and_diagram': 191, 'conflict': 7}. Fourteen mixed mocks and 79 paper attempts remain. Evidence: `docs/media-review/jee-advanced-third-2026-11-18.json`. No guesses, watermark removal, raw-record changes or Hindi key changes.
 - Published to the existing Lightsail app and Cloudflare; production build, TypeScript, 19 education tests, seven edge tests and all archive grading checks passed. Live restored pages, both image hashes, three concurrent PDFs, 97 mock assets and 390px mobile grading passed. Temporary SSH access removed. This pass adds four scorable questions; 1,813 remain unresolved.
+
+## JEE Advanced official-paper recovery · 2026-11-18
+
+- Downloaded 38 official archive PDFs (2007–2025); searched native text and OCR of 85 scanned pages from 2010 Paper 1, 2016 Paper 2 and 2017 Paper 1. Candidate matching is not automatic approval.
+- Added 26 missing keys, resolved four existing conflicts against the printed official keys, and restored 37 clean official diagram crops. Official option permutations are explicit in the evidence ledger. Two archived English keys are superseded only with their exact prior key and official source evidence; raw records and Hindi keys remain unchanged.
+- One additional wheel question is held because its official alternative answer sets disagree with the archived key. Disjoint numerical answers, incomplete formulas/units, ambiguous question matches and unverified picture options remain unscored.
+- Now 2,214 of 3,962 are scorable (+65). Remaining 1,748: 1,129 need usable keys, 424 prompt/option diagrams, 191 both, and four key conflicts. Fourteen mixed mocks and 79 papers remain.
+- Normal visual inspection, faint-ink diagnostics and full-resolution local OCR checked every new image. No watermark erasure or guessed answers. Evidence: `docs/media-review/jee-advanced-official-2026-11-18.json`. Deployment/live checks pending in this commit until the release verification is recorded.

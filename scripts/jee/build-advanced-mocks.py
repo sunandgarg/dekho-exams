@@ -10,6 +10,21 @@ KEYS = ('choiceKey', 'choiceKeys', 'numericKey', 'numericRange')
 SUBJECTS = ('physics', 'chemistry', 'mathematics')
 
 
+def reviewed_key(item, entry):
+    key = entry.get('key', {})
+    assert not key or len(key) == 1 and set(key) <= set(KEYS)
+    original = {k: item[k] for k in KEYS if k in item}
+    if 'supersedesKey' in entry:
+        # Official corrections name the exact archived key; raw records stay immutable.
+        assert original == entry['supersedesKey'] and set(key) == set(original)
+        proof = entry['officialKey']
+        assert proof['url'].startswith('https://jeeadv.ac.in/past_qps/')
+        assert re.fullmatch('[a-f0-9]{64}', proof['pdfSha256']) and proof['printedKey']
+    else:
+        assert not any(k in item and item[k] != v for k, v in key.items())
+    return key
+
+
 def build():
     approved = json.loads((ROOT / 'src/data/approved-diagrams.json').read_text())
     review = json.loads((ROOT / 'scripts/jee/advanced-pdf-review.json').read_text())
@@ -36,9 +51,7 @@ def build():
             item['review'] = 'Answer key conflict'
             patch = {'hold': True}
         else:
-            key = entry.get('key', {})
-            assert not key or len(key) == 1 and set(key) <= set(KEYS)
-            assert not any(k in item and item[k] != v for k,v in key.items())
+            key = reviewed_key(item, entry)
             item.update(key); patch.update(key)
         if entry.get('figures') and not entry.get('hold'):
             pieces = [item['body'], *item['options']]
