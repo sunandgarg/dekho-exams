@@ -1,5 +1,9 @@
 # Dekhoexams Implementation Status
 
+## Reviewed PDF storage (2026-11-18)
+
+The revised PDF editions are now served from the existing private S3 bucket in Mumbai through Cloudflare. The 1,284 objects retain their content-addressed filenames and manifest checksums. Lightsail keeps verified rollback copies; no server/database plan was upgraded. Public URLs, figure holds and sitemap eligibility are unchanged.
+
 ## Published media review (2026-11-17)
 
 The public diagram list covers 5,776 of 5,957 paths. 181 links (179 unique files) are held after checking normal, dark and amplified views for faint third-party marks. The same filter is applied to English and Hindi questions, options, explanations, printed editions and mock generation. The media proxy rejects unapproved paths before consulting its cache. The 50 distinct other raster graphics, including site and exam logos, were reviewed separately.

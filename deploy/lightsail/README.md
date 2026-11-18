@@ -87,4 +87,8 @@ production checks fail.
 
 ## Reviewed media
 
-Only the paths in the diagram and PDF manifests can be served from the public media prefixes. Byte versions are part of the cache key. Currently the revised editions are staged as `/srv/dekhoexams/public/verified-pdf/<sha256>.pdf` on the existing Mumbai instance. Verify the staged SHA-256 checksums against `approved-pdfs.json` before updating the Worker; use `REVIEWED_PDFS_ON_ORIGIN:true` for this release. The other PDFs and archive figures continue to use private S3. To move revised editions to S3, copy them to `jee-papers/reviewed/<sha256>.pdf`, verify object ETags against the manifest, then set the flag to false. Never fall back to the old original when an approved version is unavailable. Deploy the same policy to both the public frontend and the AWS preview Worker.
+Only paths in the diagram and PDF manifests can be served from the public media prefixes. Byte versions are part of the cache key. All 1,284 revised editions are stored in the existing private Mumbai S3 bucket under `jee-papers/reviewed/<sha256>.pdf`; use `REVIEWED_PDFS_ON_ORIGIN:false`. Single-part object ETags must match the manifest MD5, and every key must match the published SHA-256. Unchanged PDFs and original archive figures also use private S3.
+
+Verified copies remain at `/srv/dekhoexams/public/verified-pdf/<sha256>.pdf` on the existing Mumbai app server for rollback. Setting the flag to true uses those copies; verify their hashes first. Never fall back to the unreviewed original when an approved version is unavailable. Deploy the same policy to both the public frontend and the AWS preview Worker.
+
+For new editions, stage only manifest-listed files, verify local SHA-256 and MD5, upload to new keys without deleting originals, then compare every S3 ETag and size before deploying. Keep the upload multipart threshold above the largest approved PDF, or record and validate the exact multipart ETag in the manifest.
