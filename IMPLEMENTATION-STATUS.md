@@ -163,5 +163,6 @@ The PDF library links all eight published exam collections to separate year and 
 - Reconciled every currently listed public source chapter/paper question and retained older archive records. Added two missing canonical questions and their English/Hindi paper aliases.
 - Recovered 989 printed keys and 16 native official-PDF diagram crops across nine questions. Matching uses the original English stem and ordered options; ambiguous keys and six disagreements remain unscored.
 - 1,814 of 3,962 distinct questions are scorable. Remaining: 1,407 need a usable key, 469 need a reviewed prompt/option diagram, 266 need both, six have key conflicts. Written-response and ambiguous multiple numerical answers require review.
+- Solution illustrations remain pending in 1,051 questions (368 otherwise scorable); these questions are excluded from mixed mocks, and the figures stay blocked.
 - Added 79 timed paper attempts and 12 balanced mixed practice mocks (60 questions each). Practice scoring is +4/−1 with no partial credit, explicitly different from official year-specific marking. English PDF key recovery does not silently alter Hindi keys.
 - Current evidence: `scripts/jee/advanced-pdf-review.json` and `docs/media-review/jee-advanced-2026-11-18.json`. Deployment and live validation recorded in the recovery report.
