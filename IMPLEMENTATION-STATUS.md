@@ -201,3 +201,10 @@ Recovered two true/false keys after decoding previously uncached vector glyphs, 
 - Normal visual inspection, faint-ink diagnostics and full-resolution local OCR checked every new image. No watermark erasure or guessed answers. Evidence: `docs/media-review/jee-advanced-official-2026-11-18.json`. Deployment/live checks pending in this commit until the release verification is recorded.
 
 - Published and verified: application commit `02c0ac2d`, Cloudflare `c6fd945d-97ad-4de4-a5ab-38b227f4fad2`, 110 live HTTP checks, all 97 mock assets, mobile corrected-key grading and mock submission, three simultaneous full PDF downloads and 23,767 sitemap URLs passed. Evidence: `docs/jee-advanced-official-verification-2026-11-18.md`. Temporary SSH access removed; no plan upgrades.
+
+## JEE Advanced older official-paper recovery · 2026-11-18
+
+- Rechecked the supplied PDF candidates and expanded official-paper OCR by 568 pages. OCR/text matches only locate candidates; each published answer was compared with the complete official question, formulae and option order.
+- Added 59 missing keys and 22 prompt diagrams (20 distinct image files) from official papers. Normal visual, amplified faint-ink and full-resolution OCR checks passed for these image crops. Original PDF pixels are preserved.
+- Build now yields 2,295 of 3,962 scorable questions (+81). Remaining 1,667: 1,070 need keys, 402 diagrams, 191 both, and four conflicts. Fifteen mixed mocks contain 900 questions; 79 papers and four extra sets remain available.
+- Raw archive/Hindi records and unresolved questions are unchanged. Hash-bound patches and official PDF evidence: `docs/media-review/jee-advanced-next-2026-11-18.json`. Release verification: `docs/jee-advanced-next-verification-2026-11-18.md`.
