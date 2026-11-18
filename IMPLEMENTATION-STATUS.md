@@ -1,5 +1,11 @@
 # Dekhoexams Implementation Status
 
+## JEE Advanced supplied-PDF recovery (2026-11-19)
+
+Rechecked the remaining 1,625 questions against the supplied chapter/year PDF collection. Added 26 printed keys after visual comparison of mathematical layout and ordered choices, and restored clean diagrams for 244 questions (241 with existing keys, three with new keys). All image bytes are complete embedded PDF objects, unaltered and hash-approved after normal/contrast visual inspection and OCR. Sixteen additional diagram candidates remain withheld for branding or unresolved artefacts. No inferred answers or watermark removal was used; original question records and Hindi content are preserved.
+
+**2,604 of 3,962 questions are now scorable**, an increase of 267. The 1,358 remaining comprise 1,033 missing keys, 131 missing diagrams, 188 missing both, and six conflicts. The bank generates 19 mixed practice mocks (1,140 positions), plus 79 paper sets. Printed-key matching is not an independent academic correctness review. Evidence: `docs/media-review/jee-advanced-nov19-2026-11-19.json`. Deployment/live verification is pending for this batch. Existing 1 GB app/MySQL plans are unchanged.
+
 ## JEE Main verified-key and faint-ink follow-up (2026-11-18)
 
 This release adds 1,807 printed answer keys after matching each full mathematical stem, every ordered choice and the printed key in both the chapter and year books. Existing answer conflicts remain withheld. The glyph reader now accounts for PDF shorthand curves, implicitly closed paths and identical Latin/Greek glyph outlines; ambiguous choices and mismatches are rejected. The hash-bound evidence is in `docs/jee-main/key-recovery-2026-11-18.json`.
