@@ -1,5 +1,5 @@
 import { paperMockUrl } from "@/lib/pdf-library";
-import { pdfStatus } from "@/lib/pdf-status";
+import { pdfStatus, pdfUrl } from "@/lib/pdf-status";
 import { DownloadPdf } from "./pdf-browser";
 import { useState } from "react";
 import downloadPapers from "@/data/jee-main-pdf-papers.json";
@@ -135,7 +135,7 @@ export function EditionLinks({ edition, file }: { edition: string; file?: string
                   <a
                     key={file}
                     className={btn}
-                    href={href}
+                    href={pdfUrl(href)}
                     download={"DekhoExams-" + edition + "-" + file}
                   >
                     {lang === "en" ? "English" : lang === "hi" ? "Hindi" : "Bengali"} ·{" "}

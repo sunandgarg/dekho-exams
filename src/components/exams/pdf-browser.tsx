@@ -1,4 +1,4 @@
-import { pdfStatus } from "@/lib/pdf-status";
+import { pdfStatus, pdfUrl } from "@/lib/pdf-status";
 import { pdfSubjectSlug } from "@/lib/pdf-subject";
 import { paperMockUrl } from "@/lib/pdf-library";
 import { ArrowDownToLine, BookOpen, ChevronDown, ChevronRight, Files, Search } from "lucide-react";
@@ -34,7 +34,7 @@ export function DownloadPdf({
 }) {
   if (pdfStatus(file) === "held") return <span className="text-sm text-muted-foreground">PDF pending figure review</span>;
   return (
-    <a href={file} download className="pdf-download" aria-label={"Download " + title + " PDF"}>
+    <a href={pdfUrl(file)} download className="pdf-download" aria-label={"Download " + title + " PDF"}>
       <ArrowDownToLine size={16} />
       {compact ? "PDF" : "Download PDF"}{pdfStatus(file) === "partial" && <small> · Figures pending</small>}
     </a>
@@ -56,7 +56,7 @@ function PaperEditions({ row }: { row: PdfBrowse["entries"][number] }) {
               <a
                 key={lang + theme}
                 download
-                href={file}
+                href={pdfUrl(file)}
                 aria-label={"Download " + row.title + " · " + text}
               >
                 <ArrowDownToLine size={14} />

@@ -138,8 +138,11 @@ def build():
     approved = json.loads((ROOT / "src/data/approved-diagrams.json").read_text())
     def checked(part):
         def img(m):
-            src = re.search(r'\bsrc="([^"]+)"', m[0])
-            return m[0] if src and src[1] in approved else '<span class="jee-figure-pending">Diagram pending review</span>'
+            src = re.search(r'''\ssrc=(["'])(.*?)\1''', m[0], flags=re.I)
+            path = re.split(r'[?#]', src[2])[0] if src else ''
+            if src and path in approved:
+                return m[0].replace(src[0], ' src="' + path + '?v=' + approved[path] + '"', 1)
+            return '<span class="jee-figure-pending">Diagram pending review</span>'
         return re.sub(r"<img\b[^>]*>", img, part, flags=re.I)
     reader = {}
     applied = set()
