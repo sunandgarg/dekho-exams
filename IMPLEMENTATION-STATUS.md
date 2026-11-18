@@ -1,5 +1,15 @@
 # Dekhoexams Implementation Status
 
+## JEE Main verified-key and faint-ink follow-up (2026-11-18)
+
+This release adds 1,807 printed answer keys after matching each full mathematical stem, every ordered choice and the printed key in both the chapter and year books. Existing answer conflicts remain withheld. The glyph reader now accounts for PDF shorthand curves, implicitly closed paths and identical Latin/Greek glyph outlines; ambiguous choices and mismatches are rejected. The hash-bound evidence is in `docs/jee-main/key-recovery-2026-11-18.json`.
+
+JEE Main now has **13,668 scorable questions out of 18,006** (previously 12,102) and **126 mixed mocks** (previously 102). The remaining 4,338 comprise 3,500 missing keys only, 419 missing diagrams only, 417 missing both, and two key conflicts. Matching printed keys is not an independent academic correctness review.
+
+Further visual comparison found faint branding in previously approved near-duplicate images. The older faint-ink scan used alpha alone for transparent images, missing opaque near-white marks. The corrected scan composites native pixels on white. It withheld 753 more distinct web files (784 paths), leaving 4,992 approved and 965 held paths. A native scan of 11,000 approved PDF objects flagged 32 candidates; visual review retained 17 own-brand logos/pending notices and withheld 15 unresolved objects plus pixel-identical counterparts. Twenty-one editions changed, with question text and page counts preserved. Totals: 598 complete PDFs, 1,290 partial PDFs and 12 held scans. The manifest excludes unreviewed media before cache access, and the cache namespace is v14. Original/private source material is retained.
+
+The production Node build, education checks, TypeScript, Worker tests, media checks and versioned-link checks passed. All 21 final revised S3 objects match their local ETags and sizes. Live deployment verification follows below; no hosting plan has changed. The earlier review entries below are historical, not the current counts. No automated or visual pass proves that every possible watermark is detectable.
+
 ## Media cache follow-up and storage verification (2026-11-18)
 
 Question, solution, print and generated mock images now include the approved file digest in their URLs. PDF download links, including English/Hindi and light/dark editions, also carry the current edition digest. This prevents revised files from reusing a browser's older copy at the same URL. Cloudflare's public page/media cache namespace was advanced to v13. The existing approval checks still run before cache access; the allowlists were not widened.
