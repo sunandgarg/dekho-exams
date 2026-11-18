@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
-import { correct, displayKey, selectQuestions, summarize } from "../src/lib/mock-scoring.ts";
+import {
+  correct,
+  displayKey,
+  selectQuestions,
+  summarize,
+  performance,
+} from "../src/lib/mock-scoring.ts";
 import { applyPdfReview } from "../src/lib/jee-main-pdf-review.server.ts";
 import { createHash } from "node:crypto";
 import figures from "../src/data/approved-diagrams.json" with { type: "json" };
@@ -128,3 +134,14 @@ assert(checked >= Object.keys(ledger).length);
 console.log(
   `Advanced: ${count} archive questions, ${full} mixed mocks, ${checked} canonical/alias patches, reviewed media and grading passed.`,
 );
+
+const metrics = performance(sample, ["0", "0", "0", ""]);
+assert.equal(metrics.accuracy, 50);
+assert.equal(metrics.attemptRate, 67);
+assert.equal(metrics.earned, 4);
+assert.equal(metrics.penalty, 1);
+assert.equal(metrics.attempted, 2);
+assert.equal(performance([sample[1]], ["0"]).accuracy, null);
+assert.equal(performance([sample[1]], ["0"]).attemptRate, null);
+assert.equal(performance([sample[0]], [""]).accuracy, null);
+assert.equal(performance([sample[0]], [""]).attemptRate, 0);

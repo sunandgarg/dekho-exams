@@ -1,60 +1,27 @@
 import reportCss from "@/components/exams/mock-results.css?raw";
 
-// Package the rendered review so the downloaded file also works without a connection.
+// Export only the performance card; question review stays on the website.
 export async function reportHtml(root: HTMLElement) {
-  const copy = root.cloneNode(true) as HTMLElement;
-  const sprites = new Map<string, Document>();
-  const defs = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  defs.setAttribute("width", "0");
-  defs.setAttribute("height", "0");
-  defs.setAttribute("aria-hidden", "true");
-  const glyphs = new Set<string>();
-  for (const use of copy.querySelectorAll("use")) {
-    const href = use.getAttribute("href") || use.getAttribute("xlink:href") || "";
-    const url = new URL(href, location.origin);
-    if (
-      url.origin !== location.origin ||
-      !/^\/jee-(?:advanced-)?archive\/math\.svg$/.test(url.pathname)
-    )
-      throw Error("Unexpected math source");
-    if (!sprites.has(url.pathname)) {
-      const r = await fetch(url.pathname, { signal: AbortSignal.timeout(15000) });
-      if (!r.ok) throw Error("Math unavailable");
-      sprites.set(url.pathname, new DOMParser().parseFromString(await r.text(), "image/svg+xml"));
-    }
-    const glyph = sprites.get(url.pathname)!.getElementById(url.hash.slice(1));
-    if (!glyph || glyph.tagName !== "path") throw Error("Math glyph unavailable");
-    const id = `report-${url.pathname.includes("advanced") ? "advanced" : "main"}-${url.hash.slice(1)}`;
-    if (!glyphs.has(id)) {
-      const path = glyph.cloneNode(true) as Element;
-      path.id = id;
-      defs.append(path);
-      glyphs.add(id);
-    }
-    use.removeAttribute("xlink:href");
-    use.setAttribute("href", "#" + id);
-  }
-  copy.prepend(defs);
+  const card = root.matches("[data-performance-report]")
+    ? root
+    : root.querySelector("[data-performance-report]");
+  if (!card) throw Error("Performance report unavailable");
+  const copy = card.cloneNode(true) as HTMLElement;
   const images = new Map<string, string>();
   // Sequential requests keep report generation light on the existing media service.
   for (const img of copy.querySelectorAll("img")) {
     const url = new URL(img.getAttribute("src") || "", location.origin);
-    if (
-      url.origin !== location.origin ||
-      (!url.pathname.startsWith("/jee-figures/") &&
-        !url.pathname.startsWith("/images/jee-main-reviewed/") &&
-        url.pathname !== "/logos/dekhoexams-wordmark.png")
-    )
+    if (url.origin !== location.origin || url.pathname !== "/logos/dekhoexams-wordmark.png")
       throw Error("Unexpected image source");
     if (!images.has(url.href)) {
       const r = await fetch(url.href, { signal: AbortSignal.timeout(15000) });
       if (!r.ok || !/^image\/(png|jpeg|webp)(;|$)/i.test(r.headers.get("content-type") || ""))
-        throw Error("Diagram unavailable");
+        throw Error("Logo unavailable");
       const blob = await r.blob();
       const data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(Error("Diagram unreadable"));
+        reader.onerror = () => reject(Error("Logo unreadable"));
         reader.readAsDataURL(blob);
       });
       images.set(url.href, data);
@@ -63,7 +30,7 @@ export async function reportHtml(root: HTMLElement) {
     img.removeAttribute("srcset");
     img.removeAttribute("loading");
   }
-  const doc = document.implementation.createHTMLDocument("DekhoExams practice report");
+  const doc = document.implementation.createHTMLDocument("DekhoExams performance report");
   doc.documentElement.lang = "en";
   doc.head.insertAdjacentHTML(
     "afterbegin",

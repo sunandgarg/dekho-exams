@@ -50,3 +50,16 @@ export function summarize(items: Item[], answers: string[]) {
     readiness: graded ? Math.round((Math.max(0, score) / (4 * graded)) * 100) : null,
   };
 }
+
+export function performance(items: Item[], answers: string[]) {
+  const s = summarize(items, answers);
+  const attempted = s.hits + s.misses;
+  return {
+    ...s,
+    attempted,
+    accuracy: attempted ? Math.round((100 * s.hits) / attempted) : null,
+    attemptRate: s.graded ? Math.round((100 * attempted) / s.graded) : null,
+    earned: 4 * s.hits,
+    penalty: s.misses,
+  };
+}
