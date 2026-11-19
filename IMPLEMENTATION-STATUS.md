@@ -227,3 +227,7 @@ Recovered two true/false keys after decoding previously uncached vector glyphs, 
 - Now 2,875 of 3,962 questions are scorable, up 94 from 2,781. The remaining 1,087 comprise 984 needing keys, 47 needing prompt/option diagrams, 48 needing both, and eight key conflicts. Of the missing-key records, 777 use unsupported written-response/fill-in formats. Incomplete formulas, alternative answer sets and unverified figures remain unscored.
 - There are 22 balanced mixed mocks with 1,320 questions, 79 paper attempts and four extra sets. Existing marking rules, raw archive records and Hindi keys are unchanged. No infrastructure upgrade.
 - Evidence and hashes: `docs/media-review/jee-advanced-next-2026-11-19.json`. Committed as `9226b288` and deployed to Lightsail and both Cloudflare Workers. All 297 production checks, mobile grading, mixed mock 22 submission and branded report download passed. Eleven sitemaps contain 23,772 unique URLs. Temporary SSH access was removed. Release evidence: `docs/jee-advanced-next-verification-2026-11-19.md`.
+
+## Advanced shared-passage recovery · 2026-11-19
+
+Two more questions are scorable after restoring seven clean official diagrams, including their required shared-passage figure. Total: 2,877 / 3,962; 1,085 remain (984 keys, 45 diagrams, 48 both, eight conflicts). Existing C/B keys were corroborated against official 2011 Paper 1; no new answer keys were inferred. Raw records and Hindi keys are unchanged. Evidence: `docs/media-review/jee-advanced-followup-2026-11-19.json`. Deployment checks pending.
