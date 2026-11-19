@@ -255,3 +255,7 @@ Now 2,936 / 3,962 questions are scorable; 1,026 remain (948 need keys, 26 diagra
 
 ### JEE Advanced official wording corrections (19 November 2026)
 Two verified corrections are deployed: 2007 Paper 2 Q35 wording/key and 2010 Paper 2 Q23 option sign/key. Original archived versions are preserved, prior explanations are withheld. 2,938 scorable; 1,024 unresolved. All 110 public production checks passed. This release does not complete the remaining 153 source-matched questions.
+
+
+### JEE Advanced recovery from source-matched queue (19 November 2026)
+Published 13 additional verified recoveries (8 key recoveries and 5 diagram-blocker recoveries, including removal of one extraneous placeholder). Total: 2,951 scorable, 1,011 unresolved (938 key-only, 45 key-and-diagram, 21 diagram-only, 7 conflicts). Two original official diagram crops serve four questions. All 123 production checks passed; three full PDFs downloaded and 105 mock payload hashes verified. Narrow 500px browser viewport had no overflow and loaded the restored figure. 140 of the 153-question queue remain unresolved; full academic/visual review of that queue is NOT complete.
