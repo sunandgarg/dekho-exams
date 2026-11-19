@@ -6,7 +6,7 @@ Reviewed the entire 140-record queue in one pass. Prepared 105 additional scorab
 
 Generated totals: **3,056 / 3,962 scorable; 906 remaining** (850 key-only, 30 key plus diagram, 19 diagram-only, seven conflicts). Of this 140-record queue, 35 remain pending: 20 alternative-answer/range cases unsupported by the current scorer (some also have source discrepancies), five dropped/marks-to-all rulings, five incomplete source passages, two question-type mismatches, two conflicting keys, and one rejected faintly marked diagram. These are explicit dispositions, not presumed recoveries. Evidence: `docs/advanced-recovery-140-2026-11-19.json`. Normal and enhanced-contrast visual checks covered every new crop; no competitor branding observed in the published candidates. Printed-source verification is not an independent academic review.
 
-Release validation and deployment results are recorded below after completion. Existing 1 GB app/MySQL plans remain unchanged.
+Released as `39150e12` on main to the Mumbai Node app and Cloudflare production/preview. Production build, TypeScript, education, archive, mock grading and edge tests passed. All 273 checks passed on both preview and production: 105 mock payloads, 106 pages, 59 versioned diagrams and three full PDF downloads with exact hashes. At 390px mobile width, single-choice and multiple-choice scoring returned Correct, all question diagrams loaded and no horizontal overflow occurred. All 168 S3 uploads were verified. Temporary deployment SSH access was removed. [Live evidence](docs/media-review/advanced-140-live-2026-11-19.json). Existing 1 GB app/MySQL plans remain unchanged.
 
 ## JEE Advanced full remaining-bank recovery (2026-11-19)
 
