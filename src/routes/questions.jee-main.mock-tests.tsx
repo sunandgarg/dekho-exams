@@ -71,13 +71,13 @@ export const Route = createFileRoute("/questions/jee-main/mock-tests")({
         ? search["paper"]
         : undefined,
   }),
-  head: () =>
+  head: ({ match }) =>
     seoHead({
       title: "JEE Main mock tests with worked solutions | DekhoExams",
       description:
         "Practise JEE Main previous-year questions in timed Physics, Chemistry and Mathematics sets.",
       path: "questions/jee-main/mock-tests",
-      noindex: true,
+      noindex: !!match.search.paper,
     }),
   component: Library,
 });

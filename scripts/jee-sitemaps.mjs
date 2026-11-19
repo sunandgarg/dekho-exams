@@ -24,7 +24,7 @@ function write(name, paths) {
 for (const [exam, folder] of [["jee-main","jee-archive"],["jee-advanced","jee-advanced-archive"]]) {
   const chapters=data(exam+"-chapters"), papers=data(exam+"-papers");
   const hub="/past-years/jee/"+exam,year="/past-years/year-wise/jee/"+exam;
-  const paths=[hub,year,"/pyq-pdfs"+year,"/pyq-pdfs"+hub];
+  const paths=[hub,year,"/pyq-pdfs"+year,"/pyq-pdfs"+hub,"/questions/"+exam+"/mock-tests"];
   if(exam==="jee-main") paths.push("/");
   for (const [subject, units] of Object.entries(chapters)) {
     for (const path of [hub+"/"+subject,...units.map(c=>hub+"/"+subject+"/"+c)]) paths.push(path,"/pyq-pdfs"+path);

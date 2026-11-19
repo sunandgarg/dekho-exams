@@ -10,6 +10,7 @@ export const JEE_SITEMAPS = [
 export function releasedSearchPath(path: string) {
   return (
     /^\/?$/.test(path) ||
+    /^\/?questions\/jee-(?:main|advanced)\/mock-tests$/.test(path) ||
     /^\/?(?:pyq-pdfs\/)?past-years\/(?:year-wise\/)?jee\/(?:jee-main|jee-advanced|question)(?:\/|$)/.test(
       path,
     )

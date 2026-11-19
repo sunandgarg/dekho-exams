@@ -39,13 +39,13 @@ export const Route = createFileRoute("/questions/jee-advanced/mock-tests")({
         ? search["paper"]
         : undefined,
   }),
-  head: () =>
+  head: ({ match }) =>
     seoHead({
       title: "JEE Advanced mock tests and timed papers | DekhoExams",
       description:
         "Practise JEE Advanced Physics, Chemistry and Mathematics with timed papers, mixed tests and available solutions.",
       path: "questions/jee-advanced/mock-tests",
-      noindex: true,
+      noindex: !!match.search.paper,
     }),
   component: () => (
     <MockLibrary

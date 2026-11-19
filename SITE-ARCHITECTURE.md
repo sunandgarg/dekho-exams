@@ -75,3 +75,5 @@ The exam-update guides link to CBSE and NTA publishers and must never fabricate 
 ## Google sitemap
 
 The canonical site advertises `https://dekhoexams.com/sitemap.xml` in its robots file. Four child maps separate Main and Advanced directories from their individual question pages. The build regenerates the lists from the checked-in archives; only complete canonical questions with both languages and no pending figure qualify. The rest of the site retains its preview gates. No synthetic modification dates are published.
+
+The published JEE Main and Advanced mock-library landing pages are included in their exam directory sitemaps. Selected-paper query views remain noindex and canonicalize to the library; attempts and reports do not create search URLs. Run `python3 scripts/check-sitemaps.py https://dekhoexams.com` after release to verify every XML file, generated URL coverage, duplicates, and sampled HTTP/indexability checks (including both library/query pairs).

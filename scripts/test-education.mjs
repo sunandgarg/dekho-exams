@@ -46,6 +46,9 @@ test("search lists complete bilingual canonical questions and keeps duplicate an
   assert.ok(!readyQuestion({ ...question, hi: { ...en, solution: '<span class="jee-figure-pending">' } }));
   assert.ok(!releasedSearchPath("/pyq-pdfs/print/jee-advanced/paper/en"));
   assert.ok(releasedSearchPath("/past-years/jee/jee-main/physics"));
+  assert.ok(releasedSearchPath("/questions/jee-main/mock-tests"));
+  assert.ok(releasedSearchPath("/questions/jee-advanced/mock-tests"));
+  assert.ok(!releasedSearchPath("/questions/jee-main/practice"));
 });
 test("the JEE Main download menu offers exactly the verified files in the release", () => {
   const read = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url)));
