@@ -125,13 +125,14 @@ for (const f of readdirSync(new URL("../public/jee-advanced-archive/q/", import.
           assert.deepEqual(patched.englishKey[k], v);
       if (evidence.contentCorrection) {
         assert.equal(patched.solution, "");
-        assert.deepEqual(patched.options, evidence.contentCorrection.replacement.options);
+        if (!evidence.figures?.some((f) => f.slot > 0)) assert.deepEqual(patched.options, evidence.contentCorrection.replacement.options);
+        else assert(patched.options.every((o) => !o.includes("jee-figure-pending")));
         if (!evidence.figures?.length) assert.equal(patched.body, evidence.contentCorrection.replacement.body);
         else assert(!patched.body.includes("jee-figure-pending"));
         assert.equal(q.body, evidence.contentCorrection.originalBody);
       }
       for (const fig of evidence.figures ?? [])
-        assert([patched.body, ...patched.options].join("").includes(fig.path));
+        assert([patched.body, ...patched.options][fig.slot].includes(fig.path));
     }
     assert.deepEqual(patched.hi, q.hi);
     checked++;

@@ -1,5 +1,13 @@
 # Dekhoexams Implementation Status
 
+## JEE Advanced 140-record source-match review (2026-11-19)
+
+Reviewed the entire 140-record queue in one pass. Prepared 105 additional scorable questions and 59 clean diagram crops, with source PDF hashes, question/key pages, option mappings and immutable-original corrections in `scripts/jee/advanced-pdf-review.json`. The missing chapter keys were largely on second-last answer-table pages. Corrected verified omissions including a reaction table, missing starting structures, an integral exponent and matching combinations. Unverified old explanations are withheld where question content was corrected. Original archive records, stable URLs and Hindi versions remain unchanged.
+
+Generated totals: **3,056 / 3,962 scorable; 906 remaining** (850 key-only, 30 key plus diagram, 19 diagram-only, seven conflicts). Of this 140-record queue, 35 remain pending: 20 alternative-answer/range cases unsupported by the current scorer (some also have source discrepancies), five dropped/marks-to-all rulings, five incomplete source passages, two question-type mismatches, two conflicting keys, and one rejected faintly marked diagram. These are explicit dispositions, not presumed recoveries. Evidence: `docs/advanced-recovery-140-2026-11-19.json`. Normal and enhanced-contrast visual checks covered every new crop; no competitor branding observed in the published candidates. Printed-source verification is not an independent academic review.
+
+Release validation and deployment results are recorded below after completion. Existing 1 GB app/MySQL plans remain unchanged.
+
 ## JEE Advanced full remaining-bank recovery (2026-11-19)
 
 Rechecked all 1,358 remaining records against the supplied chapter/year PDF collection and 38 official papers from the archive (including OCR on older scans). Added 122 printed keys after full text, mathematical glyph and ordered-option matching. Restored 581 distinct clean diagrams across 177 questions: 121 from complete embedded PDF objects and 56 from unmodified official-paper crops, with source hashes and exact image slots recorded. Normal/24x contrast inspection and full-resolution OCR were applied to the candidates. Seventy-one source image candidates remain withheld for branding or unresolved artefacts. Two newly identified alternative-key cases remain held; no answers were solved or guessed. Raw archives and Hindi records are unchanged.
