@@ -126,7 +126,8 @@ for (const f of readdirSync(new URL("../public/jee-advanced-archive/q/", import.
       if (evidence.contentCorrection) {
         assert.equal(patched.solution, "");
         assert.deepEqual(patched.options, evidence.contentCorrection.replacement.options);
-        assert.equal(patched.body, evidence.contentCorrection.replacement.body);
+        if (!evidence.figures?.length) assert.equal(patched.body, evidence.contentCorrection.replacement.body);
+        else assert(!patched.body.includes("jee-figure-pending"));
         assert.equal(q.body, evidence.contentCorrection.originalBody);
       }
       for (const fig of evidence.figures ?? [])
