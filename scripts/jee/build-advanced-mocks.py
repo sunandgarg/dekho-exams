@@ -60,6 +60,15 @@ def build():
         else:
             key = reviewed_key(item, entry)
             item.update(key); patch.update(key)
+        if entry.get('contentCorrection') and not entry.get('hold'):
+            correction = entry['contentCorrection']
+            proof = entry['officialKey']
+            assert proof['url'].startswith('https://jeeadv.ac.in/past_qps/')
+            assert re.fullmatch('[a-f0-9]{64}', proof['pdfSha256'])
+            assert correction['originalBody'] == q['body'] and correction['originalOptions'] == q['options']
+            assert set(correction['replacement']) == {'body', 'options', 'solution'}
+            assert len(correction['replacement']['options']) == len(q['options'])
+            item.update(correction['replacement']); patch.update(correction['replacement'])
         if entry.get('figures') and not entry.get('hold'):
             pieces = [item['body'], *item['options']]
             used = set()
