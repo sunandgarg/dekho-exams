@@ -17,8 +17,15 @@ def reviewed_key(item, entry):
     if 'supersedesKey' in entry:
         # Official corrections name the exact archived key; raw records stay immutable.
         assert original == entry['supersedesKey'] and set(key) == set(original)
-        proof = entry['officialKey']
-        assert proof['url'].startswith('https://jeeadv.ac.in/past_qps/')
+        proof = entry.get('officialKey') or entry['pdfKeyReview']
+        source = proof
+        if 'officialKey' not in entry:
+            # A supplied final-key table also needs the matched official question paper.
+            assert re.fullmatch(r'Year-wise/\d{4}/DekhoExams_JEE_Advanced_\d{4}_Paper_[12]\.pdf', proof['file'])
+            assert proof['keyPages'] and all(isinstance(n, int) and n > 0 for n in proof['keyPages'])
+            source = proof['questionPaper']
+        assert source['url'].startswith('https://jeeadv.ac.in/past_qps/')
+        assert re.fullmatch('[a-f0-9]{64}', source['pdfSha256'])
         assert re.fullmatch('[a-f0-9]{64}', proof['pdfSha256']) and proof['printedKey']
     else:
         assert not any(k in item and item[k] != v for k, v in key.items())

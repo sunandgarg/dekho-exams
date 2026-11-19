@@ -12,11 +12,18 @@ assert len(corrections) >= 2
 for entry in corrections:
     original = entry['supersedesKey']
     assert check(original, entry) == entry['key']
-    for mutation in ('missing-declaration', 'wrong-original', 'wrong-source'):
+    mutations = ['missing-declaration', 'wrong-original', 'wrong-source', 'wrong-evidence']
+    if 'officialKey' not in entry: mutations += ['wrong-file', 'missing-key-page']
+    for mutation in mutations:
         bad = copy.deepcopy(entry)
         if mutation == 'missing-declaration': bad.pop('supersedesKey')
         if mutation == 'wrong-original': bad['supersedesKey'] = {}
-        if mutation == 'wrong-source': bad['officialKey']['url'] = 'https://example.com/key.pdf'
+        proof = bad.get('officialKey') or bad['pdfKeyReview']
+        if mutation == 'wrong-source':
+            (proof if 'officialKey' in bad else proof['questionPaper'])['url'] = 'https://example.com/key.pdf'
+        if mutation == 'wrong-evidence': proof['pdfSha256'] = ''
+        if mutation == 'wrong-file': proof['file'] = 'unverified.pdf'
+        if mutation == 'missing-key-page': proof['keyPages'] = []
         try:
             check(original, bad)
         except AssertionError:
