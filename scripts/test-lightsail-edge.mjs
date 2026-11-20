@@ -54,7 +54,7 @@ test("shared media and anonymous chapters reuse clean URLs", async (t) => {
   try {
     const origin = "https://dekhoexams.com";
     const env = { APP_ORIGIN: "https://origin.example.com", ORIGIN_KEY: "test" };
-    for (const [path,cookie] of [[paper+"?download=1","session=1"],["/past-years/jee/test?utm_source=test","_ga=1"]]) {
+    for (const [path,cookie] of [[paper+"?download=1","session=1"],["/past-years/jee/test?utm_source=test","_ga=1"],["/?utm_source=test",""]]) {
       const response = await worker.fetch(new Request(origin+path,{headers:{cookie}}),env,{});
       assert.equal(response.headers.get("X-Dekhoexams-Cache"), "HIT");
       if (path.endsWith("download=1")) assert.match(response.headers.get("content-disposition"), /^attachment;/);

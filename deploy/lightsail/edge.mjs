@@ -28,7 +28,7 @@ export default {
     if (media && !originDiagram && !collectionPdf && !/^\/(?:jee-papers\/[a-z0-9-]+\/[a-z0-9-]+\/[a-z0-9-]+\.pdf|jee-figures\/[a-f0-9]+\.png)$/.test(path)) return new Response(null, { status: 404 });
     if (media && !["GET", "HEAD"].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: "GET, HEAD" } });
     // S3 keys are public editions; query strings and cookies do not select their contents.
-    const page = path.startsWith("/past-years/") || path.startsWith("/pyq-pdfs/past-years/") || path === "/pdf-library" || path.startsWith("/pdf-library/");
+    const page = path === "/" || path.startsWith("/past-years/") || path.startsWith("/pyq-pdfs/past-years/") || path === "/pdf-library" || path.startsWith("/pdf-library/");
     const trackingOnly = [...url.searchParams.keys()].every(key => /^utm_|^(gclid|fbclid)$/.test(key));
     const anonymous = !request.headers.has("authorization") &&
       !(request.headers.get("cookie") || "").split(";").some(cookie => cookie.trim() && !/^(_ga(?:_[A-Za-z0-9]+)?|_gid)=/.test(cookie.trim()));
