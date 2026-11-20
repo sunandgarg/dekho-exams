@@ -8,7 +8,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[2]
 check = runpy.run_path(str(Path(__file__).with_name('build-advanced-mocks.py')))['reviewed_key']
 ledger = json.loads((root / 'scripts/jee/advanced-pdf-review.json').read_text())
-for name in ('advanced-written-key-recovery.json', 'advanced-written-key-recovery-verified.json'):
+for name in ('advanced-written-key-recovery.json', 'advanced-written-key-recovery-verified.json', 'advanced-chapter-key-recovery.json'):
     written_recovery = json.loads((root / 'scripts/jee' / name).read_text())
     assert not set(ledger).intersection(written_recovery)
     ledger.update(written_recovery)
@@ -68,7 +68,7 @@ print('Supplied-PDF transcription guards passed')
 written = [
     e for e in ledger.values()
     if re.fullmatch(
-        r'Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])(?:_Screening|_Mains)?\.pdf',
+        r'(?:Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])(?:_Screening|_Mains)?\.pdf|Chapter-wise/(?:Physics|Chemistry|Mathematics)/DekhoExams_JEE_Advanced_[A-Za-z_]+\.pdf)',
         e.get('pdfKeyReview', {}).get('file', ''),
     )
     and set(e.get('key', {})) & {'numericKey', 'numericKeys', 'numericRanges', 'textKeys'}

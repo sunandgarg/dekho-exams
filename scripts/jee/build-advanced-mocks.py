@@ -16,7 +16,7 @@ def reviewed_key(item, entry):
     if set(key) & {'numericKeys', 'numericRanges', 'textKeys'} or item.get('kind') in ('subjective', 'fill-blanks') and key:
         proof = entry['pdfKeyReview']
         assert re.fullmatch(
-            r'Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])(?:_Screening|_Mains)?\.pdf',
+            r'(?:Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])(?:_Screening|_Mains)?\.pdf|Chapter-wise/(?:Physics|Chemistry|Mathematics)/DekhoExams_JEE_Advanced_[A-Za-z_]+\.pdf)',
             proof['file'],
         )
         assert re.fullmatch('[a-f0-9]{64}', proof['pdfSha256'])
@@ -66,7 +66,7 @@ def reviewed_content(q, entry):
 def build():
     approved = json.loads((ROOT / 'src/data/approved-diagrams.json').read_text())
     review = json.loads((ROOT / 'scripts/jee/advanced-pdf-review.json').read_text())
-    for name in ('advanced-written-key-recovery.json', 'advanced-written-key-recovery-verified.json'):
+    for name in ('advanced-written-key-recovery.json', 'advanced-written-key-recovery-verified.json', 'advanced-chapter-key-recovery.json'):
         written = json.loads((ROOT / 'scripts/jee' / name).read_text())
         assert not set(review).intersection(written), 'Each reviewed question has one evidence record'
         review.update(written)
