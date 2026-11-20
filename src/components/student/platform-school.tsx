@@ -25,6 +25,7 @@ type SchoolDashboard = {
   coupon: SchoolCoupon | null;
   roster: RosterRecord[];
   nextCursor: string | null;
+  progress: { enrolled: number; activated: number; started: number; completed: number };
 };
 type ImportResult = { added: number; duplicates: number; total: number };
 const template = "data:text/csv;charset=utf-8," + encodeURIComponent("name,mobile,email,class\r\n");
@@ -156,6 +157,26 @@ export function PlatformSchool() {
         </div>
       ) : (
         <>
+          <Block title="School progress" description="Counts across your school’s roster.">
+            <div className="pw-stats pw-school-progress">
+              <div>
+                <span>On roster</span>
+                <strong>{data.progress.enrolled}</strong>
+              </div>
+              <div>
+                <span>Activated</span>
+                <strong>{data.progress.activated}</strong>
+              </div>
+              <div>
+                <span>Started</span>
+                <strong>{data.progress.started}</strong>
+              </div>
+              <div>
+                <span>Completed</span>
+                <strong>{data.progress.completed}</strong>
+              </div>
+            </div>
+          </Block>
           <div className="pw-grid">
             <Block
               title="Your school coupon"

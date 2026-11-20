@@ -11,7 +11,7 @@ import {
   type Role,
 } from "./access.ts";
 import { tokenDigest, validToken } from "./crypto.ts";
-import { diagnostic, PilotError } from "./diagnostic.ts";
+import { diagnostic, PilotError, type scoreDiagnostic } from "./diagnostic.ts";
 import { openSettings, saveIntegration, validateSettings } from "./integrations.ts";
 import { platformKey, platformPool } from "./pool.ts";
 import {
@@ -82,22 +82,11 @@ function html(value: string) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
-function certificate(
-  name: string,
-  score: number,
-  max: number,
-  medal: string,
-  id: string,
-  date: Date,
-) {
-  const title = "DekhoExams diagnostic certificate";
+function printable(title: string, content: string) {
   return new Response(
-    `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
-<style>body{font:17px/1.55 system-ui;color:#142038;background:#f3f5ff;margin:0;padding:6vw}main{max-width:760px;margin:auto;border:3px solid #3e51d2;background:#fff;padding:clamp(22px,6vw,70px);text-align:center}h1{font-size:clamp(29px,5vw,52px);line-height:1.1}h2{overflow-wrap:anywhere}small{display:block;overflow-wrap:anywhere}@media print{body{padding:0;background:white}main{break-inside:avoid}}</style>
-<main><p>DekhoExams · JEE Main preparation</p><h1>${html(medal)} medal</h1><p>Practice achievement awarded to</p><h2>${html(name)}</h2>
-<p>For scoring <strong>${score} / ${max}</strong> on the DekhoExams six-question diagnostic.</p>
-<p>${html(date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "long" }))}</p>
-<small>Certificate reference ${html(id)}</small><small>Private practice achievement. No exam qualification or accreditation is awarded.</small></main></html>`,
+    `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${html(title)}</title>
+<style>body{font:17px/1.55 system-ui;color:#142038;background:#f3f5ff;margin:0;padding:6vw}main{max-width:760px;margin:auto;border:3px solid #3e51d2;background:#fff;padding:clamp(20px,5vw,48px)}header{font-size:28px;font-weight:850}header span{color:#ad4a00}h1{font-size:clamp(26px,4vw,40px);line-height:1.1}p,h2,small{overflow-wrap:anywhere}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px}.stats div{border:1px solid #d7deef;padding:10px}dd{font-weight:750;margin:0}small{display:block}@media print{body{padding:0;background:white}.stats div,header,h1{break-inside:avoid}}</style>
+<main><header>Dekho<span>Exams</span></header>${content}</main></html>`,
     {
       headers: {
         ...noStore,
@@ -106,6 +95,32 @@ function certificate(
           "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
       },
     },
+  );
+}
+
+function practiceReport(
+  name: string,
+  date: string,
+  result: ReturnType<typeof scoreDiagnostic>,
+  medal?: string,
+) {
+  const accuracy = result.accuracy === null ? "—" : result.accuracy + "%";
+  const metrics = [
+    ["Score", `${result.score} / ${result.max}`],
+    ["Accuracy", accuracy],
+    ["Answered", String(result.hits + result.misses)],
+    ["Correct", String(result.hits)],
+    ["Incorrect", String(result.misses)],
+    ["Skipped", String(result.skipped)],
+  ];
+  return printable(
+    "DekhoExams diagnostic report",
+    `<h1>JEE Main diagnostic report</h1><p>${html(name)} · ${html(date)}</p>
+<dl class="stats">${metrics.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join("")}</dl>
+<h2>By subject</h2><ul>${result.subjects.map((s) => `<li>${html(s.subject)} · ${s.hits} of ${s.total} correct</li>`).join("")}</ul>
+${medal ? `<p><strong>Practice medal</strong> · ${html(medal)}</p>` : ""}
+<h2>Next practice</h2><p>${result.nextTopic ? html(result.nextTopic) : "Try a longer timed mock to check your pace."}</p>
+<small>Practice scoring uses +4 correct, −1 incorrect and 0 skipped.</small>`,
   );
 }
 
@@ -318,7 +333,7 @@ export async function platformResponse(
           );
         return respond({ optedIn: false });
       }
-      if (method === "GET" && path === "/student/certificate") {
+      if (method === "GET" && (path === "/student/certificate" || path === "/student/report")) {
         const record = await diagnostic(
           pool,
           Buffer.from(key, "base64"),
@@ -327,21 +342,27 @@ export async function platformResponse(
           "read",
         );
         if (
-          !record.award ||
           !record.submittedAt ||
           !record.attempt ||
           !("result" in record.attempt) ||
           !record.attempt.result
         )
-          throw new PilotError(404, "No certificate has been earned for this diagnostic.");
+          throw new PilotError(404, "Submit your diagnostic to open its report.");
         const student = await getStudentRosterName(pool, member.id, key);
-        return certificate(
-          student.name,
-          record.attempt.result.score,
-          record.attempt.result.max,
-          record.award.medal,
-          record.attempt.id,
-          record.submittedAt,
+        const date = record.submittedAt.toLocaleDateString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          dateStyle: "long",
+        });
+        if (path === "/student/report")
+          return practiceReport(student.name, date, record.attempt.result, record.award?.medal);
+        if (!record.award)
+          throw new PilotError(404, "No certificate has been earned for this diagnostic.");
+        return printable(
+          "DekhoExams diagnostic certificate",
+          `<h1>${html(record.award.medal)} medal</h1><p>Practice achievement awarded to</p><h2>${html(student.name)}</h2>
+<p>For scoring <strong>${record.attempt.result.score} / ${record.attempt.result.max}</strong> on the DekhoExams six-question diagnostic.</p>
+<p>${html(date)}</p><small>Certificate reference ${html(record.attempt.id)}</small>
+<small>Private practice achievement. No exam qualification or accreditation is awarded.</small>`,
         );
       }
     }

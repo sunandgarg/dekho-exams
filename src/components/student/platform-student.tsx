@@ -105,6 +105,23 @@ function ProgressReport({ result, award }: { result: Result; award?: StudentAwar
             </p>
           </div>
         </div>
+        <div className="pw-inline pw-tools">
+          <a
+            className="pw-button"
+            href="/api/platform/v1/student/report"
+            download="DekhoExams-JEE-Main-report.html"
+          >
+            <Download size={17} aria-hidden="true" /> Download report
+          </a>
+          <a
+            className="pw-button pw-secondary"
+            href="/api/platform/v1/student/report"
+            target="_blank"
+            rel="noopener"
+          >
+            Open printable report
+          </a>
+        </div>
       </Block>
       <Block
         title="Medals and certificates"

@@ -146,6 +146,7 @@ try {
   const other = await response("/school", staffB);
   assert.equal(roster.roster.length, 2);
   assert.equal(other.roster.length, 0);
+  assert.deepEqual(roster.progress, { enrolled: 2, activated: 0, started: 0, completed: 0 });
   assert.equal(roster.coupon.code, a.coupon.code);
   assert.equal(other.coupon.code, b.coupon.code);
   const candidate = roster.roster.find((s) => s.name === "Test <Student>");
@@ -158,6 +159,7 @@ try {
   await response("/school", student, undefined, 403);
   await response("/student", staffA, undefined, 403);
   await response("/student/marketing", student, { optedIn: true }, 403);
+  await response("/student/report", student, undefined, 404);
   await response("/student/certificate", student, undefined, 404);
   assert.deepEqual((await response("/student", student)).marketing, {
     eligible: false,
@@ -197,6 +199,18 @@ try {
   });
   assert.equal(result.attempt.result.score, 24);
   assert.equal(result.award.medal, "Gold");
+  assert.deepEqual((await response("/school", staffA)).progress, {
+    enrolled: 2,
+    activated: 2,
+    started: 1,
+    completed: 1,
+  });
+  assert.deepEqual((await response("/school", staffB)).progress, {
+    enrolled: 0,
+    activated: 0,
+    started: 0,
+    completed: 0,
+  });
   const replay = await response("/student/answers", student, {
     revision: saved.attempt.revision,
     answers: {},
@@ -204,6 +218,19 @@ try {
   });
   assert.equal(replay.attempt.result.score, 24);
   await response("/student/certificate", unused, undefined, 404);
+  await response("/student/report", unused, undefined, 404);
+  await response("/student/report", staffA, undefined, 403);
+  await response("/student/report", "", undefined, 401);
+  const report = await request("/student/report", student);
+  assert.equal(report.status, 200);
+  assert.match(report.headers.get("cache-control"), /no-store/);
+  assert.match(report.headers.get("content-security-policy"), /default-src 'none'/);
+  const reportBody = await report.text();
+  assert.match(reportBody, /Test &lt;Student&gt;/);
+  assert.match(reportBody, /24 \/ 24/);
+  assert.match(reportBody, /100%/);
+  assert.match(reportBody, /Physics/);
+  assert(!questions.some((q) => reportBody.includes(q.prompt)));
   const certificate = await request("/student/certificate", student);
   assert.equal(certificate.status, 200);
   assert.match(certificate.headers.get("cache-control"), /no-store/);

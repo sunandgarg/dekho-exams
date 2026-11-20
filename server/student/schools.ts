@@ -299,11 +299,26 @@ export async function getSchool(
         access: row.access,
       };
     });
+    const [[progress]] = await db.execute<RowDataPacket[]>(
+      `SELECT COUNT(*) AS enrolled, COUNT(a.student_id) AS activated,
+              COUNT(d.id) AS started, COUNT(d.submitted_at) AS completed
+       FROM de_school_roster r
+       LEFT JOIN de_platform_roster_accounts a ON a.roster_id=r.id
+       LEFT JOIN de_platform_diagnostics d ON d.student_id=a.student_id
+       WHERE r.school_id=?`,
+      [schoolId],
+    );
     await db.commit();
     return {
       school,
       coupon,
       roster,
+      progress: {
+        enrolled: Number(progress?.["enrolled"] ?? 0),
+        activated: Number(progress?.["activated"] ?? 0),
+        started: Number(progress?.["started"] ?? 0),
+        completed: Number(progress?.["completed"] ?? 0),
+      },
       nextCursor: records.length > PAGE_SIZE ? roster.at(-1)!.id : null,
     };
   } catch (error) {
