@@ -8,6 +8,9 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[2]
 check = runpy.run_path(str(Path(__file__).with_name('build-advanced-mocks.py')))['reviewed_key']
 ledger = json.loads((root / 'scripts/jee/advanced-pdf-review.json').read_text())
+written_recovery = json.loads((root / 'scripts/jee/advanced-written-key-recovery.json').read_text())
+assert not set(ledger).intersection(written_recovery)
+ledger.update(written_recovery)
 corrections = [e for e in ledger.values() if 'supersedesKey' in e]
 assert len(corrections) >= 2
 for entry in corrections:
@@ -64,12 +67,12 @@ print('Supplied-PDF transcription guards passed')
 written = [
     e for e in ledger.values()
     if re.fullmatch(
-        r'Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])\.pdf',
+        r'Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])(?:_Screening|_Mains)?\.pdf',
         e.get('pdfKeyReview', {}).get('file', ''),
     )
     and set(e.get('key', {})) & {'numericKey', 'numericKeys', 'numericRanges', 'textKeys'}
 ]
-assert len(written) >= 57
+assert len(written) >= 175
 for entry in written:
     item = {'kind': 'subjective'}
     assert check(item, entry) == entry['key']

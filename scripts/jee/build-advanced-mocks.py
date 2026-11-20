@@ -15,7 +15,10 @@ def reviewed_key(item, entry):
     assert not key or len(key) == 1 and set(key) <= set(KEYS)
     if set(key) & {'numericKeys', 'numericRanges', 'textKeys'} or item.get('kind') in ('subjective', 'fill-blanks') and key:
         proof = entry['pdfKeyReview']
-        assert re.fullmatch(r'Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])\.pdf', proof['file'])
+        assert re.fullmatch(
+            r'Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])(?:_Screening|_Mains)?\.pdf',
+            proof['file'],
+        )
         assert re.fullmatch('[a-f0-9]{64}', proof['pdfSha256'])
         assert proof['question'] > 0 and proof['printedKey'].strip()
         assert proof['keyPages'] and all(isinstance(n, int) and n > 0 for n in proof['keyPages'])
@@ -63,6 +66,9 @@ def reviewed_content(q, entry):
 def build():
     approved = json.loads((ROOT / 'src/data/approved-diagrams.json').read_text())
     review = json.loads((ROOT / 'scripts/jee/advanced-pdf-review.json').read_text())
+    written = json.loads((ROOT / 'scripts/jee/advanced-written-key-recovery.json').read_text())
+    assert not set(review).intersection(written), 'Each reviewed question has one evidence record'
+    review.update(written)
     raw = {}
     for file in sorted((ARCHIVE / 'q').glob('*.bin')):
         raw.update(json.loads(gzip.decompress(file.read_bytes())))
