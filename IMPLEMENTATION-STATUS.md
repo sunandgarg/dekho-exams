@@ -4,6 +4,8 @@
 
 The public preview includes a six-question JEE Main diagnostic and an example report. The private platform adds an owner panel for provider settings and school access, a school panel for a default one-mock coupon and CSV/XLSX roster import, and a student panel for timed practice, private reports and printable achievement certificates. Students activate their invitation with an SMS code sent to the roster phone. School staff see their school's masked roster and coupon usage. Students see their own attempts and awards.
 
+Release `ebad293d` is live on the Mumbai origin behind Cloudflare. At 390 px the live preview scored a correct response, showed the subject report and recommended a chapter without horizontal overflow. Signed-out API reads returned 401 and a cross-origin activation request returned 403. The private entry pages use no-store and noindex. Existing mock and PDF routes and the sitemap responded successfully.
+
 TypeScript, policy tests and isolated MySQL integration tests passed. The tests exercised encrypted records, role and school boundaries, mocked SMS, concurrent entitlement claims, grading, certificate ownership and logout. A synthetic XLSX passed through the production parser. Production school enrollment requires the isolated database, live SMS settings and consent verification for eligible cohorts. Google sign-in, paid checkout, report email and native apps have separate launch gates. School roster imports do not enroll contacts in marketing.
 
 ## JEE Advanced 140-record source-match review (2026-11-19)
