@@ -1,17 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Award,
-  BookOpen,
-  Check,
-  CheckCircle2,
-  Clock3,
-  Download,
-  Flag,
-  Timer,
-  Trophy,
-} from "lucide-react";
+import { BookOpen, Check, CheckCircle2, Clock3, Download, Flag, Timer, Trophy } from "lucide-react";
 import { platformMessage, platformRequest, PlatformError } from "@/lib/platform-client";
 import { Block, Notice } from "./platform-controls";
+import { PracticeMedal } from "./practice-medal";
 
 type Answers = Record<string, number>;
 type Question = { id: string; subject: string; topic: string; prompt: string; options: string[] };
@@ -128,13 +119,13 @@ function ProgressReport({ result, award }: { result: Result; award?: StudentAwar
         description="Recognition for completed practice on DekhoExams."
       >
         <div className="pw-award">
-          <Award size={42} aria-hidden="true" />
+          <PracticeMedal tier={award?.medal ?? "Preview"} />
           <div>
             <h3>{award ? award.medal + " medal" : "Your award history"}</h3>
             <p>
               {award
-                ? "Earned from your submitted diagnostic."
-                : "Awards you earn will appear here."}
+                ? "Earned on your JEE Main diagnostic."
+                : "Four correct answers earn a Bronze medal."}
             </p>
           </div>
         </div>

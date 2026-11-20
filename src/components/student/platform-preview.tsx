@@ -26,6 +26,7 @@ import {
 } from "@/lib/student-offers";
 import * as Dialog from "@radix-ui/react-dialog";
 import { PreviewBreakdown, PreviewDiagnostic, PreviewQuestionReview } from "./preview-diagnostic";
+import { PracticeMedal } from "./practice-medal";
 import { blankPreviewAnswers, previewQuestions, previewResult } from "./preview-diagnostic-data";
 import "./platform-preview.css";
 
@@ -265,14 +266,13 @@ export function PlatformPreview() {
     selectCoupon(null);
     go("report");
   };
-  const name = profile.contact?.name.split(" ")[0] || "there";
   return (
     <div className="student-preview">
       <div className="sp-preview-note">
         <span>
-          <span className="sp-preview-dot" /> Interactive design preview
+          <span className="sp-preview-dot" /> Practice preview
         </span>
-        <span>Sample journey · no sign-in, payment or personal data is sent</span>
+        <span>Try the test without signing in. Checkout and signup are demos.</span>
       </div>
       <header className="sp-header">
         <a href="/" aria-label="DekhoExams home">
@@ -286,22 +286,10 @@ export function PlatformPreview() {
             Admin & schools
           </button>
         </nav>
-        <button
-          className="sp-avatar"
-          aria-label="Preview student profile"
-          onClick={() => {
-            showCard("login");
-            go("join");
-          }}
-        >
-          {profile.contact?.name[0]?.toUpperCase() || "You"}
-        </button>
       </header>
       <div className="sp-layout">
         <aside className="sp-sidebar">
-          <p className="sp-sidebar-label">
-            {view === "admin" ? "PARTNER DESK" : "YOUR STUDY SPACE"}
-          </p>
+          <p className="sp-sidebar-label">{view === "admin" ? "Schools" : "Practice"}</p>
           {(view === "admin"
             ? [
                 { label: "Overview", icon: LayoutDashboard, next: "admin" },
@@ -310,7 +298,7 @@ export function PlatformPreview() {
               ]
             : [
                 { label: "My space", icon: LayoutDashboard, next: "home" },
-                { label: "Mock tests", icon: BookOpen, next: "checkout" },
+                { label: "Pass & coupons", icon: Ticket, next: "checkout" },
                 { label: "My reports", icon: FileText, next: "report" },
                 { label: "My profile", icon: GraduationCap, next: "join" },
               ]
@@ -336,14 +324,11 @@ export function PlatformPreview() {
           ))}
           <div className="sp-aside-tip">
             <Gift size={22} />
-            <strong>A little head start.</strong>
-            <p>Your first mock is free with WELCOME100.</p>
+            <strong>Sample offer</strong>
+            <p>Try WELCOME100 in the checkout preview.</p>
             <button onClick={book}>
               See my offers <ChevronRight size={16} />
             </button>
-          </div>
-          <div className="sp-side-bottom">
-            <ShieldCheck size={17} /> Your progress. Your space.
           </div>
         </aside>
         <main className="sp-main" id="student-preview-main">
@@ -359,17 +344,11 @@ export function PlatformPreview() {
             <>
               <section className="sp-hero sp-practice-hero">
                 <div>
-                  <p className="sp-eyebrow">DEKHOEXAMS PRACTICE</p>
-                  <h1>
-                    {name === "there"
-                      ? "Make your next mock count."
-                      : `${name}, ready for your next mock?`}
-                  </h1>
-                  <p>Take a short JEE Main diagnostic and see which chapter to practise next.</p>
+                  <h1>Try a JEE Main practice set</h1>
+                  <p>Answer six questions and see which chapter to revise next.</p>
                   <div className="sp-hero-actions">
                     <Action onClick={openDiagnostic}>
-                      {answers ? "Resume diagnostic" : "Try the free diagnostic"}{" "}
-                      <ArrowUpRight size={18} />
+                      {answers ? "Resume practice" : "Start practice"} <ArrowUpRight size={18} />
                     </Action>
                     {report && (
                       <Action secondary onClick={() => go("report")}>
@@ -377,9 +356,17 @@ export function PlatformPreview() {
                       </Action>
                     )}
                   </div>
-                  <p className="sp-hero-detail">
-                    6 original questions · Physics, Chemistry and Mathematics
-                  </p>
+                  <p className="sp-hero-detail">Physics, Chemistry and Mathematics · Untimed</p>
+                  <button
+                    type="button"
+                    className="sp-text-button sp-signup-link"
+                    onClick={() => {
+                      showCard("login");
+                      go("join");
+                    }}
+                  >
+                    Preview signup <ChevronRight size={16} aria-hidden="true" />
+                  </button>
                 </div>
                 <div className="sp-test-ticket">
                   <p className="sp-eyebrow">MONTHLY PASS PREVIEW</p>
@@ -415,10 +402,7 @@ export function PlatformPreview() {
                     <GraduationCap size={22} />
                   </span>
                   <h3>JEE Main</h3>
-                  <p>
-                    Choose a previous-year paper or a mixed practice test. Check your score, pace
-                    and accuracy.
-                  </p>
+                  <p>Sit a previous-year paper or a mixed mock.</p>
                   <a href="/questions/jee-main/mock-tests">
                     Browse Main mocks <ChevronRight size={16} />
                   </a>
@@ -428,10 +412,7 @@ export function PlatformPreview() {
                     <BookOpen size={22} />
                   </span>
                   <h3>JEE Advanced</h3>
-                  <p>
-                    Work through timed papers and mixed question sets. Review your answers after
-                    submission.
-                  </p>
+                  <p>Practise timed papers and check your answers.</p>
                   <a href="/questions/jee-advanced/mock-tests">
                     Browse Advanced mocks <ChevronRight size={16} />
                   </a>
@@ -441,12 +422,9 @@ export function PlatformPreview() {
                     <Ticket size={22} />
                   </span>
                   <h3>School pilot</h3>
-                  <p>
-                    Use the access link from your school to open your diagnostic, report and earned
-                    awards.
-                  </p>
+                  <p>Sign in with your school invitation to see your test and report.</p>
                   <a href="/platform-student">
-                    Join as a student <ChevronRight size={16} />
+                    Student sign in <ChevronRight size={16} />
                   </a>
                   <a className="sp-school-panel-link" href="/platform-school">
                     Open school panel <ChevronRight size={16} />
@@ -465,29 +443,12 @@ export function PlatformPreview() {
           {view === "join" && (
             <div className="sp-onboarding">
               <div className="sp-onboarding-copy">
-                <span className="sp-tiny-pill">MADE FOR YOUR NEXT STEP</span>
-                <h2>
-                  A study space
-                  <br />
-                  that feels like yours.
-                </h2>
-                <p>
-                  A few useful details help us keep the right tests and reports together for you.
-                </p>
-                <div className="sp-small-benefit">
-                  <CheckCircle2 /> Your progress across devices
-                </div>
-                <div className="sp-small-benefit">
-                  <CheckCircle2 /> Two free mock offers
-                </div>
-                <div className="sp-small-benefit">
-                  <CheckCircle2 /> Your reports, easy to find
-                </div>
-                <p className="sp-preview-footnote">
-                  This is a design walkthrough. Use sample details only. Values stay in memory and
-                  disappear when this page reloads. The live flow will include age eligibility and
-                  guardian consent.
-                </p>
+                <PracticeMedal tier="Preview" />
+                <h2>Try signup with sample details</h2>
+                <p>Your entries clear when you reload this page.</p>
+                <a href="/login">
+                  Go to student and school sign-in <ChevronRight size={16} aria-hidden="true" />
+                </a>
               </div>
               <section className="sp-form-card" aria-label="Profile preview">
                 {card === "login" && (
@@ -495,8 +456,8 @@ export function PlatformPreview() {
                     <span className="sp-icon sp-blue">
                       <GraduationCap />
                     </span>
-                    <h2 tabIndex={-1}>Good to have you here.</h2>
-                    <p>Choose how you'd like to sign in.</p>
+                    <h2 tabIndex={-1}>Sign-in preview</h2>
+                    <p>Try Google or see what the mobile code screen looks like.</p>
                     <Action
                       secondary
                       onClick={() => {
@@ -553,10 +514,6 @@ export function PlatformPreview() {
                         <Action type="submit">Continue preview</Action>
                       </form>
                     )}
-                    <p className="sp-form-footer">
-                      Your details will be used for your account and test reports.{" "}
-                      <a href="/privacy">Privacy policy</a>
-                    </p>
                   </>
                 )}
                 {card === "contact" && (
@@ -691,8 +648,8 @@ export function PlatformPreview() {
                     <span className="sp-icon sp-green">
                       <Gift />
                     </span>
-                    <h2 tabIndex={-1}>Birthday? Only if you like.</h2>
-                    <p>This is optional. You can skip it and start practising.</p>
+                    <h2 tabIndex={-1}>Date of birth</h2>
+                    <p>You can skip this and start practising.</p>
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -709,10 +666,6 @@ export function PlatformPreview() {
                         max={new Date().toISOString().slice(0, 10)}
                         defaultValue={profile.preferences?.dob || ""}
                       />
-                      <p className="sp-muted">
-                        A separate optional preference. It won't change your test price or
-                        eligibility.
-                      </p>
                       <Action type="submit">Save and find my test</Action>
                       <button
                         type="button"
@@ -1072,8 +1025,8 @@ export function PlatformPreview() {
             </>
           )}
           <footer className="sp-footnote">
-            DekhoExams · Built for steady progress.
-            <span>Design preview · Website, iOS & Android direction</span>
+            <a href="/login">Student and school sign-in</a>
+            <a href="/privacy">Privacy policy</a>
           </footer>
         </main>
       </div>
@@ -1149,7 +1102,7 @@ export function PlatformPreview() {
       </PreviewDialog>
       <PreviewDialog open={schoolForm} onOpenChange={showSchoolForm} title="Create school coupon">
         <div className="sp-section-heading">
-          <h2>A free start for your school.</h2>
+          <h2>Create a sample school coupon</h2>
           <button
             autoFocus
             className="sp-close"

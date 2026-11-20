@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, LockKeyhole, LogOut, ShieldCheck } from "lucide-react";
 import {
   extractInvitation,
@@ -10,11 +10,20 @@ import {
   type PlatformSession,
 } from "@/lib/platform-client";
 import { Notice } from "./platform-controls";
-import { PlatformAdmin } from "./platform-admin";
-import { PlatformLeads } from "./platform-leads";
-import { PlatformSchool } from "./platform-school";
-import { PlatformStudent } from "./platform-student";
 import "./platform-workspace.css";
+
+const PlatformAdmin = lazy(() =>
+  import("./platform-admin").then((module) => ({ default: module.PlatformAdmin })),
+);
+const PlatformLeads = lazy(() =>
+  import("./platform-leads").then((module) => ({ default: module.PlatformLeads })),
+);
+const PlatformSchool = lazy(() =>
+  import("./platform-school").then((module) => ({ default: module.PlatformSchool })),
+);
+const PlatformStudent = lazy(() =>
+  import("./platform-student").then((module) => ({ default: module.PlatformStudent })),
+);
 
 const titles: Record<PlatformRole, string> = {
   owner: "Owner workspace",
@@ -23,8 +32,8 @@ const titles: Record<PlatformRole, string> = {
 };
 const descriptions: Record<PlatformRole, string> = {
   owner: "Manage school partnerships, coupons and provider settings.",
-  school: "Manage your school coupon and give your enrolled students access.",
-  student: "Take your school diagnostic and see your private report and awards.",
+  school: "Bring your class roster, invite students and track completed mocks.",
+  student: "Take your school mock, see what to revise and download any award you earn.",
 };
 
 export function PlatformWorkspace({
@@ -168,17 +177,19 @@ export function PlatformWorkspace({
             Checking your session…
           </p>
         ) : unlocked ? (
-          role === "owner" ? (
-            ownerView === "leads" ? (
-              <PlatformLeads />
+          <Suspense fallback={<p role="status">Opening your workspace…</p>}>
+            {role === "owner" ? (
+              ownerView === "leads" ? (
+                <PlatformLeads />
+              ) : (
+                <PlatformAdmin />
+              )
+            ) : role === "school" ? (
+              <PlatformSchool />
             ) : (
-              <PlatformAdmin />
-            )
-          ) : role === "school" ? (
-            <PlatformSchool />
-          ) : (
-            <PlatformStudent />
-          )
+              <PlatformStudent />
+            )}
+          </Suspense>
         ) : (
           <div className="pw-unlock">
             <div className="pw-unlock-copy">
@@ -212,10 +223,10 @@ export function PlatformWorkspace({
                 </>
               ) : available === false ? (
                 <>
-                  <Notice message="Workspace enrollment is being set up." />
+                  <Notice message="School enrollment is currently closed." />
                   {role !== "owner" && (
                     <a className="pw-button" href="/platform-preview">
-                      Try the free diagnostic
+                      Try the free practice set
                     </a>
                   )}
                 </>
@@ -225,7 +236,7 @@ export function PlatformWorkspace({
                     {codeSent
                       ? "Enter the six-digit code sent to your registered mobile."
                       : role === "student"
-                        ? "Use your school’s invitation link to request a code on your registered mobile. SMS must be enabled for this pilot."
+                        ? "Paste the invitation from your school. We’ll send a code to the mobile number your school registered."
                         : invite
                           ? "This single-use link activates your access. Use it only if you were the intended recipient."
                           : "Use the private invitation link from your school or the DekhoExams team."}

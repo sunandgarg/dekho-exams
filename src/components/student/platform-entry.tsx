@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowRight, Award, GraduationCap, School2 } from "lucide-react";
+import { ArrowRight, GraduationCap, School2 } from "lucide-react";
 import { platformMessage, platformRequest } from "@/lib/platform-client";
-import { Block, Notice } from "./platform-controls";
+import { Notice } from "./platform-controls";
+import { PracticeMedal } from "./practice-medal";
 import "./platform-workspace.css";
 
 type Audience = "student" | "parent" | "school";
@@ -52,7 +53,10 @@ export function PlatformEntry() {
   }
 
   return (
-    <div className="pw-workspace">
+    <div className="pw-workspace pw-entry">
+      <a className="pw-skip" href="#access-main">
+        Skip to sign in
+      </a>
       <header className="pw-top">
         <div className="pw-top-inner">
           <a href="/" className="pw-brand" aria-label="DekhoExams home">
@@ -61,65 +65,92 @@ export function PlatformEntry() {
           <a href="/questions">Question bank</a>
         </div>
       </header>
-      <main className="pw-main">
-        <div className="pw-hero">
-          <div>
-            <h1>Sign in to DekhoExams</h1>
-            <p>Choose your workspace to get started.</p>
-          </div>
+      <main className="pw-main pw-entry-main" id="access-main">
+        <div className="pw-entry-heading">
+          <h1>Sign in to DekhoExams</h1>
+          <p>Use the invitation your school or the DekhoExams team sent you.</p>
         </div>
-        {available === false && (
-          <Notice message="Workspace enrollment is being set up. You can practise without an account today." />
-        )}
-        <div className="pw-grid">
-          <section className="pw-panel pw-access-card">
-            <GraduationCap size={32} aria-hidden="true" />
-            <h2>Students</h2>
-            <p>
-              Use your school invitation to take your mock, view your report and download any
-              practice certificate you earn.
-            </p>
-            <div className="pw-inline pw-tools">
-              <a className="pw-button" href="/platform-student">
-                Student sign in <ArrowRight size={16} aria-hidden="true" />
-              </a>
-              <a href="/platform-preview">Try the free diagnostic</a>
-              {available && (
-                <a
-                  href="#request-access"
-                  onClick={() => {
-                    setAudience("student");
-                    setSent(false);
-                  }}
-                >
-                  Request student access
+        <div className="pw-entry-layout">
+          <div className="pw-access-options">
+            <section className="pw-panel pw-access-card">
+              <span className="pw-access-icon">
+                <GraduationCap size={23} aria-hidden="true" />
+              </span>
+              <div>
+                <h2>Students</h2>
+                <p>Take your school mock and see what to practise next.</p>
+              </div>
+              <div className="pw-inline pw-tools">
+                <a className="pw-button" href="/platform-student">
+                  Student sign in <ArrowRight size={16} aria-hidden="true" />
                 </a>
-              )}
-            </div>
-          </section>
-          <section className="pw-panel pw-access-card" id="schools">
-            <School2 size={32} aria-hidden="true" />
-            <h2>Schools</h2>
-            <p>
-              Use your school workspace to upload a roster, give students their mock access and
-              track completion.
-            </p>
-            <div className="pw-inline pw-tools">
-              <a className="pw-button" href="/platform-school">
-                School sign in <ArrowRight size={16} aria-hidden="true" />
-              </a>
-              {available && (
-                <a
-                  href="#request-access"
-                  onClick={() => {
-                    setAudience("school");
-                    setSent(false);
-                  }}
-                >
-                  Request school access
+                {available && (
+                  <a
+                    href="#request-access"
+                    onClick={() => {
+                      setAudience("student");
+                      setSent(false);
+                    }}
+                  >
+                    Request student access
+                  </a>
+                )}
+              </div>
+            </section>
+            <section className="pw-panel pw-access-card" id="schools">
+              <span className="pw-access-icon">
+                <School2 size={23} aria-hidden="true" />
+              </span>
+              <div>
+                <h2>Schools</h2>
+                <p>Upload your class list and track how many students finish the mock.</p>
+              </div>
+              <div className="pw-inline pw-tools">
+                <a className="pw-button" href="/platform-school">
+                  School sign in <ArrowRight size={16} aria-hidden="true" />
                 </a>
-              )}
+                {available && (
+                  <a
+                    href="#request-access"
+                    onClick={() => {
+                      setAudience("school");
+                      setSent(false);
+                    }}
+                  >
+                    Request school access
+                  </a>
+                )}
+              </div>
+            </section>
+            <div className="pw-entry-practice">
+              {available === false && <p role="status">School enrollment is currently closed.</p>}
+              <a href="/platform-preview">
+                Try six JEE Main questions without signing in{" "}
+                <ArrowRight size={16} aria-hidden="true" />
+              </a>
             </div>
+          </div>
+          <section className="pw-certificate-preview" aria-labelledby="practice-certificate-title">
+            <PracticeMedal />
+            <h2 id="practice-certificate-title">Practice certificates</h2>
+            <p>
+              Earn a DekhoExams medal and printable certificate with at least four correct answers
+              on the school diagnostic.
+            </p>
+            <dl>
+              <div>
+                <dt>Bronze</dt>
+                <dd>4 correct</dd>
+              </div>
+              <div>
+                <dt>Silver</dt>
+                <dd>5 correct</dd>
+              </div>
+              <div>
+                <dt>Gold</dt>
+                <dd>6 correct</dd>
+              </div>
+            </dl>
           </section>
         </div>
         {available && (
@@ -188,12 +219,6 @@ export function PlatformEntry() {
             )}
           </section>
         )}
-        <Block title="Practice certificates">
-          <p className="pw-inline">
-            <Award size={21} aria-hidden="true" /> Eligible results from a submitted school
-            diagnostic earn a DekhoExams medal and a printable practice certificate.
-          </p>
-        </Block>
       </main>
     </div>
   );

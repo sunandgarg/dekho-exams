@@ -2,6 +2,8 @@
 
 ## Student and school pilot (2026-11-20)
 
+The sign-in page, signup preview and sample mock use shorter instructions and a lightweight medal illustration. The sign-in page explains the Bronze, Silver and Gold thresholds for the school diagnostic. The signed-out workspace loads only its entry screen. It requests the selected dashboard after the session is confirmed.
+
 The public header and PDF library now link to a shared student and school access page. It identifies the school invitation path, free practice, and the pilot's branded practice certificates. When private enrollment is enabled, adult students, parents, and school staff can request access with express permission for a follow-up. The owner-only All leads page has exact-email search, audience and follow-up filters, bounded pagination, and a contacted status. It uses DekhoExams inquiries and stores contact details encrypted. School roster data stays in the separate school workflow.
 
 The follow-up adds school-wide roster, activation, start and completion totals and a private downloadable JEE Main report. The report contains DekhoExams branding, score, accuracy, subject counts and the next practice topic. Individual results remain with the student. MySQL tests exercise report ownership and verify totals for two separate schools.

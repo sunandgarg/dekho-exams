@@ -1,14 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  ArrowLeft,
-  ArrowRight,
-  BookOpen,
-  ChevronRight,
-  Flag,
-  Medal,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, ChevronRight, Flag, ShieldCheck } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { PracticeMedal } from "./practice-medal";
 import { previewQuestions, previewResult } from "./preview-diagnostic-data";
 
 const subjectName = (subject: string) => subject.charAt(0).toUpperCase() + subject.slice(1);
@@ -243,14 +236,12 @@ export function PreviewQuestionReview({ result }: { result: ReturnType<typeof pr
         </details>
       ))}
       <div className="sp-awards-note">
-        <span className="sp-icon sp-orange">
-          <Medal size={21} />
-        </span>
+        <PracticeMedal tier="Preview" />
         <div>
           <h3>Medals and certificates</h3>
           <p>
-            Only eligible results recorded in a student account can earn an award. View your awards
-            in the student panel.
+            Medals are earned on the school diagnostic. This practice set shows your score and what
+            to revise next.
           </p>
           <a href="/platform-student">
             Open student panel <ShieldCheck size={15} />
