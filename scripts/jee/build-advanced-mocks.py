@@ -82,6 +82,14 @@ def build():
         else:
             key = reviewed_key(item, entry)
             item.update(key); patch.update(key)
+            # A few early papers label a question as single-choice in the
+            # imported archive even though the printed key contains multiple
+            # correct options. The verified key is authoritative for the
+            # interaction type, otherwise the UI would render radio buttons
+            # for an answer that requires multiple selections.
+            if len(item.get('choiceKeys', [])) > 1 and item['kind'] != 'mcqm':
+                item['kind'] = 'mcqm'
+                patch['kind'] = 'mcqm'
         if entry.get('contentCorrection') and not entry.get('hold'):
             replacement = reviewed_content(q, entry)
             item.update(replacement); patch.update(replacement)
