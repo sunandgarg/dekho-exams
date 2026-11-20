@@ -8,9 +8,10 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[2]
 check = runpy.run_path(str(Path(__file__).with_name('build-advanced-mocks.py')))['reviewed_key']
 ledger = json.loads((root / 'scripts/jee/advanced-pdf-review.json').read_text())
-written_recovery = json.loads((root / 'scripts/jee/advanced-written-key-recovery.json').read_text())
-assert not set(ledger).intersection(written_recovery)
-ledger.update(written_recovery)
+for name in ('advanced-written-key-recovery.json', 'advanced-written-key-recovery-verified.json'):
+    written_recovery = json.loads((root / 'scripts/jee' / name).read_text())
+    assert not set(ledger).intersection(written_recovery)
+    ledger.update(written_recovery)
 corrections = [e for e in ledger.values() if 'supersedesKey' in e]
 assert len(corrections) >= 2
 for entry in corrections:

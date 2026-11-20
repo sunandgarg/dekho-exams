@@ -73,15 +73,6 @@ export function ExamDirectory() {
         JEE, NEET, GATE, UPSC, NDA, SSC and CBSE, organised chapter-wise and paper-wise. Browse JEE Main and JEE Advanced past papers by year and shift, or choose an original Dekhoexams practice set.
       </p>
       </header>
-      <div className="exam-chipbar">
-        {CATEGORIES.map((c) => (
-          <a key={c.slug} href={`#${c.slug}`} className="exam-chip">
-            {c.short} <b>{examsIn(c.slug).length}</b>
-          </a>
-        ))}
-        <a href="/pdf-library" className="exam-chip">PDF library</a>
-        <Link to="/questions/bookmarks" className="exam-chip">🔖 Bookmarks</Link>
-      </div>
       {CATEGORIES.map((c) => (
         <section key={c.slug} id={c.slug} className="mt-10 scroll-mt-28" aria-labelledby={`${c.slug}-h`}>
           <h2 id={`${c.slug}-h`} className="mb-4 flex items-baseline gap-2 text-xl font-bold">

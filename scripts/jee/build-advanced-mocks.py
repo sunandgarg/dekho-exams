@@ -66,9 +66,10 @@ def reviewed_content(q, entry):
 def build():
     approved = json.loads((ROOT / 'src/data/approved-diagrams.json').read_text())
     review = json.loads((ROOT / 'scripts/jee/advanced-pdf-review.json').read_text())
-    written = json.loads((ROOT / 'scripts/jee/advanced-written-key-recovery.json').read_text())
-    assert not set(review).intersection(written), 'Each reviewed question has one evidence record'
-    review.update(written)
+    for name in ('advanced-written-key-recovery.json', 'advanced-written-key-recovery-verified.json'):
+        written = json.loads((ROOT / 'scripts/jee' / name).read_text())
+        assert not set(review).intersection(written), 'Each reviewed question has one evidence record'
+        review.update(written)
     raw = {}
     for file in sorted((ARCHIVE / 'q').glob('*.bin')):
         raw.update(json.loads(gzip.decompress(file.read_bytes())))
