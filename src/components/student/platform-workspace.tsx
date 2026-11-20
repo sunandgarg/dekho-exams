@@ -200,7 +200,7 @@ export function PlatformWorkspace({
             <section className="pw-panel" aria-labelledby="pw-unlock-title">
               <h2 id="pw-unlock-title">
                 <LockKeyhole size={20} aria-hidden="true" />{" "}
-                {session ? "You’re signed in" : "Open your invitation"}
+                {session ? "You’re signed in" : available ? "Open your invitation" : "Sign in"}
               </h2>
               {!session && role !== "owner" && (
                 <a href="/login">Student and school access options</a>
@@ -221,15 +221,8 @@ export function PlatformWorkspace({
                     </a>
                   )}
                 </>
-              ) : available === false ? (
-                <>
-                  <Notice message="School enrollment is currently closed." />
-                  {role !== "owner" && (
-                    <a className="pw-button" href="/platform-preview">
-                      Try the free practice set
-                    </a>
-                  )}
-                </>
+              ) : available !== true ? (
+                <p className="pw-muted">Sign-in is unavailable right now.</p>
               ) : (
                 <form className="pw-form" onSubmit={activate} method="post">
                   <p className="pw-muted" role={codeSent ? "status" : undefined}>
@@ -292,8 +285,8 @@ export function PlatformWorkspace({
                   )}
                 </form>
               )}
-              <a className="pw-back" href="/platform-preview">
-                Explore the platform preview
+              <a className="pw-back" href="/questions/jee-main/quick-practice">
+                Practise JEE Main
               </a>
             </section>
           </div>

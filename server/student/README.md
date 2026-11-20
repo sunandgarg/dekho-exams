@@ -1,6 +1,6 @@
 # Student service foundation
 
-The original checkout, profile and payment services remain internal. The private school pilot uses the API described below. The new public `/platform-preview` is an explicitly labelled design walkthrough with in-memory sample values. It never calls these services, authenticates a user, accepts provider keys or collects a payment. The existing admin editor route remains unchanged.
+The original checkout, profile and payment services remain internal. The private school pilot uses the API described below. The former walkthrough URL `/platform-preview` redirects to `/questions/jee-main/quick-practice`, an anonymous six-question practice set scored in the browser.
 
 The owner-confirmed product is **₹999/month for unlimited mocks**. Public or school coupons grant **one mock** each. A free coupon booking cannot grant a monthly pass. The paid-pass calculation uses one calendar month, clamps month-end and preserves UTC time. This first model does not automatically renew or charge a card.
 

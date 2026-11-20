@@ -35,6 +35,7 @@ import { Route as QuestionsExamIndexRouteImport } from './routes/questions.$exam
 import { Route as QuestionsExamPracticeRouteImport } from './routes/questions.$exam.practice'
 import { Route as QuestionsJeeAdvancedMockTestsRouteImport } from './routes/questions.jee-advanced.mock-tests'
 import { Route as QuestionsJeeMainMockTestsRouteImport } from './routes/questions.jee-main.mock-tests'
+import { Route as QuestionsJeeMainQuickPracticeRouteImport } from './routes/questions.jee-main.quick-practice'
 import { Route as PastYearsJeeArchiveIndexRouteImport } from './routes/past-years.jee.$archive.index'
 import { Route as PastYearsJeeQuestionSlugRouteImport } from './routes/past-years.jee.question.$slug'
 import { Route as PyqPdfsPrintPaperLangRouteImport } from './routes/pyq-pdfs.print.$paper.$lang'
@@ -185,6 +186,12 @@ const QuestionsJeeMainMockTestsRoute =
     path: '/questions/jee-main/mock-tests',
     getParentRoute: () => rootRouteImport,
   } as any)
+const QuestionsJeeMainQuickPracticeRoute =
+  QuestionsJeeMainQuickPracticeRouteImport.update({
+    id: '/questions/jee-main/quick-practice',
+    path: '/questions/jee-main/quick-practice',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PastYearsJeeArchiveIndexRoute =
   PastYearsJeeArchiveIndexRouteImport.update({
     id: '/past-years/jee/$archive/',
@@ -313,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
   '/questions/jee-advanced/mock-tests': typeof QuestionsJeeAdvancedMockTestsRoute
   '/questions/jee-main/mock-tests': typeof QuestionsJeeMainMockTestsRoute
+  '/questions/jee-main/quick-practice': typeof QuestionsJeeMainQuickPracticeRoute
   '/questions/$exam/': typeof QuestionsExamIndexRoute
   '/past-years/jee/question/$slug': typeof PastYearsJeeQuestionSlugRoute
   '/pyq-pdfs/print/$paper/$lang': typeof PyqPdfsPrintPaperLangRoute
@@ -357,6 +365,7 @@ export interface FileRoutesByTo {
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
   '/questions/jee-advanced/mock-tests': typeof QuestionsJeeAdvancedMockTestsRoute
   '/questions/jee-main/mock-tests': typeof QuestionsJeeMainMockTestsRoute
+  '/questions/jee-main/quick-practice': typeof QuestionsJeeMainQuickPracticeRoute
   '/questions/$exam': typeof QuestionsExamIndexRoute
   '/past-years/jee/question/$slug': typeof PastYearsJeeQuestionSlugRoute
   '/pyq-pdfs/print/$paper/$lang': typeof PyqPdfsPrintPaperLangRoute
@@ -403,6 +412,7 @@ export interface FileRoutesById {
   '/questions/$exam/practice': typeof QuestionsExamPracticeRoute
   '/questions/jee-advanced/mock-tests': typeof QuestionsJeeAdvancedMockTestsRoute
   '/questions/jee-main/mock-tests': typeof QuestionsJeeMainMockTestsRoute
+  '/questions/jee-main/quick-practice': typeof QuestionsJeeMainQuickPracticeRoute
   '/questions/$exam/': typeof QuestionsExamIndexRoute
   '/past-years/jee/question/$slug': typeof PastYearsJeeQuestionSlugRoute
   '/pyq-pdfs/print/$paper/$lang': typeof PyqPdfsPrintPaperLangRoute
@@ -450,6 +460,7 @@ export interface FileRouteTypes {
     | '/questions/$exam/practice'
     | '/questions/jee-advanced/mock-tests'
     | '/questions/jee-main/mock-tests'
+    | '/questions/jee-main/quick-practice'
     | '/questions/$exam/'
     | '/past-years/jee/question/$slug'
     | '/pyq-pdfs/print/$paper/$lang'
@@ -494,6 +505,7 @@ export interface FileRouteTypes {
     | '/questions/$exam/practice'
     | '/questions/jee-advanced/mock-tests'
     | '/questions/jee-main/mock-tests'
+    | '/questions/jee-main/quick-practice'
     | '/questions/$exam'
     | '/past-years/jee/question/$slug'
     | '/pyq-pdfs/print/$paper/$lang'
@@ -539,6 +551,7 @@ export interface FileRouteTypes {
     | '/questions/$exam/practice'
     | '/questions/jee-advanced/mock-tests'
     | '/questions/jee-main/mock-tests'
+    | '/questions/jee-main/quick-practice'
     | '/questions/$exam/'
     | '/past-years/jee/question/$slug'
     | '/pyq-pdfs/print/$paper/$lang'
@@ -582,6 +595,7 @@ export interface RootRouteChildren {
   QuestionsExamPracticeRoute: typeof QuestionsExamPracticeRoute
   QuestionsJeeAdvancedMockTestsRoute: typeof QuestionsJeeAdvancedMockTestsRoute
   QuestionsJeeMainMockTestsRoute: typeof QuestionsJeeMainMockTestsRoute
+  QuestionsJeeMainQuickPracticeRoute: typeof QuestionsJeeMainQuickPracticeRoute
   QuestionsExamIndexRoute: typeof QuestionsExamIndexRoute
   PastYearsJeeQuestionSlugRoute: typeof PastYearsJeeQuestionSlugRoute
   PyqPdfsPrintPaperLangRoute: typeof PyqPdfsPrintPaperLangRoute
@@ -786,6 +800,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuestionsJeeMainMockTestsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/questions/jee-main/quick-practice': {
+      id: '/questions/jee-main/quick-practice'
+      path: '/questions/jee-main/quick-practice'
+      fullPath: '/questions/jee-main/quick-practice'
+      preLoaderRoute: typeof QuestionsJeeMainQuickPracticeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/past-years/jee/$archive/': {
       id: '/past-years/jee/$archive/'
       path: '/past-years/jee/$archive'
@@ -945,6 +966,7 @@ const rootRouteChildren: RootRouteChildren = {
   QuestionsExamPracticeRoute: QuestionsExamPracticeRoute,
   QuestionsJeeAdvancedMockTestsRoute: QuestionsJeeAdvancedMockTestsRoute,
   QuestionsJeeMainMockTestsRoute: QuestionsJeeMainMockTestsRoute,
+  QuestionsJeeMainQuickPracticeRoute: QuestionsJeeMainQuickPracticeRoute,
   QuestionsExamIndexRoute: QuestionsExamIndexRoute,
   PastYearsJeeQuestionSlugRoute: PastYearsJeeQuestionSlugRoute,
   PyqPdfsPrintPaperLangRoute: PyqPdfsPrintPaperLangRoute,

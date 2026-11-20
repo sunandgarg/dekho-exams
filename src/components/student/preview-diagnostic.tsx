@@ -121,13 +121,13 @@ export function PreviewDiagnostic({
         <Dialog.Root>
           <Dialog.Trigger asChild>
             <button type="button" className="sp-button">
-              Submit sample test
+              Finish practice
             </button>
           </Dialog.Trigger>
           <Dialog.Portal>
             <Dialog.Overlay className="sp-dialog-overlay" />
             <Dialog.Content className="student-preview sp-coupon-sheet sp-dialog-position sp-submit-dialog">
-              <Dialog.Title>Submit your diagnostic?</Dialog.Title>
+              <Dialog.Title>Finish this practice set?</Dialog.Title>
               <Dialog.Description>
                 {answered === previewQuestions.length
                   ? `You’ve answered all ${previewQuestions.length} questions.`
@@ -191,11 +191,7 @@ export function PreviewBreakdown({ result }: { result: ReturnType<typeof preview
           <h2>
             {next ? `Practise ${next.topic.toLowerCase()} next` : "Try a full timed paper next"}
           </h2>
-          <p>
-            {next
-              ? next.next
-              : "You answered all six sample questions correctly. A longer paper will help you check your pace across the full syllabus."}
-          </p>
+          <p>{next ? next.next : "You got all six right. Try a timed paper to check your pace."}</p>
           <a
             href={
               next
@@ -239,12 +235,9 @@ export function PreviewQuestionReview({ result }: { result: ReturnType<typeof pr
         <PracticeMedal tier="Preview" />
         <div>
           <h3>Medals and certificates</h3>
-          <p>
-            Medals are earned on the school diagnostic. This practice set shows your score and what
-            to revise next.
-          </p>
-          <a href="/platform-student">
-            Open student panel <ShieldCheck size={15} />
+          <p>School diagnostics can earn a DekhoExams medal and a printable certificate.</p>
+          <a href="/login#practice-certificate-title">
+            See how medals are awarded <ShieldCheck size={15} />
           </a>
         </div>
       </div>

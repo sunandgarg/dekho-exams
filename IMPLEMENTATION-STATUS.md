@@ -2,6 +2,8 @@
 
 ## Student and school pilot (2026-11-20)
 
+Public sign-in links to the stand-alone JEE Main quick practice. The former public checkout and signup walkthrough URL redirects to practice. The six questions, flagging, scoring, solutions and printable practice report remain available. The private authentication and school activation requirements still apply.
+
 The sign-in page, signup preview and sample mock use shorter instructions and a lightweight medal illustration. The sign-in page explains the Bronze, Silver and Gold thresholds for the school diagnostic. The signed-out workspace loads only its entry screen. It requests the selected dashboard after the session is confirmed.
 
 The public header and PDF library now link to a shared student and school access page. It identifies the school invitation path, free practice, and the pilot's branded practice certificates. When private enrollment is enabled, adult students, parents, and school staff can request access with express permission for a follow-up. The owner-only All leads page has exact-email search, audience and follow-up filters, bounded pagination, and a contacted status. It uses DekhoExams inquiries and stores contact details encrypted. School roster data stays in the separate school workflow.

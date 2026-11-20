@@ -68,7 +68,7 @@ export function PlatformEntry() {
       <main className="pw-main pw-entry-main" id="access-main">
         <div className="pw-entry-heading">
           <h1>Sign in to DekhoExams</h1>
-          <p>Use the invitation your school or the DekhoExams team sent you.</p>
+          <p>Use the link your school or the DekhoExams team sent you.</p>
         </div>
         <div className="pw-entry-layout">
           <div className="pw-access-options">
@@ -123,10 +123,8 @@ export function PlatformEntry() {
               </div>
             </section>
             <div className="pw-entry-practice">
-              {available === false && <p role="status">School enrollment is currently closed.</p>}
-              <a href="/platform-preview">
-                Try six JEE Main questions without signing in{" "}
-                <ArrowRight size={16} aria-hidden="true" />
+              <a href="/questions/jee-main/quick-practice">
+                Try six JEE Main questions <ArrowRight size={16} aria-hidden="true" />
               </a>
             </div>
           </div>

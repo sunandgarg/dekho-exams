@@ -114,7 +114,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
     observer.observe(header);
     return () => observer.disconnect();
   }, [pathname]);
-  if (/^\/(?:login|platform-(?:preview|admin(?:\/leads)?|school|student))\/?$/.test(pathname)) return <>{children}</>;
+  if (/^\/(?:login|questions\/jee-main\/quick-practice|platform-(?:preview|admin(?:\/leads)?|school|student))\/?$/.test(pathname)) return <>{children}</>;
   if (pathname.startsWith("/admin"))
     return <div className="min-h-screen bg-background text-foreground">{children}</div>;
   if (pathname === "/pdf-library" || pathname.startsWith("/pdf-library/") || pathname.startsWith("/pyq-pdfs/")) {

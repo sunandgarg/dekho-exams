@@ -46,7 +46,7 @@ function ProgressReport({ result, award }: { result: Result; award?: StudentAwar
       : undefined;
   return (
     <div className="pw-grid">
-      <Block title="Your diagnostic report" description="JEE Main school pilot · practice results">
+      <Block title="Your practice report" description="JEE Main · School diagnostic">
         <div className="pw-stats">
           <div>
             <span>Score</span>
@@ -287,7 +287,7 @@ export function PlatformStudent() {
           <h1>{data ? "Welcome, " + data.name : "Your practice"}</h1>
           <p>
             {data?.schoolName
-              ? data.schoolName + " · JEE Main pilot"
+              ? data.schoolName + " · JEE Main"
               : "Your mock progress, reports and awards."}
           </p>
         </div>

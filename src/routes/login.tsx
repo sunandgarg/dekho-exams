@@ -5,7 +5,7 @@ import { seoHead } from "@/lib/seo";
 export const Route = createFileRoute("/login")({
   head: () =>
     seoHead({
-      title: "Sign in to DekhoExams",
+      title: "Sign in",
       description: "Open your student or school workspace, or request access.",
       path: "login",
       noindex: true,
