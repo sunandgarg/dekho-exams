@@ -6,17 +6,25 @@ import gzip, json, re, math
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = ROOT / 'public/jee-advanced-archive'
 OUT = ROOT / 'src/generated/jee-advanced-mocks'
-KEYS = ('choiceKey', 'choiceKeys', 'numericKey', 'numericKeys', 'numericRange', 'numericRanges', 'textKeys')
+KEYS = ('choiceKey', 'choiceKeys', 'choiceKeySets', 'numericKey', 'numericKeys', 'numericRange', 'numericRanges', 'textKeys')
 SUBJECTS = ('physics', 'chemistry', 'mathematics')
+
+
+def official_pdf_url(url):
+    """Accept live official papers and archived copies of exact official PDFs."""
+    return url.startswith('https://jeeadv.ac.in/past_qps/') or bool(re.fullmatch(
+        r'https://web\.archive\.org/web/\d+id_/https://jeeadv\.ac\.in/documents/[A-Za-z0-9_-]+\.pdf',
+        url,
+    ))
 
 
 def reviewed_key(item, entry):
     key = entry.get('key', {})
     assert not key or len(key) == 1 and set(key) <= set(KEYS)
-    if set(key) & {'numericKeys', 'numericRanges', 'textKeys'} or item.get('kind') in ('subjective', 'fill-blanks') and key:
+    if set(key) & {'choiceKeySets', 'numericKeys', 'numericRanges', 'textKeys'} or item.get('kind') in ('subjective', 'fill-blanks') and key:
         proof = entry.get('officialKey') or entry['pdfKeyReview']
         if 'officialKey' in entry:
-            assert proof['url'].startswith('https://jeeadv.ac.in/past_qps/')
+            assert official_pdf_url(proof['url'])
             assert proof['page'] > 0
         else:
             assert re.fullmatch(
@@ -37,7 +45,7 @@ def reviewed_key(item, entry):
             assert re.fullmatch(r'Year-wise/\d{4}/DekhoExams_JEE_Advanced_\d{4}_Paper_[12]\.pdf', proof['file'])
             assert proof['keyPages'] and all(isinstance(n, int) and n > 0 for n in proof['keyPages'])
             source = proof['questionPaper']
-        assert source['url'].startswith('https://jeeadv.ac.in/past_qps/')
+        assert official_pdf_url(source['url'])
         assert re.fullmatch('[a-f0-9]{64}', source['pdfSha256'])
         assert re.fullmatch('[a-f0-9]{64}', proof['pdfSha256']) and proof['printedKey']
     else:
@@ -49,7 +57,7 @@ def reviewed_content(q, entry):
     correction = entry['contentCorrection']
     proof = entry.get('officialKey') or entry['pdfKeyReview']
     if 'officialKey' in entry:
-        assert proof['url'].startswith('https://jeeadv.ac.in/past_qps/')
+        assert official_pdf_url(proof['url'])
     else:
         # Supplied editions may repair transcription, but cannot override an existing key.
         assert 'supersedesKey' not in entry
@@ -104,7 +112,7 @@ def build():
             # correct options. The verified key is authoritative for the
             # interaction type, otherwise the UI would render radio buttons
             # for an answer that requires multiple selections.
-            if len(item.get('choiceKeys', [])) > 1 and item['kind'] != 'mcqm':
+            if (len(item.get('choiceKeys', [])) > 1 or any(len(s) > 1 for s in item.get('choiceKeySets', []))) and item['kind'] != 'mcqm':
                 item['kind'] = 'mcqm'
                 patch['kind'] = 'mcqm'
         if entry.get('contentCorrection') and not entry.get('hold'):
@@ -135,6 +143,7 @@ def build():
         if any(k in item for k in KEYS):
             assert q['kind'] in ('mcq', 'mcqm', 'integer', 't/f', 'subjective', 'fill-blanks')
             assert all(i in range(len(q['options'])) for i in item.get('choiceKeys', [item['choiceKey']] if 'choiceKey' in item else []))
+            assert all(s and s == sorted(set(s)) and all(i in range(len(q['options'])) for i in s) for s in item.get('choiceKeySets', []))
             assert all(math.isfinite(n) for n in item.get('numericRange', [item['numericKey']] if 'numericKey' in item else []))
             assert all(math.isfinite(n) for n in item.get('numericKeys', []))
             assert all(len(r) == 2 and all(math.isfinite(n) for n in r) and r[0] <= r[1] for r in item.get('numericRanges', []))

@@ -284,7 +284,8 @@ export function QuestionView({
   const { id, name, jeeHub, paperHub, papers } = useCatalog(owner);
   const paper = papers.find((p) => p.slug === q.paper);
   const grading = language === "en" && q.englishKey ? { ...q, ...q.englishKey } : q;
-  const keys = grading.choiceKeys ?? (grading.choiceKey === undefined ? undefined : [grading.choiceKey]);
+  const keys = grading.choiceKeys ?? grading.choiceKeySets?.[0] ?? (grading.choiceKey === undefined ? undefined : [grading.choiceKey]);
+  const acceptedChoices = [...new Set((grading.choiceKeySets ?? (keys ? [keys] : [])).flat())];
   const content = language === "hi" && q.hi ? q.hi : q;
   const shortAnswer = !content.options.length && hasAnswerKey(grading);
   const promptFigurePending = [content.body, ...content.options].some((part) =>
@@ -372,7 +373,7 @@ export function QuestionView({
               <label
                 key={i}
                 className="answer-choice"
-                data-correct={checked && keys?.includes(i) || undefined}
+                data-correct={checked && acceptedChoices.includes(i) || undefined}
               >
                 <input
                   type={q.kind === "mcqm" ? "checkbox" : "radio"}
@@ -438,9 +439,9 @@ export function QuestionView({
             </button>
             {checked && (
               <span role="status">
-                {choices.length === keys.length && keys.every((k) => choices.includes(k))
+                {correct(grading, [...choices].sort((a, b) => a - b).join(","))
                   ? "Correct."
-                  : "Published answer: " + keys.map((k) => String.fromCharCode(65 + k)).join(", ")}
+                  : "Published answer: " + displayKey(grading)}
               </span>
             )}
           </div>

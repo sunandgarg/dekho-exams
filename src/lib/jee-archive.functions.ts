@@ -22,6 +22,7 @@ export type ArchiveQuestion = {
   numericKeys?: number[];
   choiceKey?: number;
   choiceKeys?: number[];
+  choiceKeySets?: number[][];
   numericRange?: [number, number];
   numericRanges?: [number, number][];
   textKeys?: string[];
@@ -29,6 +30,7 @@ export type ArchiveQuestion = {
   englishKey?: {
     choiceKey?: number;
     choiceKeys?: number[];
+    choiceKeySets?: number[][];
     numericKey?: number;
     numericKeys?: number[];
     numericRange?: [number, number];

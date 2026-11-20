@@ -4,6 +4,7 @@ import { gunzipSync } from "node:zlib";
 import {
   correct,
   displayKey,
+  acceptedChoiceIndices,
   selectQuestions,
   summarize,
   performance,
@@ -43,7 +44,7 @@ for (const file of readdirSync(root).filter((n) => n.endsWith(".json.gz"))) {
     if (q.review) assert.equal(correct(q, "0"), false);
     else {
       const key = q.options.length
-        ? (q.choiceKeys ?? [q.choiceKey]).join(",")
+        ? (q.choiceKeys ?? q.choiceKeySets?.[0] ?? [q.choiceKey]).join(",")
         : String(q.textKeys?.[0] ?? q.numericRanges?.[0]?.[0] ?? q.numericRange?.[0] ?? q.numericKeys?.[0] ?? q.numericKey);
       assert.equal(correct(q, key), true);
       assert.equal(correct(q, ""), false);
@@ -58,6 +59,12 @@ assert(correct(multi, "0,3"));
 assert(!correct(multi, "0"));
 assert(!correct(multi, "0,1,3"));
 assert.equal(displayKey(multi), "A, D");
+const alternativeMulti = { options: ["A", "B", "C", "D"], choiceKeySets: [[0, 3], [3]] };
+assert(correct(alternativeMulti, "0,3"));
+assert(correct(alternativeMulti, "3"));
+assert(!correct(alternativeMulti, "0"));
+assert.equal(displayKey(alternativeMulti), "A, D or D");
+assert.deepEqual(acceptedChoiceIndices(alternativeMulti), [0, 3]);
 const numeric = { options: [], numericRange: [1.38, 1.39] };
 assert(correct(numeric, "1.385"));
 assert(!correct(numeric, "1.4"));
@@ -128,7 +135,7 @@ for (const f of readdirSync(new URL("../public/jee-advanced-archive/q/", import.
     const patched = await applyPdfReview(q, "jee-advanced");
     if (evidence.hold) {
       assert(patched.keyConflict);
-      for (const k of ["choiceKey", "choiceKeys", "numericKey", "numericKeys", "numericRange", "numericRanges", "textKeys"])
+      for (const k of ["choiceKey", "choiceKeys", "choiceKeySets", "numericKey", "numericKeys", "numericRange", "numericRanges", "textKeys"])
         assert.equal(patched[k], undefined);
     } else {
       if (evidence.key)

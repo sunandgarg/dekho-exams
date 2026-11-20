@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  answerKey,
+  acceptedChoiceIndices,
   correct,
   displayKey,
   performance,
@@ -213,7 +213,7 @@ export function MockResults({
                     {q.options.map((option, j) => (
                       <li
                         key={j}
-                        data-correct={(!q.review && answerKey(q).includes(j)) || undefined}
+                        data-correct={(!q.review && acceptedChoiceIndices(q).includes(j)) || undefined}
                       >
                         <b>{String.fromCharCode(65 + j)}</b>
                         <div className="jee-prose" dangerouslySetInnerHTML={{ __html: option }} />

@@ -13,6 +13,7 @@ export type Item = Pick<
   | "numericRanges"
   | "textKeys"
   | "choiceKeys"
+  | "choiceKeySets"
 > & { review?: string };
 export const validNumber = (s: string) => /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(s);
 export const normalizeTextAnswer = (s: string) =>
@@ -24,7 +25,9 @@ export const normalizeTextAnswer = (s: string) =>
     .replace(/\s+/g, " ")
     .replace(/\s*([/%°])\s*/g, "$1");
 export const answerKey = (q: Item) =>
-  q.choiceKeys ?? (q.choiceKey === undefined ? [] : [q.choiceKey]);
+  q.choiceKeys ?? q.choiceKeySets?.[0] ?? (q.choiceKey === undefined ? [] : [q.choiceKey]);
+export const acceptedChoiceIndices = (q: Item) =>
+  [...new Set((q.choiceKeySets ?? [answerKey(q)]).flat())];
 export const hasAnswerKey = (q: Item) =>
   q.options.length
     ? answerKey(q).length > 0
@@ -35,7 +38,10 @@ export const hasAnswerKey = (q: Item) =>
       Boolean(q.textKeys?.length);
 export const correct = (q: Item, v: string) => {
   if (q.review || !v) return false;
-  if (q.options.length) return v === answerKey(q).join(",");
+  if (q.options.length) {
+    const accepted = q.choiceKeySets ?? [answerKey(q)];
+    return accepted.some((key) => v === key.join(","));
+  }
   const trimmed = v.trim();
   if (q.textKeys?.some((key) => normalizeTextAnswer(key) === normalizeTextAnswer(trimmed))) return true;
   if (!validNumber(trimmed)) return false;
@@ -47,9 +53,9 @@ export const correct = (q: Item, v: string) => {
 };
 export const displayKey = (q: Item) =>
   q.options.length
-    ? answerKey(q)
-        .map((i) => String.fromCharCode(65 + i))
-        .join(", ")
+    ? (q.choiceKeySets ?? [answerKey(q)])
+        .map((key) => key.map((i) => String.fromCharCode(65 + i)).join(", "))
+        .join(" or ")
     : (q.textKeys?.join(" or ") ??
       q.numericRanges?.map((range) => range.join(" to ")).join(" or ") ??
       q.numericRange?.join(" to ") ??

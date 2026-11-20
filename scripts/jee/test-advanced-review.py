@@ -116,3 +116,13 @@ for entry in official_written:
             continue
         raise AssertionError(mutation)
 print('Official written-answer evidence guards passed')
+
+official_alternative_choices = [
+    e for e in ledger.values()
+    if 'officialKey' in e and 'choiceKeySets' in e.get('key', {})
+]
+assert official_alternative_choices
+for entry in official_alternative_choices:
+    item = {'kind': 'mcqm', 'options': ['A', 'B', 'C', 'D']}
+    assert check(item, entry) == entry['key']
+print('Official alternative-choice evidence guards passed')
