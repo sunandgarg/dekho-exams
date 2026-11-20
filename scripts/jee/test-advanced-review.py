@@ -30,3 +30,30 @@ for entry in corrections:
             continue
         raise AssertionError(mutation)
 print('Official correction guards passed')
+
+# Supplied-PDF transcription patches must be tied to the exact archived question.
+content = runpy.run_path(str(Path(__file__).with_name('build-advanced-mocks.py')))['reviewed_content']
+patches = [e for e in ledger.values() if 'contentCorrection' in e and 'officialKey' not in e]
+assert patches
+for entry in patches:
+    correction = entry['contentCorrection']
+    original = {'body': correction['originalBody'], 'options': correction['originalOptions']}
+    assert content(original, entry) == correction['replacement']
+    for mutation in ['wrong-original', 'wrong-file', 'missing-key-page', 'wrong-hash', 'wrong-order', 'key-override', 'missing-body', 'missing-option', 'unreviewed-solution']:
+        bad = copy.deepcopy(entry)
+        proof = bad['pdfKeyReview']
+        if mutation == 'wrong-original': bad['contentCorrection']['originalBody'] += ' changed'
+        if mutation == 'wrong-file': proof['file'] = 'unverified.pdf'
+        if mutation == 'missing-key-page': proof['keyPages'] = []
+        if mutation == 'wrong-hash': proof['pdfSha256'] = 'invalid'
+        if mutation == 'wrong-order': proof['localToPdfOptionOrder'] = []
+        if mutation == 'key-override': bad['supersedesKey'] = {'choiceKey': 0}
+        if mutation == 'missing-body': bad['contentCorrection']['replacement']['body'] = ''
+        if mutation == 'missing-option': bad['contentCorrection']['replacement']['options'].pop()
+        if mutation == 'unreviewed-solution': bad['contentCorrection']['replacement']['solution'] = 'Old explanation'
+        try:
+            content(original, bad)
+        except AssertionError:
+            continue
+        raise AssertionError(mutation)
+print('Supplied-PDF transcription guards passed')

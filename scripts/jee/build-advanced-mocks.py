@@ -32,6 +32,28 @@ def reviewed_key(item, entry):
     return key
 
 
+def reviewed_content(q, entry):
+    correction = entry['contentCorrection']
+    proof = entry.get('officialKey') or entry['pdfKeyReview']
+    if 'officialKey' in entry:
+        assert proof['url'].startswith('https://jeeadv.ac.in/past_qps/')
+    else:
+        # Supplied editions may repair transcription, but cannot override an existing key.
+        assert 'supersedesKey' not in entry
+        assert re.fullmatch(r'Chapter-wise/(Physics|Chemistry|Mathematics)/DekhoExams_JEE_Advanced_[A-Za-z_]+\.pdf', proof['file'])
+        assert proof['question'] > 0 and proof['printedKey']
+        for field in ('keyPages', 'questionPages'):
+            assert proof[field] and all(isinstance(n, int) and n > 0 for n in proof[field])
+        assert proof['localToPdfOptionOrder'] == list(range(len(q['options'])))
+    assert re.fullmatch('[a-f0-9]{64}', proof['pdfSha256'])
+    assert correction['originalBody'] == q['body'] and correction['originalOptions'] == q['options']
+    replacement = correction['replacement']
+    assert set(replacement) == {'body', 'options', 'solution'}
+    assert replacement['body'] and len(replacement['options']) == len(q['options'])
+    assert replacement['solution'] == ''
+    return replacement
+
+
 def build():
     approved = json.loads((ROOT / 'src/data/approved-diagrams.json').read_text())
     review = json.loads((ROOT / 'scripts/jee/advanced-pdf-review.json').read_text())
@@ -61,14 +83,8 @@ def build():
             key = reviewed_key(item, entry)
             item.update(key); patch.update(key)
         if entry.get('contentCorrection') and not entry.get('hold'):
-            correction = entry['contentCorrection']
-            proof = entry['officialKey']
-            assert proof['url'].startswith('https://jeeadv.ac.in/past_qps/')
-            assert re.fullmatch('[a-f0-9]{64}', proof['pdfSha256'])
-            assert correction['originalBody'] == q['body'] and correction['originalOptions'] == q['options']
-            assert set(correction['replacement']) == {'body', 'options', 'solution'}
-            assert len(correction['replacement']['options']) == len(q['options'])
-            item.update(correction['replacement']); patch.update(correction['replacement'])
+            replacement = reviewed_content(q, entry)
+            item.update(replacement); patch.update(replacement)
         if entry.get('figures') and not entry.get('hold'):
             pieces = [item['body'], *item['options']]
             used = set()
