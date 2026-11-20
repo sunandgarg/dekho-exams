@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import oziCss from "../ozi-design.css?url";
 import dekhoexamsCss from "../dekhoexams-theme.css?url";
 import { SiteShell } from "@/components/gfg/site-shell";
+import { CookieChoiceBar } from "@/components/cms/privacy-controls";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -122,6 +123,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <CookieChoiceBar />
       <SiteShell>
         <Outlet />
       </SiteShell>

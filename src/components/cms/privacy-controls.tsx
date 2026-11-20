@@ -28,6 +28,32 @@ function useChoice() {
   }, []);
   return { choice, ready };
 }
+function saveChoice(externalMedia: boolean) {
+  localStorage.setItem(key, JSON.stringify({ externalMedia, version: 1 }));
+  window.dispatchEvent(new Event(changed));
+}
+export function CookieChoiceBar() {
+  const { choice, ready } = useChoice();
+  const [notice, setNotice] = useState("");
+  if (!ready || choice) return null;
+  function choose(externalMedia: boolean) {
+    try {
+      saveChoice(externalMedia);
+    } catch {
+      setNotice("Could not save your choice. Optional media stays off.");
+    }
+  }
+  return (
+    <aside className="cookie-choice-bar" aria-label="Cookie choice">
+      <span>{notice || "Allow optional video cookies?"}</span>
+      <div>
+        <button type="button" onClick={() => choose(true)}>Yes</button>
+        <button type="button" onClick={() => choose(false)}>No</button>
+        <a href="/privacy">Details</a>
+      </div>
+    </aside>
+  );
+}
 export function PrivacyControls() {
   const { choice, ready } = useChoice();
   const [open, setOpen] = useState(false);
@@ -35,12 +61,11 @@ export function PrivacyControls() {
   const [notice, setNotice] = useState("");
   function save(externalMedia: boolean) {
     try {
-      localStorage.setItem(key, JSON.stringify({ externalMedia, version: 1 }));
+      saveChoice(externalMedia);
     } catch {
       setNotice("Preferences could not be saved. External media remains blocked.");
       return;
     }
-    window.dispatchEvent(new Event(changed));
     setOpen(false);
   }
   return (
@@ -78,7 +103,7 @@ export function PrivacyControls() {
             Storage details
           </a>
         </div>
-        {ready && (!choice || open) && (
+        {ready && open && (
           <div className="mt-4 max-w-3xl border p-5" aria-labelledby="privacy-heading">
             <h2 id="privacy-heading" className="text-lg font-bold">
               Your privacy choices

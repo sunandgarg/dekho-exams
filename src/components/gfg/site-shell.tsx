@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { EDUCATION_NAV as NAV_GROUPS, educationPage } from "@/lib/education-catalog";
+import { platformRequest, platformRoutes, type PlatformSession } from "@/lib/platform-client";
 
 export function LocalLink({
   href,
@@ -73,6 +74,14 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const [dark, setDark] = useState(false);
   const [themeReady, setThemeReady] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [session, setSession] = useState<PlatformSession | null>(null);
+  useEffect(() => {
+    let active = true;
+    void platformRequest<PlatformSession>("/session")
+      .then((result) => { if (active) setSession(result); })
+      .catch(() => { if (active) setSession(null); });
+    return () => { active = false; };
+  }, []);
   useEffect(() => {
     try {
       setDark(localStorage.getItem("penpencil-theme") === "dark");
@@ -122,8 +131,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <a href="#main-content" className="sr-only focus:not-sr-only">Skip to PDFs</a>
       <header className="pdf-mast"><div className="pdf-container"><a href="/" aria-label="DekhoExams home"><Brand/></a>
         <nav aria-label="PDF library navigation"><a href="/pdf-library#exams">Exams</a><a href="/questions" className="pdf-practice-link">Practice ↗</a>
-          <button type="button" aria-label="Toggle theme" onClick={()=>setDark(!dark)}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button>
-          <Link to="/login" className="ozi-sign-in">Sign in</Link>
+          {session && <button type="button" aria-label="Toggle theme" onClick={()=>setDark(!dark)}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button>}
+          <Link to={session ? platformRoutes[session.role] : "/login"} className="ozi-sign-in">{session ? "My workspace" : "Sign in"}</Link>
         </nav></div></header>
       <main id="main-content" tabIndex={-1}>{children}</main><Footer/><PrivacyControls/>
     </div>;
@@ -131,7 +140,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const libraryTopics = [
     ["PDF library", "/pdf-library", Files], ["JEE", "/#jee", Atom], ["Medical", "/#medical", Stethoscope],
     ["GATE", "/#gate", Cpu], ["Civil Services", "/#civil-services", Landmark], ["Defence", "/#defence", Shield],
-    ["SSC", "/#ssc", ClipboardList], ["CBSE", "/#cbse", GraduationCap], ["Bookmarks", "/questions/bookmarks", Bookmark],
+    ["SSC", "/#ssc", ClipboardList], ["CBSE", "/#cbse", GraduationCap],
+    ...(session ? [["Bookmarks", "/questions/bookmarks", Bookmark] as const] : []),
   ] as const;
   return (
     <div
@@ -169,7 +179,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </button>
           </form>
           <div className="ozi-header-actions">
-            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            {session && <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" className="browse-trigger" aria-label="Open navigation">
                   <Menu className="size-5" />
@@ -230,8 +240,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
                   </a>
                 </nav>
               </SheetContent>
-            </Sheet>
-            {!home && (
+            </Sheet>}
+            {session && !home && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -242,21 +252,21 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 <Search />
               </Button>
             )}
-            <Button
+            {session && <Button
               variant="ghost"
               size="icon"
               aria-label="Toggle theme"
               onClick={() => setDark(!dark)}
             >
               {dark ? <Sun /> : <Moon />}
-            </Button>
-            <LocalLink href="my-study" className="ozi-saved-link" aria-label="Your reading list">
+            </Button>}
+            {session && <LocalLink href="my-study" className="ozi-saved-link" aria-label="Your reading list">
               <Bookmark className="size-5" />
               <span>Reading list</span>
-            </LocalLink>
-            <Link to="/login" className="ozi-sign-in">
+            </LocalLink>}
+            <Link to={session ? platformRoutes[session.role] : "/login"} className="ozi-sign-in">
               <LogIn className="size-4" aria-hidden="true" />
-              Sign in
+              {session ? "My workspace" : "Sign in"}
             </Link>
           </div>
         </div>
@@ -287,8 +297,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
         {[
           ["Home", "", Home],
           ["Exams", "questions", GraduationCap],
-          ["Bookmarks", "questions/bookmarks", BookOpen],
-          ["Saved", "my-study", Bookmark],
+          ...(session ? [["Bookmarks", "questions/bookmarks", BookOpen], ["Saved", "my-study", Bookmark]] : []),
         ].map(([label, path, Icon]) => {
           const href = String(path);
           const Symbol = Icon as typeof Home;
