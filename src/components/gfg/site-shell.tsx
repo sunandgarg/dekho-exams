@@ -114,6 +114,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
     observer.observe(header);
     return () => observer.disconnect();
   }, [pathname]);
+  if (pathname === "/platform-preview") return <>{children}</>;
   if (pathname.startsWith("/admin"))
     return <div className="min-h-screen bg-background text-foreground">{children}</div>;
   if (pathname === "/pdf-library" || pathname.startsWith("/pdf-library/") || pathname.startsWith("/pyq-pdfs/")) {

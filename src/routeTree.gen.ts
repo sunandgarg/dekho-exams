@@ -14,6 +14,7 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as PlatformPreviewRouteImport } from './routes/platform-preview'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StudyRouteImport } from './routes/study'
@@ -70,6 +71,11 @@ const AdminRoute = AdminRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformPreviewRoute = PlatformPreviewRouteImport.update({
+  id: '/platform-preview',
+  path: '/platform-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -257,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/platform-preview': typeof PlatformPreviewRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/study': typeof StudyRouteWithChildren
@@ -296,6 +303,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/platform-preview': typeof PlatformPreviewRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/pdf-library/$': typeof PdfLibrarySplatRoute
@@ -335,6 +343,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/platform-preview': typeof PlatformPreviewRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/study': typeof StudyRouteWithChildren
@@ -376,6 +385,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/auth'
+    | '/platform-preview'
     | '/privacy'
     | '/reset-password'
     | '/study'
@@ -415,6 +425,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/auth'
+    | '/platform-preview'
     | '/privacy'
     | '/reset-password'
     | '/pdf-library/$'
@@ -453,6 +464,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/auth'
+    | '/platform-preview'
     | '/privacy'
     | '/reset-password'
     | '/study'
@@ -493,6 +505,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  PlatformPreviewRoute: typeof PlatformPreviewRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   StudyRoute: typeof StudyRouteWithChildren
@@ -559,6 +572,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform-preview': {
+      id: '/platform-preview'
+      path: '/platform-preview'
+      fullPath: '/platform-preview'
+      preLoaderRoute: typeof PlatformPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -808,6 +828,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  PlatformPreviewRoute: PlatformPreviewRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   StudyRoute: StudyRouteWithChildren,
