@@ -44,7 +44,7 @@ for (const file of readdirSync(root).filter((n) => n.endsWith(".json.gz"))) {
     else {
       const key = q.options.length
         ? (q.choiceKeys ?? [q.choiceKey]).join(",")
-        : String(q.numericRange?.[0] ?? q.numericKey);
+        : String(q.textKeys?.[0] ?? q.numericRanges?.[0]?.[0] ?? q.numericRange?.[0] ?? q.numericKeys?.[0] ?? q.numericKey);
       assert.equal(correct(q, key), true);
       assert.equal(correct(q, ""), false);
     }
@@ -63,6 +63,17 @@ assert(correct(numeric, "1.385"));
 assert(!correct(numeric, "1.4"));
 assert(!correct(numeric, "1.38garbage"));
 assert(!correct({ ...numeric, review: "Answer key conflict" }, "1.385"));
+const written = { options: [], textKeys: ["4.87 g", "4.87"] };
+assert(correct(written, " 4.87 G "));
+assert(correct(written, "4.87"));
+assert(!correct(written, "4.88"));
+assert.equal(displayKey(written), "4.87 g or 4.87");
+const alternatives = { options: [], numericKeys: [0.5, 0.75] };
+assert(correct(alternatives, "0.75"));
+assert(!correct(alternatives, "0.6"));
+const disjoint = { options: [], numericRanges: [[1, 2], [5, 6]] };
+assert(correct(disjoint, "5.5"));
+assert(!correct(disjoint, "3"));
 // Reports and scored-only attempts must use the same grading and original numbering.
 const sample = [
   { options: ["A", "B"], choiceKey: 0 },
@@ -117,7 +128,7 @@ for (const f of readdirSync(new URL("../public/jee-advanced-archive/q/", import.
     const patched = await applyPdfReview(q, "jee-advanced");
     if (evidence.hold) {
       assert(patched.keyConflict);
-      for (const k of ["choiceKey", "choiceKeys", "numericKey", "numericRange"])
+      for (const k of ["choiceKey", "choiceKeys", "numericKey", "numericKeys", "numericRange", "numericRanges", "textKeys"])
         assert.equal(patched[k], undefined);
     } else {
       if (evidence.key)

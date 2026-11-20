@@ -19,11 +19,22 @@ export type ArchiveQuestion = {
   solution: string;
   complete: boolean;
   numericKey?: number;
+  numericKeys?: number[];
   choiceKey?: number;
   choiceKeys?: number[];
   numericRange?: [number, number];
+  numericRanges?: [number, number][];
+  textKeys?: string[];
   hi?: { body: string; options: string[]; solution: string };
-  englishKey?: { choiceKey?: number; choiceKeys?: number[]; numericKey?: number; numericRange?: [number, number] };
+  englishKey?: {
+    choiceKey?: number;
+    choiceKeys?: number[];
+    numericKey?: number;
+    numericKeys?: number[];
+    numericRange?: [number, number];
+    numericRanges?: [number, number][];
+    textKeys?: string[];
+  };
   keyConflict?: boolean;
   canonical?: string;
   prev: string | null;

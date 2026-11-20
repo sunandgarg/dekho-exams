@@ -8,6 +8,7 @@ import { useHydrated, useParams, useRouterState } from "@tanstack/react-router";
 import { archiveCatalog, questionKind, type ArchiveId, type ArchivePaper } from "@/lib/jee-catalog";
 import { useQuestionProgress } from "@/lib/question-progress";
 import type { ArchiveQuestion, ArchiveRow } from "@/lib/jee-archive.functions";
+import { correct, displayKey, hasAnswerKey } from "@/lib/mock-scoring";
 function useCatalog(owner?: ArchiveId) {
   const params = useParams({ strict: false });
   return archiveCatalog(owner ?? params.archive ?? "jee-main");
@@ -284,9 +285,8 @@ export function QuestionView({
   const paper = papers.find((p) => p.slug === q.paper);
   const grading = language === "en" && q.englishKey ? { ...q, ...q.englishKey } : q;
   const keys = grading.choiceKeys ?? (grading.choiceKey === undefined ? undefined : [grading.choiceKey]);
-  const bounds =
-    grading.numericRange ?? (grading.numericKey === undefined ? undefined : [grading.numericKey, grading.numericKey]);
   const content = language === "hi" && q.hi ? q.hi : q;
+  const shortAnswer = !content.options.length && hasAnswerKey(grading);
   const promptFigurePending = [content.body, ...content.options].some((part) =>
     part.includes('class="jee-figure-pending"'),
   );
@@ -406,6 +406,11 @@ export function QuestionView({
               className="mt-2 block w-full rounded-lg border bg-background p-3 font-normal"
               disabled={!interactive}
               rows={q.kind === "subjective" ? 4 : 2}
+              value={numeric}
+              onChange={(e) => {
+                setNumeric(e.target.value);
+                setChecked(false);
+              }}
             />
           </label>
         )}
@@ -440,21 +445,20 @@ export function QuestionView({
             )}
           </div>
         )}
-        {bounds && !promptFigurePending && (
+        {shortAnswer && !promptFigurePending && (
           <div className="question-actions mt-4 flex flex-wrap items-center gap-3">
             <button
               className={btn}
-              disabled={!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(numeric.trim())}
+              disabled={!numeric.trim()}
               onClick={() => setChecked(true)}
             >
-              Check numerical answer
+              Check answer
             </button>
             {checked && (
               <span role="status">
-                {Number(numeric) >= bounds[0]! && Number(numeric) <= bounds[1]!
+                {correct(grading, numeric)
                   ? "Correct."
-                  : "Published answer: " +
-                    (bounds[0] === bounds[1] ? bounds[0] : bounds.join(" to "))}
+                  : "Published answer: " + displayKey(grading)}
               </span>
             )}
           </div>

@@ -6,13 +6,19 @@ import gzip, json, re, math
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = ROOT / 'public/jee-advanced-archive'
 OUT = ROOT / 'src/generated/jee-advanced-mocks'
-KEYS = ('choiceKey', 'choiceKeys', 'numericKey', 'numericRange')
+KEYS = ('choiceKey', 'choiceKeys', 'numericKey', 'numericKeys', 'numericRange', 'numericRanges', 'textKeys')
 SUBJECTS = ('physics', 'chemistry', 'mathematics')
 
 
 def reviewed_key(item, entry):
     key = entry.get('key', {})
     assert not key or len(key) == 1 and set(key) <= set(KEYS)
+    if set(key) & {'numericKeys', 'numericRanges', 'textKeys'} or item.get('kind') in ('subjective', 'fill-blanks') and key:
+        proof = entry['pdfKeyReview']
+        assert re.fullmatch(r'Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])\.pdf', proof['file'])
+        assert re.fullmatch('[a-f0-9]{64}', proof['pdfSha256'])
+        assert proof['question'] > 0 and proof['printedKey'].strip()
+        assert proof['keyPages'] and all(isinstance(n, int) and n > 0 for n in proof['keyPages'])
     original = {k: item[k] for k in KEYS if k in item}
     if 'supersedesKey' in entry:
         # Official corrections name the exact archived key; raw records stay immutable.
@@ -116,9 +122,12 @@ def build():
             if any('jee-figure-pending' in s for s in [item['body'], *item['options']]): item['review'] = 'Diagram pending'
             elif not any(k in item for k in KEYS): item['review'] = 'Answer key unavailable'
         if any(k in item for k in KEYS):
-            assert q['kind'] in ('mcq', 'mcqm', 'integer', 't/f')
+            assert q['kind'] in ('mcq', 'mcqm', 'integer', 't/f', 'subjective', 'fill-blanks')
             assert all(i in range(len(q['options'])) for i in item.get('choiceKeys', [item['choiceKey']] if 'choiceKey' in item else []))
             assert all(math.isfinite(n) for n in item.get('numericRange', [item['numericKey']] if 'numericKey' in item else []))
+            assert all(math.isfinite(n) for n in item.get('numericKeys', []))
+            assert all(len(r) == 2 and all(math.isfinite(n) for n in r) and r[0] <= r[1] for r in item.get('numericRanges', []))
+            assert all(isinstance(s, str) and s.strip() for s in item.get('textKeys', []))
         records[slug] = item
     assert applied == set(review), 'PDF evidence must still match the original source exactly'
     OUT.mkdir(parents=True, exist_ok=True)

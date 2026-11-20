@@ -1,7 +1,7 @@
 import { useHydrated } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { validNumber, selectQuestions, type Item } from "@/lib/mock-scoring";
+import { hasAnswerKey, validNumber, selectQuestions, type Item } from "@/lib/mock-scoring";
 import { MockResults } from "./mock-results";
 export type SetInfo = {
   id: string;
@@ -308,10 +308,14 @@ function Runner({
             </fieldset>
           ) : (
             <label className="mt-4 grid gap-1">
-              {q.kind === "integer" ? "Numerical answer" : "Your answer (review only)"}
+              {q.kind === "integer"
+                ? "Numerical answer"
+                : hasAnswerKey(q)
+                  ? "Short answer"
+                  : "Your answer (review only)"}
               <input
                 className="rounded-lg border p-2"
-                inputMode={q.kind === "integer" ? "decimal" : "text"}
+                inputMode={q.kind === "integer" || q.numericKey !== undefined ? "decimal" : "text"}
                 disabled={a.done}
                 value={answer}
                 onChange={(e) => respond(e.target.value)}

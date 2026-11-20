@@ -1,6 +1,7 @@
 """Official corrections must fail closed when their archived key changes."""
 import copy
 import json
+import re
 import runpy
 from pathlib import Path
 
@@ -57,3 +58,31 @@ for entry in patches:
             continue
         raise AssertionError(mutation)
 print('Supplied-PDF transcription guards passed')
+
+# Written answers only become scoreable when the supplied paper has an exact
+# printed key for the same paper position.
+written = [
+    e for e in ledger.values()
+    if re.fullmatch(
+        r'Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])\.pdf',
+        e.get('pdfKeyReview', {}).get('file', ''),
+    )
+    and set(e.get('key', {})) & {'numericKey', 'numericKeys', 'numericRanges', 'textKeys'}
+]
+assert len(written) >= 57
+for entry in written:
+    item = {'kind': 'subjective'}
+    assert check(item, entry) == entry['key']
+    for mutation in ['wrong-file', 'missing-key-page', 'wrong-hash', 'missing-printed-key']:
+        bad = copy.deepcopy(entry)
+        proof = bad['pdfKeyReview']
+        if mutation == 'wrong-file': proof['file'] = 'unverified.pdf'
+        if mutation == 'missing-key-page': proof['keyPages'] = []
+        if mutation == 'wrong-hash': proof['pdfSha256'] = 'invalid'
+        if mutation == 'missing-printed-key': proof['printedKey'] = ''
+        try:
+            check(item, bad)
+        except AssertionError:
+            continue
+        raise AssertionError(mutation)
+print('Written-answer evidence guards passed')

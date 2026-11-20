@@ -8,27 +8,53 @@ export type Item = Pick<
   | "kind"
   | "choiceKey"
   | "numericKey"
+  | "numericKeys"
   | "numericRange"
+  | "numericRanges"
+  | "textKeys"
   | "choiceKeys"
 > & { review?: string };
 export const validNumber = (s: string) => /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(s);
+export const normalizeTextAnswer = (s: string) =>
+  s
+    .normalize("NFKC")
+    .trim()
+    .toLocaleLowerCase("en")
+    .replace(/[−–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/\s*([/%°])\s*/g, "$1");
 export const answerKey = (q: Item) =>
   q.choiceKeys ?? (q.choiceKey === undefined ? [] : [q.choiceKey]);
+export const hasAnswerKey = (q: Item) =>
+  q.options.length
+    ? answerKey(q).length > 0
+    : q.numericKey !== undefined ||
+      Boolean(q.numericKeys?.length) ||
+      Boolean(q.numericRange) ||
+      Boolean(q.numericRanges?.length) ||
+      Boolean(q.textKeys?.length);
 export const correct = (q: Item, v: string) => {
   if (q.review || !v) return false;
   if (q.options.length) return v === answerKey(q).join(",");
-  const n = Number(v);
-  return (
-    validNumber(v) &&
-    (q.numericRange ? n >= q.numericRange[0] && n <= q.numericRange[1] : n === q.numericKey)
-  );
+  const trimmed = v.trim();
+  if (q.textKeys?.some((key) => normalizeTextAnswer(key) === normalizeTextAnswer(trimmed))) return true;
+  if (!validNumber(trimmed)) return false;
+  const n = Number(trimmed);
+  if (q.numericKey !== undefined && n === q.numericKey) return true;
+  if (q.numericKeys?.includes(n)) return true;
+  if (q.numericRange && n >= q.numericRange[0] && n <= q.numericRange[1]) return true;
+  return Boolean(q.numericRanges?.some(([min, max]) => n >= min && n <= max));
 };
 export const displayKey = (q: Item) =>
   q.options.length
     ? answerKey(q)
         .map((i) => String.fromCharCode(65 + i))
         .join(", ")
-    : (q.numericRange?.join(" to ") ?? q.numericKey);
+    : (q.textKeys?.join(" or ") ??
+      q.numericRanges?.map((range) => range.join(" to ")).join(" or ") ??
+      q.numericRange?.join(" to ") ??
+      q.numericKeys?.join(" or ") ??
+      q.numericKey);
 
 export const selectQuestions = (items: Item[], scoredOnly: boolean) =>
   items.map((q, i) => ({ ...q, number: i + 1 })).filter((q) => !scoredOnly || !q.review);

@@ -5,7 +5,16 @@ import type { ArchiveQuestion } from "./jee-archive.functions";
 type Update = Partial<
   Pick<
     ArchiveQuestion,
-    "body" | "options" | "solution" | "choiceKey" | "choiceKeys" | "numericKey" | "numericRange"
+    | "body"
+    | "options"
+    | "solution"
+    | "choiceKey"
+    | "choiceKeys"
+    | "numericKey"
+    | "numericKeys"
+    | "numericRange"
+    | "numericRanges"
+    | "textKeys"
   >
 > & { hold?: boolean };
 
@@ -31,7 +40,10 @@ export async function applyPdfReview(
     delete copy.choiceKey;
     delete copy.choiceKeys;
     delete copy.numericKey;
+    delete copy.numericKeys;
     delete copy.numericRange;
+    delete copy.numericRanges;
+    delete copy.textKeys;
     return copy;
   }
   const { body = q.body, options = q.options, solution = q.solution, ...englishKey } = patch;
