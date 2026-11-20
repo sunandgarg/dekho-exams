@@ -90,3 +90,29 @@ for entry in written:
             continue
         raise AssertionError(mutation)
 print('Written-answer evidence guards passed')
+
+# Newer official papers may print alternative numeric answers directly on the
+# question paper. These records must remain tied to JEE Advanced's own archive.
+official_written = [
+    e for e in ledger.values()
+    if 'officialKey' in e
+    and set(e.get('key', {})) & {'numericKeys', 'numericRanges', 'textKeys'}
+    and 'supersedesKey' not in e
+]
+assert len(official_written) >= 3
+for entry in official_written:
+    item = {'kind': 'integer'}
+    assert check(item, entry) == entry['key']
+    for mutation in ['wrong-source', 'missing-page', 'wrong-hash', 'missing-printed-key']:
+        bad = copy.deepcopy(entry)
+        proof = bad['officialKey']
+        if mutation == 'wrong-source': proof['url'] = 'https://example.com/key.pdf'
+        if mutation == 'missing-page': proof['page'] = 0
+        if mutation == 'wrong-hash': proof['pdfSha256'] = 'invalid'
+        if mutation == 'missing-printed-key': proof['printedKey'] = ''
+        try:
+            check(item, bad)
+        except AssertionError:
+            continue
+        raise AssertionError(mutation)
+print('Official written-answer evidence guards passed')

@@ -14,14 +14,18 @@ def reviewed_key(item, entry):
     key = entry.get('key', {})
     assert not key or len(key) == 1 and set(key) <= set(KEYS)
     if set(key) & {'numericKeys', 'numericRanges', 'textKeys'} or item.get('kind') in ('subjective', 'fill-blanks') and key:
-        proof = entry['pdfKeyReview']
-        assert re.fullmatch(
-            r'(?:Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])(?:_Screening|_Mains)?\.pdf|Chapter-wise/(?:Physics|Chemistry|Mathematics)/DekhoExams_JEE_Advanced_[A-Za-z_]+\.pdf)',
-            proof['file'],
-        )
+        proof = entry.get('officialKey') or entry['pdfKeyReview']
+        if 'officialKey' in entry:
+            assert proof['url'].startswith('https://jeeadv.ac.in/past_qps/')
+            assert proof['page'] > 0
+        else:
+            assert re.fullmatch(
+                r'(?:Year-wise/(?:19\d{2}|200[0-6])/DekhoExams_IIT_JEE_(?:19\d{2}|200[0-6])(?:_Screening|_Mains)?\.pdf|Chapter-wise/(?:Physics|Chemistry|Mathematics)/DekhoExams_JEE_Advanced_[A-Za-z_]+\.pdf)',
+                proof['file'],
+            )
+            assert proof['keyPages'] and all(isinstance(n, int) and n > 0 for n in proof['keyPages'])
         assert re.fullmatch('[a-f0-9]{64}', proof['pdfSha256'])
         assert proof['question'] > 0 and proof['printedKey'].strip()
-        assert proof['keyPages'] and all(isinstance(n, int) and n > 0 for n in proof['keyPages'])
     original = {k: item[k] for k in KEYS if k in item}
     if 'supersedesKey' in entry:
         # Official corrections name the exact archived key; raw records stay immutable.
