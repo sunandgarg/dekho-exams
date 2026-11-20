@@ -36,7 +36,7 @@ export function normalizedContentPath(path: string): string {
 }
 
 export function isUtilityPath(path: string): boolean {
-  return /^(?:platform-preview|platform-admin|my-study|admin|auth|login|signup|forgot-password|reset-password|account|dashboard|search|site-map|(?:java|learning)-coverage\.html|checkout|learn)(?:\/|$)|\/(?:attempt|result|apply|participate|leaderboard)$/.test(
+  return /^(?:platform-(?:preview|admin|school|student)|api\/platform|my-study|admin|auth|login|signup|forgot-password|reset-password|account|dashboard|search|site-map|(?:java|learning)-coverage\.html|checkout|learn)(?:\/|$)|\/(?:attempt|result|apply|participate|leaderboard)$/.test(
     normalizedContentPath(path),
   );
 }

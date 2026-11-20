@@ -14,7 +14,10 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as PlatformAdminRouteImport } from './routes/platform-admin'
 import { Route as PlatformPreviewRouteImport } from './routes/platform-preview'
+import { Route as PlatformSchoolRouteImport } from './routes/platform-school'
+import { Route as PlatformStudentRouteImport } from './routes/platform-student'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StudyRouteImport } from './routes/study'
@@ -73,9 +76,24 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlatformAdminRoute = PlatformAdminRouteImport.update({
+  id: '/platform-admin',
+  path: '/platform-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlatformPreviewRoute = PlatformPreviewRouteImport.update({
   id: '/platform-preview',
   path: '/platform-preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformSchoolRoute = PlatformSchoolRouteImport.update({
+  id: '/platform-school',
+  path: '/platform-school',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformStudentRoute = PlatformStudentRouteImport.update({
+  id: '/platform-student',
+  path: '/platform-student',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -263,7 +281,10 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/platform-admin': typeof PlatformAdminRoute
   '/platform-preview': typeof PlatformPreviewRoute
+  '/platform-school': typeof PlatformSchoolRoute
+  '/platform-student': typeof PlatformStudentRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/study': typeof StudyRouteWithChildren
@@ -303,7 +324,10 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/platform-admin': typeof PlatformAdminRoute
   '/platform-preview': typeof PlatformPreviewRoute
+  '/platform-school': typeof PlatformSchoolRoute
+  '/platform-student': typeof PlatformStudentRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/pdf-library/$': typeof PdfLibrarySplatRoute
@@ -343,7 +367,10 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/platform-admin': typeof PlatformAdminRoute
   '/platform-preview': typeof PlatformPreviewRoute
+  '/platform-school': typeof PlatformSchoolRoute
+  '/platform-student': typeof PlatformStudentRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/study': typeof StudyRouteWithChildren
@@ -385,7 +412,10 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/auth'
+    | '/platform-admin'
     | '/platform-preview'
+    | '/platform-school'
+    | '/platform-student'
     | '/privacy'
     | '/reset-password'
     | '/study'
@@ -425,7 +455,10 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/auth'
+    | '/platform-admin'
     | '/platform-preview'
+    | '/platform-school'
+    | '/platform-student'
     | '/privacy'
     | '/reset-password'
     | '/pdf-library/$'
@@ -464,7 +497,10 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/auth'
+    | '/platform-admin'
     | '/platform-preview'
+    | '/platform-school'
+    | '/platform-student'
     | '/privacy'
     | '/reset-password'
     | '/study'
@@ -505,7 +541,10 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  PlatformAdminRoute: typeof PlatformAdminRoute
   PlatformPreviewRoute: typeof PlatformPreviewRoute
+  PlatformSchoolRoute: typeof PlatformSchoolRoute
+  PlatformStudentRoute: typeof PlatformStudentRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   StudyRoute: typeof StudyRouteWithChildren
@@ -574,11 +613,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/platform-admin': {
+      id: '/platform-admin'
+      path: '/platform-admin'
+      fullPath: '/platform-admin'
+      preLoaderRoute: typeof PlatformAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/platform-preview': {
       id: '/platform-preview'
       path: '/platform-preview'
       fullPath: '/platform-preview'
       preLoaderRoute: typeof PlatformPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform-school': {
+      id: '/platform-school'
+      path: '/platform-school'
+      fullPath: '/platform-school'
+      preLoaderRoute: typeof PlatformSchoolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform-student': {
+      id: '/platform-student'
+      path: '/platform-student'
+      fullPath: '/platform-student'
+      preLoaderRoute: typeof PlatformStudentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -828,7 +888,10 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  PlatformAdminRoute: PlatformAdminRoute,
   PlatformPreviewRoute: PlatformPreviewRoute,
+  PlatformSchoolRoute: PlatformSchoolRoute,
+  PlatformStudentRoute: PlatformStudentRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   StudyRoute: StudyRouteWithChildren,

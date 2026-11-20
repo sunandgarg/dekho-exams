@@ -114,3 +114,21 @@ Stage 1 is implemented: `/platform-preview` contains the student home, Google/OT
 The internal service foundation is in `server/student`: additive MySQL schema, separate profile writes, transactional one-mock coupon grants, verified payment capture for monthly passes, and owner-only AES-GCM encrypted settings. These services are tested in isolation and **not mounted as public API endpoints or migrated into production**. Controllers, actual provider calls, session middleware, guardian verification, formal test endpoints, private report delivery and native clients remain subsequent implementation stages. An encrypted row or a filled form does not prove a provider connection.
 
 Initial tests: six policy/security tests and isolated local MySQL race tests (20 booking retries; seven students/two school slots; 12 payment replays). Local MySQL is 9.6; the managed database compatibility, backups, restore, delivery and capacity gates still need staging verification. No live load test or one-million-user certification is claimed.
+
+## School pilot and business launch
+
+The new private routes are `/platform-admin`, `/platform-school` and `/platform-student`. The pilot uses one-time access links issued by the platform owner or school operator. Students also enter an SMS code sent to the roster phone through the configured provider. It serves a six-question, ten-minute original JEE Main diagnostic, with a private report and printable achievement certificate. The public preview has a separate sample diagnostic. Its score cannot grant a live award.
+
+| Person | Allowed data and actions |
+| --- | --- |
+| Platform owner | Create a school, set its one-mock coupon cap and expiry, issue school access and manage encrypted provider settings |
+| School operator | Read its own coupon and masked roster, review and import CSV or XLSX rows, issue individual activation links for its registered students |
+| Student | Open their own test, save answers, submit, read their own report and print a certificate if earned |
+
+The school confirms that it can share the roster for exam delivery. Each accepted roster batch has an audit event. The student link is paired with phone-possession verification. Email and guardian verification are separate. School contacts remain limited to exam delivery. Keep lead capture for adult prospects separate from roster import. Before inviting under-18 cohorts, complete the school's permission and verifiable parent/guardian consent process for this purpose. [MeitY student-data guidance](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2202901&lang=2&reg=3)
+
+Each school diagnostic consumes one place on first start. Retries resume the same attempt. The server scores +4 correct, −1 incorrect and 0 skipped. Six correct earns Gold, five Silver and four Bronze. These are practice milestones. Do not claim exam rank, eligibility, enrolment or selection from a six-question diagnostic.
+
+Launch the paid plan only after payment capture/refund, provider sign-in, test entitlement and receipt flows pass end-to-end in test mode. The commercial offer remains ₹999 per month with unlimited mocks and one free mock per eligible coupon. Start with a small consented school pilot and measure invitations accepted, tests completed, certificates earned, repeat mock attempts and actual paid conversions. Use aggregate counts for school outreach and product decisions. Each marketing destination needs its own clear permission and a withdrawal path before identifiable contacts are transferred.
+
+Established test series compete on timed coverage and analysis. For DekhoExams, focus on verified content, reliable resume and a report that tells students which topic to practise next. Validate that students take the suggested practice and come back before expanding the library. [Example of test coverage and analysis in the market](https://quizrr.in/jee-main-test-series/)

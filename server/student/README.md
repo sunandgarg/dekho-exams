@@ -1,6 +1,6 @@
 # Student service foundation
 
-These internal services are not mounted on the live HTTP server. The new public `/platform-preview` is an explicitly labelled design walkthrough with in-memory sample values. It never calls these services, authenticates a user, accepts provider keys or collects a payment. The existing admin editor route remains unchanged.
+The original checkout, profile and payment services remain internal. The private school pilot uses the API described below. The new public `/platform-preview` is an explicitly labelled design walkthrough with in-memory sample values. It never calls these services, authenticates a user, accepts provider keys or collects a payment. The existing admin editor route remains unchanged.
 
 The owner-confirmed product is **₹999/month for unlimited mocks**. Public or school coupons grant **one mock** each. A free coupon booking cannot grant a monthly pass. The paid-pass calculation uses one calendar month, clamps month-end and preserves UTC time. This first model does not automatically renew or charge a card.
 
@@ -18,3 +18,13 @@ npm run typecheck:student
 ```
 
 `npm run test:student:db` deliberately connects only to `/tmp/dekhoexams-student-test.sock` as a local isolated test server. It creates a unique throwaway schema and drops it in `finally`. It cannot be pointed at the live database. Tests cover independent profile persistence, coupon retries/global cap races, signed payment replay/month-end, and owner-only encrypted settings. No real email, SMS or gateway call is made.
+
+## Private school pilot
+
+The Node origin now mounts `/api/platform/v1`. Anonymous requests cannot access private records. The pilot runs only with `PLATFORM_ENABLED=true`, the separate `dekhoexams_platform` database, an application user with scoped DML rights over TLS, and a server-held encryption key. The Cloudflare cache does not cache these API or panel routes. SSL and the existing Cloudflare origin authentication remain required.
+
+`provision.mjs` runs the two additive SQL files with a database administration connection on the origin. It creates the runtime configuration with mode 0600 outside the application directory. Use `--owner-link` only on the origin to write a short-lived bootstrap link to a root-only file. Deliver it privately and delete the handoff copy after use. Keep the encryption key in the server secret backup separately from the database. Losing it makes encrypted roster, settings and test results unreadable. This schema has its own database and does not use the archive data account at runtime.
+
+Owner and school access lasts eight hours, student access seven days. Link tokens and session tokens are stored as hashes. School and student activation is one-time and bound to a school or roster account. Students also prove possession of the roster phone with a five-minute MSG91 code. The database limits tries, resend rate and overall daily sends. Roster and settings envelopes use AES-GCM with scoped associated data. Admin/provider fields are write-only in the UI. The school OTP connector requires a live sender key and approved template. Google, payments, SES delivery and native sign-in remain separate work.
+
+The pilot uses an original short diagnostic with server-owned keys and deadlines. Attempts are locked per student and scored at submit or expiry. Award certificates are owner-of-attempt only. Technically the stored report is private to the student; any school progress reporting should use aggregates unless separate permission is recorded. `npm run test:student:db` covers the pilot API, role/tenant authorization, school seats, save revisions, encrypted contact handling and private certificates on the local socket.

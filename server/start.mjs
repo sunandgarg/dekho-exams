@@ -15,6 +15,18 @@ await serve({
   async fetch(request) {
     const url = new URL(request.url);
     const path = url.pathname;
+    if (path.startsWith("/api/platform/v1/")) {
+      const { platformResponse } = await import("./student/http.ts");
+      return platformResponse(request);
+    }
+    if (/^\/platform-(?:admin|school|student)\/?$/.test(path)) {
+      const page = await app.fetch(request, env, {});
+      const response = new Response(page.body, page);
+      response.headers.set("Cache-Control", "private, no-store");
+      response.headers.set("Referrer-Policy", "no-referrer");
+      response.headers.set("X-Frame-Options", "DENY");
+      return response;
+    }
     if (/^\/verified-pdf\/[a-f0-9]{64}\.pdf$/.test(path)) {
       if (!["GET","HEAD"].includes(request.method)) return new Response(null, {status:405});
       const file = "public" + path;

@@ -12,11 +12,8 @@ import {
   GraduationCap,
   LayoutDashboard,
   LockKeyhole,
-  Mail,
-  MapPin,
   Plus,
   ShieldCheck,
-  Sparkles,
   Ticket,
   Users,
   X,
@@ -28,7 +25,8 @@ import {
   type Coupon,
 } from "@/lib/student-offers";
 import * as Dialog from "@radix-ui/react-dialog";
-import { IntegrationPreview } from "./integration-preview";
+import { PreviewBreakdown, PreviewDiagnostic, PreviewQuestionReview } from "./preview-diagnostic";
+import { blankPreviewAnswers, previewQuestions, previewResult } from "./preview-diagnostic-data";
 import "./platform-preview.css";
 
 type View = "home" | "join" | "checkout" | "test" | "report" | "admin";
@@ -119,7 +117,7 @@ function Title({
   return (
     <div className="sp-title">
       <p className="sp-eyebrow">{eyebrow}</p>
-      <h1>{title}</h1>
+      <h1 tabIndex={-1}>{title}</h1>
       {children && <p className="sp-description">{children}</p>}
     </div>
   );
@@ -154,10 +152,14 @@ export function PlatformPreview() {
   const [coupon, selectCoupon] = useState<string | null>(null);
   const [couponInput, enterCoupon] = useState("");
   const [notice, notify] = useState("");
-  const [answer, selectAnswer] = useState("");
-  const [submitted, submit] = useState(false);
+  const [answers, setAnswers] = useState<string[] | null>(null);
+  const [flags, setFlags] = useState<boolean[]>([]);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [report, setReport] = useState<ReturnType<typeof previewResult> | null>(null);
+  const submitted = report !== null;
   const [welcomeUsed, useWelcome] = useState(false);
   const [comebackUsed, useComeback] = useState(false);
+  const [schoolUsed, useSchool] = useState(false);
   const [schoolIssued, issueSchool] = useState(false);
   const [schoolName, nameSchool] = useState("Your partner school");
   const [schoolForm, showSchoolForm] = useState(false);
@@ -169,8 +171,17 @@ export function PlatformPreview() {
   };
   useEffect(() => {
     if (view === "join") document.querySelector<HTMLElement>(".sp-form-card h2")?.focus();
+    if (view === "report") document.querySelector<HTMLElement>(".sp-title h1")?.focus();
   }, [view, card]);
   const ready = !!profile.contact && !!profile.education;
+  const openDiagnostic = () => {
+    if (!answers) {
+      setAnswers(blankPreviewAnswers());
+      setFlags([]);
+      setQuestionIndex(0);
+    }
+    go("test");
+  };
   const book = () => {
     if (!ready) {
       showCard(profile.contact ? "education" : "login");
@@ -191,7 +202,11 @@ export function PlatformPreview() {
       } as Coupon)
     : null;
   const used =
-    coupon === "WELCOME100" ? welcomeUsed : coupon === "COMEBACK100" ? comebackUsed : false;
+    coupon === "WELCOME100"
+      ? welcomeUsed
+      : coupon === "COMEBACK100"
+        ? comebackUsed
+        : coupon === "SCHOOL-DEMO" && schoolUsed;
   let due = MONTHLY_PRICE_PAISE,
     offerError = "";
   try {
@@ -217,7 +232,8 @@ export function PlatformPreview() {
     }
     if (
       (normalized === "WELCOME100" && (submitted || welcomeUsed)) ||
-      (normalized === "COMEBACK100" && (!submitted || comebackUsed))
+      (normalized === "COMEBACK100" && (!submitted || comebackUsed)) ||
+      (normalized === "SCHOOL-DEMO" && schoolUsed)
     ) {
       notify("This offer isn't eligible right now. Check its details below.");
       return;
@@ -229,17 +245,23 @@ export function PlatformPreview() {
   const startTest = () => {
     if (due || offerError) {
       notify(
-        "Payment is not connected in this design preview. Apply a free sample coupon to try the test journey.",
+        "Apply a sample coupon to preview the free checkout, or open the diagnostic from your dashboard.",
       );
+      return;
+    }
+    if (answers) {
+      go("test");
       return;
     }
     if (coupon === "WELCOME100") useWelcome(true);
     if (coupon === "COMEBACK100") useComeback(true);
-    selectAnswer("");
-    go("test");
+    if (coupon === "SCHOOL-DEMO") useSchool(true);
+    openDiagnostic();
   };
   const finish = () => {
-    submit(true);
+    if (!answers) return;
+    setReport(previewResult(answers));
+    setAnswers(null);
     selectCoupon(null);
     go("report");
   };
@@ -302,7 +324,7 @@ export function PlatformPreview() {
                   showCard(profile.contact ? "education" : "login");
                   go("join");
                 } else if (next === "report" && !submitted)
-                  notify("Your report will appear after submitting the sample test.");
+                  notify("Complete the diagnostic to view your report.");
                 else go(next as View);
                 if (label === "School coupons") showSchoolForm(true);
                 if (label === "Students") showStudent(true);
@@ -335,119 +357,107 @@ export function PlatformPreview() {
           )}
           {view === "home" && (
             <>
-              <div className="sp-welcome">
-                <Title
-                  eyebrow="A FRESH START, EVERY DAY"
-                  title={`Hey ${name}, let's make today count.`}
-                >
-                  A little practice. A clearer next step. All in one place.
-                </Title>
-                <span className="sp-tiny-pill">
-                  <span /> JEE Main
-                </span>
-              </div>
-              <section className="sp-hero">
+              <section className="sp-hero sp-practice-hero">
                 <div>
-                  <p className="sp-eyebrow">YOUR NEXT CHALLENGE</p>
-                  <h2>
-                    Find your starting point.
-                    <br />
-                    <span>Then move it forward.</span>
-                  </h2>
-                  <p>
-                    A timed JEE Main mock, with a clear report to help you decide what to practise
-                    next.
-                  </p>
+                  <p className="sp-eyebrow">DEKHOEXAMS PRACTICE</p>
+                  <h1>
+                    {name === "there"
+                      ? "Make your next mock count."
+                      : `${name}, ready for your next mock?`}
+                  </h1>
+                  <p>Take a short JEE Main diagnostic and see which chapter to practise next.</p>
                   <div className="sp-hero-actions">
-                    <Action onClick={book}>
-                      Take my first mock <ArrowUpRight size={18} />
+                    <Action onClick={openDiagnostic}>
+                      {answers ? "Resume diagnostic" : "Try the free diagnostic"}{" "}
+                      <ArrowUpRight size={18} />
                     </Action>
-                    <span>
-                      <Gift size={17} /> First attempt on us
-                    </span>
+                    {report && (
+                      <Action secondary onClick={() => go("report")}>
+                        Open latest report
+                      </Action>
+                    )}
                   </div>
+                  <p className="sp-hero-detail">
+                    6 original questions · Physics, Chemistry and Mathematics
+                  </p>
                 </div>
                 <div className="sp-test-ticket">
-                  <span className="sp-ticket-subject">JEE MAIN</span>
-                  <div className="sp-ticket-graphic" aria-hidden="true">
-                    <span>f(x)</span>
-                    <span>∑</span>
-                    <span>H₂O</span>
-                  </div>
-                  <h3>One test. A useful reset.</h3>
-                  <p>Physics · Chemistry · Mathematics</p>
-                  <div className="sp-ticket-bottom">
-                    <span>
-                      <Clock3 size={16} /> 180 min
-                    </span>
-                    <span>Practice scoring</span>
-                  </div>
+                  <p className="sp-eyebrow">MONTHLY PASS PREVIEW</p>
+                  <h2>
+                    <strong>{money(MONTHLY_PRICE_PAISE)}</strong>
+                    <small> / month</small>
+                  </h2>
+                  <p>Unlimited mocks for one calendar month.</p>
+                  <ul>
+                    <li>
+                      <Check size={16} />
+                      Full mock library
+                    </li>
+                    <li>
+                      <Check size={16} />
+                      Subject breakdowns and practice recommendations
+                    </li>
+                    <li>
+                      <Ticket size={16} />A coupon covers one mock
+                    </li>
+                  </ul>
+                  <button type="button" className="sp-button sp-secondary" onClick={book}>
+                    Preview checkout <ChevronRight size={17} />
+                  </button>
                 </div>
               </section>
               <div className="sp-section-heading">
-                <h2>Make it your space</h2>
-                <button
-                  onClick={() => {
-                    showCard("login");
-                    go("join");
-                  }}
-                >
-                  Set up profile <ChevronRight size={16} />
-                </button>
+                <h2>Find a practice session</h2>
               </div>
-              <div className="sp-three">
+              <div className="sp-three sp-practice-catalog">
                 <article className="sp-info-card">
                   <span className="sp-icon sp-blue">
-                    <GraduationCap />
+                    <GraduationCap size={22} />
                   </span>
-                  <h3>Pick up where you left off</h3>
+                  <h3>JEE Main</h3>
                   <p>
-                    Your tests, reports and profile will stay together across devices after account
-                    launch.
+                    Choose a previous-year paper or a mixed practice test. Check your score, pace
+                    and accuracy.
                   </p>
-                  <button
-                    onClick={() => {
-                      showCard("login");
-                      go("join");
-                    }}
-                  >
-                    Try the sign-up flow <ChevronRight size={15} />
-                  </button>
+                  <a href="/questions/jee-main/mock-tests">
+                    Browse Main mocks <ChevronRight size={16} />
+                  </a>
+                </article>
+                <article className="sp-info-card">
+                  <span className="sp-icon sp-purple">
+                    <BookOpen size={22} />
+                  </span>
+                  <h3>JEE Advanced</h3>
+                  <p>
+                    Work through timed papers and mixed question sets. Review your answers after
+                    submission.
+                  </p>
+                  <a href="/questions/jee-advanced/mock-tests">
+                    Browse Advanced mocks <ChevronRight size={16} />
+                  </a>
                 </article>
                 <article className="sp-info-card">
                   <span className="sp-icon sp-orange">
-                    <Ticket />
+                    <Ticket size={22} />
                   </span>
-                  <h3>A school code? Bring it along.</h3>
-                  <p>Use a partner school's coupon at checkout to bring the test fee down to ₹0.</p>
-                  <button
-                    onClick={() => {
-                      book();
-                      enterCoupon("SCHOOL-DEMO");
-                    }}
-                  >
-                    Explore coupons <ChevronRight size={15} />
-                  </button>
-                </article>
-                <article className="sp-info-card">
-                  <span className="sp-icon sp-green">
-                    <FileText />
-                  </span>
-                  <h3>More clarity, less guesswork</h3>
+                  <h3>School pilot</h3>
                   <p>
-                    See your score, accuracy and subject breakdown in a report worth coming back to.
+                    Use the access link from your school to open your diagnostic, report and earned
+                    awards.
                   </p>
-                  <button onClick={() => (submitted ? go("report") : book())}>
-                    {submitted ? "Open my report" : "Take a mock first"}
-                    <ChevronRight size={15} />
-                  </button>
+                  <a href="/platform-student">
+                    Join as a student <ChevronRight size={16} />
+                  </a>
+                  <a className="sp-school-panel-link" href="/platform-school">
+                    Open school panel <ChevronRight size={16} />
+                  </a>
                 </article>
               </div>
               <div className="sp-bottom-note">
                 <BookOpen size={18} />
-                <p>Just revising today? Your free chapter questions and PYQ PDFs are still here.</p>
+                <p>Pick a chapter for a focused revision session.</p>
                 <a href="/past-years/jee/jee-main">
-                  Browse questions <ArrowUpRight size={16} />
+                  Browse chapter questions <ArrowUpRight size={16} />
                 </a>
               </div>
             </>
@@ -729,8 +739,8 @@ export function PlatformPreview() {
           )}
           {view === "checkout" && (
             <>
-              <Title eyebrow="MAKE TIME FOR YOUR NEXT STEP" title="Your mock, your next move.">
-                One focused session. A clearer picture of what to work on.
+              <Title eyebrow="JEE MAIN PRACTICE" title="Preview checkout">
+                Compare the monthly pass with a coupon for a single mock.
               </Title>
               <div className="sp-checkout-grid">
                 <section className="sp-checkout-test">
@@ -744,7 +754,7 @@ export function PlatformPreview() {
                     </span>
                     <span>
                       <BookOpen />
-                      Verified questions
+                      Single-choice practice
                     </span>
                     <span>
                       <FileText />
@@ -754,7 +764,7 @@ export function PlatformPreview() {
                   <h3>Here's what you get</h3>
                   <ul className="sp-check-list">
                     <li>
-                      <Check /> A timed test with saved progress
+                      <Check /> Full-length, timed practice in the mock library
                     </li>
                     <li>
                       <Check /> Score and subject insights after submission
@@ -766,18 +776,18 @@ export function PlatformPreview() {
                   <div className="sp-scoring-note">
                     <strong>Know the scoring</strong>
                     <p>
-                      Practice score: +4 correct, −1 incorrect, 0 skipped. Only verified questions
-                      are scored. Your score is a practice indicator, not an official result.
+                      Practice scoring gives +4 for a correct answer, −1 for an incorrect answer and
+                      0 for a skipped question.
                     </p>
                   </div>
                   <p className="sp-preview-footnote">
-                    The design preview uses one original sample question to demonstrate this
-                    journey. It is not the full booked mock.
+                    Try all six original diagnostic questions here. The 180-minute tests are listed
+                    in the mock library.
                   </p>
                 </section>
                 <section className="sp-order-card">
-                  <h2>A little head start?</h2>
-                  <p>Check your offers before you begin.</p>
+                  <h2>Choose access</h2>
+                  <p>School and welcome coupons can cover one mock.</p>
                   <div className="sp-order-line">
                     <span>
                       {coupon && !offerError ? "One free mock" : "Unlimited mocks · 1 month"}
@@ -822,68 +832,50 @@ export function PlatformPreview() {
                   </div>
                   <p className="sp-muted">
                     {coupon && !offerError
-                      ? "Coupon covers one mock. A monthly plan is not activated."
+                      ? "Coupon covers one mock. The monthly pass is a separate purchase."
                       : "₹999 per month · unlimited mocks · no automatic renewal"}
                   </p>
                   <Action onClick={startTest}>
-                    {due ? `Continue to pay ${money(due)}` : "Start free test"}
+                    {due
+                      ? `Preview ${money(due)} payment`
+                      : answers
+                        ? "Resume sample test"
+                        : "Start free sample test"}
                   </Action>
                   <div className="sp-safe">
                     <ShieldCheck size={16} />
-                    Clear pricing. No surprises.
+                    Sample checkout only
                   </div>
                 </section>
               </div>
             </>
           )}
-          {view === "test" && (
+          {view === "test" && answers && (
             <>
-              <div className="sp-section-heading">
-                <Title eyebrow="JEE MAIN · DESIGN PREVIEW" title="One question. Give it a go." />
-                <span className="sp-tiny-pill">
-                  <Clock3 size={16} /> Untimed sample
-                </span>
-              </div>
-              <section className="sp-sample-test">
-                <span className="sp-eyebrow">PHYSICS · UNITS & MEASUREMENTS</span>
-                <h2>
-                  Two lengths are measured as 12.31 cm and 0.4 cm. What is their sum, rounded to the
-                  correct decimal place?
-                </h2>
-                <fieldset>
-                  <legend>Your answer</legend>
-                  {["12.71 cm", "12.7 cm", "13 cm", "12.710 cm"].map((o, i) => (
-                    <label
-                      key={o}
-                      className={answer === String(i) ? "sp-option selected" : "sp-option"}
-                    >
-                      <input
-                        type="radio"
-                        name="preview-answer"
-                        value={i}
-                        checked={answer === String(i)}
-                        onChange={() => selectAnswer(String(i))}
-                      />
-                      <span>{String.fromCharCode(65 + i)}</span>
-                      {o}
-                    </label>
-                  ))}
-                </fieldset>
-                <div className="sp-section-heading">
-                  <span className="sp-muted">
-                    {answer
-                      ? "Answer held in preview memory"
-                      : "You can leave this question unanswered"}
-                  </span>
-                  <Action onClick={finish}>Submit sample test</Action>
-                </div>
-              </section>
+              <Title eyebrow="JEE MAIN PRACTICE" title="Six-question diagnostic">
+                Untimed sample. You can pause and come back while this page stays open.
+              </Title>
+              <PreviewDiagnostic
+                answers={answers}
+                flags={flags}
+                index={questionIndex}
+                onMove={setQuestionIndex}
+                onAnswer={(answer) =>
+                  setAnswers(answers.map((value, i) => (i === questionIndex ? answer : value)))
+                }
+                onFlag={() =>
+                  setFlags(
+                    previewQuestions.map((_, i) => (i === questionIndex ? !flags[i] : !!flags[i])),
+                  )
+                }
+                onSubmit={finish}
+              />
             </>
           )}
-          {view === "report" && (
+          {view === "report" && report && (
             <>
-              <Title eyebrow="YOUR PERFORMANCE REPORT" title="A starting point, not a label.">
-                Use what you learned today to shape your next session.
+              <Title eyebrow="JEE MAIN PRACTICE" title="Your diagnostic report">
+                Use this breakdown to choose your next revision session.
               </Title>
               <section className="sp-report" data-preview-report>
                 <div className="sp-report-header">
@@ -894,77 +886,60 @@ export function PlatformPreview() {
                     alt="DekhoExams"
                   />
                   <div>
-                    <strong>JEE Main · sample report</strong>
-                    <small>Design preview · one sample question</small>
+                    <strong>JEE Main diagnostic</strong>
+                    <small>Six original sample questions</small>
                   </div>
                 </div>
                 <div className="sp-four">
                   <Metric
                     label="Practice score"
-                    value={answer === "1" ? "4 / 4" : answer ? "−1 / 4" : "0 / 4"}
+                    value={`${report.score} / ${report.max}`}
                     detail="+4 correct · −1 incorrect"
                   />
                   <Metric
                     label="Accuracy"
-                    value={answer ? (answer === "1" ? "100%" : "0%") : "—"}
-                    detail={answer ? "Based on one answer" : "No questions attempted"}
+                    value={report.accuracy === null ? "—" : `${report.accuracy}%`}
+                    detail={
+                      report.attempted
+                        ? `${report.hits} correct of ${report.attempted} answered`
+                        : "No answers submitted"
+                    }
                     tone="green"
                   />
                   <Metric
-                    label="Attempted"
-                    value={answer ? "1 of 1" : "0 of 1"}
-                    detail={answer ? "No skipped questions" : "One question skipped"}
+                    label="Answered"
+                    value={`${report.attempted} / ${report.graded}`}
+                    detail={`${report.skipped} skipped`}
                     tone="orange"
                   />
                   <Metric
-                    label="Duration"
-                    value="Untimed"
-                    detail="Timer is off in the preview"
+                    label="Marks lost"
+                    value={String(report.penalty)}
+                    detail={`${report.misses} incorrect`}
                     tone="purple"
                   />
                 </div>
-                <div className="sp-report-insight">
-                  <div>
-                    <h2>
-                      {answer === "1"
-                        ? "A good start with precision."
-                        : "Decimal places are a useful next stop."}
-                    </h2>
-                    <p>
-                      {answer === "1"
-                        ? "You handled this sample correctly. A full mock gives a more useful view across all three subjects."
-                        : "Practise rounding measured values, then try a full mock when you're ready."}
-                    </p>
-                  </div>
-                  <div className="sp-readiness">
-                    <span>Practice readiness</span>
-                    <strong>More data needed</strong>
-                    <p>One question cannot estimate your selection chances.</p>
-                  </div>
-                </div>
-                <p className="sp-muted">
-                  This report contains performance KPIs only. The full question review stays in the
-                  test experience.
-                </p>
+                <PreviewBreakdown result={report} />
               </section>
               <div className="sp-report-actions">
                 <Action onClick={() => window.print()}>
                   <Download size={17} /> Print / save report PDF
                 </Action>
-                <Action secondary onClick={() => go("checkout")}>
-                  Use my next offer
+                <Action secondary onClick={openDiagnostic}>
+                  Retake diagnostic
+                </Action>
+                <Action secondary onClick={book}>
+                  Preview checkout
                 </Action>
               </div>
+              <PreviewQuestionReview result={report} />
             </>
           )}
           {view === "admin" && (
             <>
               <div className="sp-section-heading">
-                <Title
-                  eyebrow="PARTNER DESK · DESIGN PREVIEW"
-                  title="Good partnerships. Real progress."
-                >
-                  Manage school access, see completion and keep student details protected.
+                <Title eyebrow="PARTNER DESK · DESIGN PREVIEW" title="School and admin preview">
+                  See how school coupons and student progress appear in the partner desk.
                 </Title>
                 <Action onClick={() => showSchoolForm(true)}>
                   <Plus size={17} /> Add a school coupon
@@ -1082,13 +1057,17 @@ export function PlatformPreview() {
                   )}
                 </section>
               </div>
-              <IntegrationPreview />
+              <div className="sp-partner-links">
+                <a className="sp-button sp-secondary" href="/platform-school">
+                  <GraduationCap size={19} /> Open school panel
+                </a>
+                <a className="sp-button sp-secondary" href="/platform-admin">
+                  <LockKeyhole size={18} /> Open owner settings
+                </a>
+              </div>
               <div className="sp-bottom-note">
                 <LockKeyhole size={19} />
-                <p>
-                  This is a public design preview. The real admin workspace will require an
-                  authorized admin session; student data will never be public here.
-                </p>
+                <p>The school panel and owner settings require separate authorized sessions.</p>
               </div>
             </>
           )}

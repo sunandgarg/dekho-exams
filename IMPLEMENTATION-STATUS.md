@@ -1,5 +1,11 @@
 # Dekhoexams Implementation Status
 
+## Student and school pilot (2026-11-20)
+
+The public preview includes a six-question JEE Main diagnostic and an example report. The private platform adds an owner panel for provider settings and school access, a school panel for a default one-mock coupon and CSV/XLSX roster import, and a student panel for timed practice, private reports and printable achievement certificates. Students activate their invitation with an SMS code sent to the roster phone. School staff see their school's masked roster and coupon usage. Students see their own attempts and awards.
+
+TypeScript, policy tests and isolated MySQL integration tests passed. The tests exercised encrypted records, role and school boundaries, mocked SMS, concurrent entitlement claims, grading, certificate ownership and logout. A synthetic XLSX passed through the production parser. Production school enrollment requires the isolated database, live SMS settings and consent verification for eligible cohorts. Google sign-in, paid checkout, report email and native apps have separate launch gates. School roster imports do not enroll contacts in marketing.
+
 ## JEE Advanced 140-record source-match review (2026-11-19)
 
 Reviewed the entire 140-record queue in one pass. Prepared 105 additional scorable questions and 59 clean diagram crops, with source PDF hashes, question/key pages, option mappings and immutable-original corrections in `scripts/jee/advanced-pdf-review.json`. The missing chapter keys were largely on second-last answer-table pages. Corrected verified omissions including a reaction table, missing starting structures, an integral exponent and matching combinations. Unverified old explanations are withheld where question content was corrected. Original archive records, stable URLs and Hindi versions remain unchanged.
