@@ -11,6 +11,7 @@ import {
 } from "@/lib/platform-client";
 import { Notice } from "./platform-controls";
 import { PlatformAdmin } from "./platform-admin";
+import { PlatformLeads } from "./platform-leads";
 import { PlatformSchool } from "./platform-school";
 import { PlatformStudent } from "./platform-student";
 import "./platform-workspace.css";
@@ -26,8 +27,15 @@ const descriptions: Record<PlatformRole, string> = {
   student: "Take your school diagnostic and see your private report and awards.",
 };
 
-export function PlatformWorkspace({ role }: { role: PlatformRole }) {
+export function PlatformWorkspace({
+  role,
+  ownerView,
+}: {
+  role: PlatformRole;
+  ownerView?: "leads";
+}) {
   const [session, setSession] = useState<PlatformSession | null>(null);
+  const [available, setAvailable] = useState<boolean | null>(null);
   const [invite, setInvite] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [busy, setBusy] = useState("session");
@@ -46,6 +54,13 @@ export function PlatformWorkspace({ role }: { role: PlatformRole }) {
       if (!token) setError("This invitation link is malformed.");
     }
     let active = true;
+    void platformRequest<{ available: boolean }>("/status")
+      .then(({ available }) => {
+        if (active) setAvailable(available);
+      })
+      .catch(() => {
+        if (active) setAvailable(null);
+      });
     void platformRequest<PlatformSession>("/session")
       .then((result) => {
         if (active) setSession(result);
@@ -154,7 +169,11 @@ export function PlatformWorkspace({ role }: { role: PlatformRole }) {
           </p>
         ) : unlocked ? (
           role === "owner" ? (
-            <PlatformAdmin />
+            ownerView === "leads" ? (
+              <PlatformLeads />
+            ) : (
+              <PlatformAdmin />
+            )
           ) : role === "school" ? (
             <PlatformSchool />
           ) : (
@@ -172,6 +191,9 @@ export function PlatformWorkspace({ role }: { role: PlatformRole }) {
                 <LockKeyhole size={20} aria-hidden="true" />{" "}
                 {session ? "You’re signed in" : "Open your invitation"}
               </h2>
+              {!session && role !== "owner" && (
+                <a href="/login">Student and school access options</a>
+              )}
               {session ? (
                 <>
                   <p className="pw-muted">
@@ -185,6 +207,15 @@ export function PlatformWorkspace({ role }: { role: PlatformRole }) {
                   ) : (
                     <a className="pw-button" href={platformRoutes[session.role]}>
                       Go to your workspace <ArrowRight size={16} aria-hidden="true" />
+                    </a>
+                  )}
+                </>
+              ) : available === false ? (
+                <>
+                  <Notice message="Workspace enrollment is being set up." />
+                  {role !== "owner" && (
+                    <a className="pw-button" href="/platform-preview">
+                      Try the free diagnostic
                     </a>
                   )}
                 </>

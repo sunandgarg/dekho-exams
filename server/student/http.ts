@@ -13,6 +13,7 @@ import {
 import { tokenDigest, validToken } from "./crypto.ts";
 import { diagnostic, PilotError, type scoreDiagnostic } from "./diagnostic.ts";
 import { openSettings, saveIntegration, validateSettings } from "./integrations.ts";
+import { listLeads, saveLead, setLeadStatus } from "./leads.ts";
 import { platformKey, platformPool } from "./pool.ts";
 import {
   createSchool,
@@ -134,14 +135,21 @@ export async function platformResponse(
     const path = new URL(request.url).pathname.slice(pathPrefix.length);
     const { method } = request;
     if (!["GET", "POST"].includes(method)) return respond({ error: "Method unavailable." }, 405);
+    if (method === "GET" && path === "/status")
+      return respond({ available: process.env["PLATFORM_ENABLED"] === "true" });
     if (
-      !(method === "POST" && ["/activate", "/student-code"].includes(path)) &&
+      !(method === "POST" && ["/activate", "/student-code", "/inquiry"].includes(path)) &&
       !validToken(sessionToken(request))
     )
       return respond({ error: "Sign in with your private access link." }, 401);
     if (method === "POST" && request.headers.get("origin") !== platformOrigin())
       throw new PilotError(403, "This request must come from the DekhoExams panel.");
     const pool = poolFactory();
+    if (method === "POST" && path === "/inquiry")
+      return respond(
+        await saveLead(pool, Buffer.from(keyFactory(), "base64"), await body(request)),
+        202,
+      );
     if (method === "POST" && path === "/student-code") {
       const { token } = z
         .object({
@@ -188,6 +196,14 @@ export async function platformResponse(
     }
     const cursor = new URL(request.url).searchParams.get("after");
     const after = cursor === null ? undefined : uuid.parse(cursor);
+    if (method === "POST" && path === "/admin/leads") {
+      requireRole("owner");
+      return respond(await listLeads(pool, Buffer.from(key, "base64"), await body(request)));
+    }
+    if (method === "POST" && path === "/admin/leads/status") {
+      requireRole("owner");
+      return respond(await setLeadStatus(pool, await body(request)));
+    }
     if (method === "GET" && path === "/admin") {
       requireRole("owner");
       const directory = await listSchools(pool, member.id, after);

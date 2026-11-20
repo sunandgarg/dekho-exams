@@ -185,9 +185,14 @@ export function PlatformAdmin() {
           <h1>Platform administration</h1>
           <p>Create school partnerships and manage provider settings for DekhoExams.</p>
         </div>
-        <a className="pw-button pw-secondary" href="#integrations">
-          Integration settings
-        </a>
+        <div className="pw-inline">
+          <a className="pw-button" href="/platform-admin/leads">
+            All leads
+          </a>
+          <a className="pw-button pw-secondary" href="#integrations">
+            Integration settings
+          </a>
+        </div>
       </div>
       <Notice message={error} error />
       {!data ? (

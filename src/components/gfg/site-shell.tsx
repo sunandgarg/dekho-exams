@@ -4,7 +4,7 @@ import {
   Bookmark,
   BookOpen,
   GraduationCap,
-  Files, Atom, Stethoscope, Cpu, Landmark, Shield, ClipboardList,
+  Files, Atom, Stethoscope, Cpu, Landmark, Shield, ClipboardList, LogIn,
   Home,
   Menu,
   Moon,
@@ -114,15 +114,16 @@ export function SiteShell({ children }: { children: ReactNode }) {
     observer.observe(header);
     return () => observer.disconnect();
   }, [pathname]);
-  if (/^\/platform-(?:preview|admin|school|student)$/.test(pathname)) return <>{children}</>;
+  if (/^\/(?:login|platform-(?:preview|admin(?:\/leads)?|school|student))\/?$/.test(pathname)) return <>{children}</>;
   if (pathname.startsWith("/admin"))
     return <div className="min-h-screen bg-background text-foreground">{children}</div>;
   if (pathname === "/pdf-library" || pathname.startsWith("/pdf-library/") || pathname.startsWith("/pyq-pdfs/")) {
     return <div className="pdf-shell" data-app-ready={themeReady}>
       <a href="#main-content" className="sr-only focus:not-sr-only">Skip to PDFs</a>
       <header className="pdf-mast"><div className="pdf-container"><a href="/" aria-label="DekhoExams home"><Brand/></a>
-        <nav aria-label="PDF library navigation"><a href="/pdf-library#exams">Exams</a><a href="/questions">Practice ↗</a>
+        <nav aria-label="PDF library navigation"><a href="/pdf-library#exams">Exams</a><a href="/questions" className="pdf-practice-link">Practice ↗</a>
           <button type="button" aria-label="Toggle theme" onClick={()=>setDark(!dark)}>{dark ? <Sun size={17}/> : <Moon size={17}/>}</button>
+          <Link to="/login" className="ozi-sign-in">Sign in</Link>
         </nav></div></header>
       <main id="main-content" tabIndex={-1}>{children}</main><Footer/><PrivacyControls/>
     </div>;
@@ -191,6 +192,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
                     if ((e.target as HTMLElement).closest("a")) setMobileOpen(false);
                   }}
                 >
+                  <a href="/login#schools" className="block py-3 text-sm font-bold">For schools</a>
                   {NAV_GROUPS.map((group) => (
                     <details key={group.label} className="border-b">
                       <summary className="cursor-pointer py-4 text-sm font-bold">
@@ -252,6 +254,10 @@ export function SiteShell({ children }: { children: ReactNode }) {
               <Bookmark className="size-5" />
               <span>Reading list</span>
             </LocalLink>
+            <Link to="/login" className="ozi-sign-in">
+              <LogIn className="size-4" aria-hidden="true" />
+              Sign in
+            </Link>
           </div>
         </div>
         <nav aria-label="Popular topics" className="ozi-topic-nav">
@@ -348,6 +354,8 @@ function Footer() {
             </p>
           </div>
           <div className="grid gap-3 text-sm">
+            <Link to="/login" className="font-bold">Student and school sign in</Link>
+            <a href="/login#schools" className="font-bold">For schools</a>
             <a href="/classes" className="font-bold">
               Explore all classes →
             </a>

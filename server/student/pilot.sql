@@ -72,3 +72,22 @@ CREATE TABLE IF NOT EXISTS de_platform_sms_budget (
   utc_day DATE PRIMARY KEY,
   sends INT UNSIGNED NOT NULL DEFAULT 0
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS de_platform_leads (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  contact_hash BINARY(32) NOT NULL,
+  kind ENUM('student','parent','school') NOT NULL,
+  encrypted_fields BLOB NOT NULL,
+  consent_version VARCHAR(32) CHARACTER SET ascii NOT NULL,
+  status ENUM('new','contacted') NOT NULL DEFAULT 'new',
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE(kind,contact_hash),
+  INDEX(contact_hash,id),
+  INDEX(kind,id),
+  INDEX(status,id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS de_platform_lead_budget (
+  utc_day DATE PRIMARY KEY,
+  submissions INT UNSIGNED NOT NULL DEFAULT 0
+) ENGINE=InnoDB;

@@ -2,6 +2,8 @@
 
 ## Student and school pilot (2026-11-20)
 
+The public header and PDF library now link to a shared student and school access page. It identifies the school invitation path, free practice, and the pilot's branded practice certificates. When private enrollment is enabled, adult students, parents, and school staff can request access with express permission for a follow-up. The owner-only All leads page has exact-email search, audience and follow-up filters, bounded pagination, and a contacted status. It uses DekhoExams inquiries and stores contact details encrypted. School roster data stays in the separate school workflow.
+
 The follow-up adds school-wide roster, activation, start and completion totals and a private downloadable JEE Main report. The report contains DekhoExams branding, score, accuracy, subject counts and the next practice topic. Individual results remain with the student. MySQL tests exercise report ownership and verify totals for two separate schools.
 
 The public preview includes a six-question JEE Main diagnostic and an example report. The private platform adds an owner panel for provider settings and school access, a school panel for a default one-mock coupon and CSV/XLSX roster import, and a student panel for timed practice, private reports and printable achievement certificates. Students activate their invitation with an SMS code sent to the roster phone. School staff see their school's masked roster and coupon usage. Students see their own attempts and awards.

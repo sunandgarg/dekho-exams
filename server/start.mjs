@@ -19,7 +19,7 @@ await serve({
       const { platformResponse } = await import("./student/http.ts");
       return platformResponse(request);
     }
-    if (/^\/platform-(?:admin|school|student)\/?$/.test(path)) {
+    if (/^\/(?:login|platform-(?:admin(?:\/leads)?|school|student))\/?$/.test(path)) {
       const page = await app.fetch(request, env, {});
       const response = new Response(page.body, page);
       response.headers.set("Cache-Control", "private, no-store");

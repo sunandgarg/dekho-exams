@@ -14,6 +14,7 @@ import { Route as SplatRouteImport } from './routes/$'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as PlatformAdminRouteImport } from './routes/platform-admin'
 import { Route as PlatformPreviewRouteImport } from './routes/platform-preview'
 import { Route as PlatformSchoolRouteImport } from './routes/platform-school'
@@ -23,6 +24,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StudyRouteImport } from './routes/study'
 import { Route as PdfLibraryIndexRouteImport } from './routes/pdf-library.index'
 import { Route as PdfLibrarySplatRouteImport } from './routes/pdf-library.$'
+import { Route as PlatformAdminLeadsRouteImport } from './routes/platform-admin_.leads'
 import { Route as PyqPdfsIndexRouteImport } from './routes/pyq-pdfs.index'
 import { Route as QuestionsIndexRouteImport } from './routes/questions.index'
 import { Route as QuestionsBookmarksRouteImport } from './routes/questions.bookmarks'
@@ -76,6 +78,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlatformAdminRoute = PlatformAdminRouteImport.update({
   id: '/platform-admin',
   path: '/platform-admin',
@@ -119,6 +126,11 @@ const PdfLibraryIndexRoute = PdfLibraryIndexRouteImport.update({
 const PdfLibrarySplatRoute = PdfLibrarySplatRouteImport.update({
   id: '/pdf-library/$',
   path: '/pdf-library/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformAdminLeadsRoute = PlatformAdminLeadsRouteImport.update({
+  id: '/platform-admin_/leads',
+  path: '/platform-admin/leads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PyqPdfsIndexRoute = PyqPdfsIndexRouteImport.update({
@@ -281,6 +293,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/login': typeof LoginRoute
   '/platform-admin': typeof PlatformAdminRoute
   '/platform-preview': typeof PlatformPreviewRoute
   '/platform-school': typeof PlatformSchoolRoute
@@ -289,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/study': typeof StudyRouteWithChildren
   '/pdf-library/$': typeof PdfLibrarySplatRoute
+  '/platform-admin/leads': typeof PlatformAdminLeadsRoute
   '/questions/bookmarks': typeof QuestionsBookmarksRoute
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
@@ -324,6 +338,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/login': typeof LoginRoute
   '/platform-admin': typeof PlatformAdminRoute
   '/platform-preview': typeof PlatformPreviewRoute
   '/platform-school': typeof PlatformSchoolRoute
@@ -331,6 +346,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/pdf-library/$': typeof PdfLibrarySplatRoute
+  '/platform-admin/leads': typeof PlatformAdminLeadsRoute
   '/questions/bookmarks': typeof QuestionsBookmarksRoute
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
@@ -367,6 +383,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/login': typeof LoginRoute
   '/platform-admin': typeof PlatformAdminRoute
   '/platform-preview': typeof PlatformPreviewRoute
   '/platform-school': typeof PlatformSchoolRoute
@@ -375,6 +392,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/study': typeof StudyRouteWithChildren
   '/pdf-library/$': typeof PdfLibrarySplatRoute
+  '/platform-admin_/leads': typeof PlatformAdminLeadsRoute
   '/questions/bookmarks': typeof QuestionsBookmarksRoute
   '/study/$': typeof StudySplatRoute
   '/study/search': typeof StudySearchRoute
@@ -412,6 +430,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/auth'
+    | '/login'
     | '/platform-admin'
     | '/platform-preview'
     | '/platform-school'
@@ -420,6 +439,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/study'
     | '/pdf-library/$'
+    | '/platform-admin/leads'
     | '/questions/bookmarks'
     | '/study/$'
     | '/study/search'
@@ -455,6 +475,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/auth'
+    | '/login'
     | '/platform-admin'
     | '/platform-preview'
     | '/platform-school'
@@ -462,6 +483,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/pdf-library/$'
+    | '/platform-admin/leads'
     | '/questions/bookmarks'
     | '/study/$'
     | '/study/search'
@@ -497,6 +519,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/auth'
+    | '/login'
     | '/platform-admin'
     | '/platform-preview'
     | '/platform-school'
@@ -505,6 +528,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/study'
     | '/pdf-library/$'
+    | '/platform-admin_/leads'
     | '/questions/bookmarks'
     | '/study/$'
     | '/study/search'
@@ -541,6 +565,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  LoginRoute: typeof LoginRoute
   PlatformAdminRoute: typeof PlatformAdminRoute
   PlatformPreviewRoute: typeof PlatformPreviewRoute
   PlatformSchoolRoute: typeof PlatformSchoolRoute
@@ -549,6 +574,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   StudyRoute: typeof StudyRouteWithChildren
   PdfLibrarySplatRoute: typeof PdfLibrarySplatRoute
+  PlatformAdminLeadsRoute: typeof PlatformAdminLeadsRoute
   QuestionsBookmarksRoute: typeof QuestionsBookmarksRoute
   PdfLibraryIndexRoute: typeof PdfLibraryIndexRoute
   PyqPdfsIndexRoute: typeof PyqPdfsIndexRoute
@@ -613,6 +639,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/platform-admin': {
       id: '/platform-admin'
       path: '/platform-admin'
@@ -674,6 +707,13 @@ declare module '@tanstack/react-router' {
       path: '/pdf-library/$'
       fullPath: '/pdf-library/$'
       preLoaderRoute: typeof PdfLibrarySplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform-admin_/leads': {
+      id: '/platform-admin_/leads'
+      path: '/platform-admin/leads'
+      fullPath: '/platform-admin/leads'
+      preLoaderRoute: typeof PlatformAdminLeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pyq-pdfs/': {
@@ -888,6 +928,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  LoginRoute: LoginRoute,
   PlatformAdminRoute: PlatformAdminRoute,
   PlatformPreviewRoute: PlatformPreviewRoute,
   PlatformSchoolRoute: PlatformSchoolRoute,
@@ -896,6 +937,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   StudyRoute: StudyRouteWithChildren,
   PdfLibrarySplatRoute: PdfLibrarySplatRoute,
+  PlatformAdminLeadsRoute: PlatformAdminLeadsRoute,
   QuestionsBookmarksRoute: QuestionsBookmarksRoute,
   PdfLibraryIndexRoute: PdfLibraryIndexRoute,
   PyqPdfsIndexRoute: PyqPdfsIndexRoute,

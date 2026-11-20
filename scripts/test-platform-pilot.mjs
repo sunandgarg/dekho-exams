@@ -81,6 +81,38 @@ try {
     conn.release();
   }
   const owner = await login(ownerLink.url);
+  assert.equal(typeof (await response("/status", "")).available, "boolean");
+  await response("/admin/leads", "", {}, 401);
+  const interest = {
+    kind: "school",
+    name: "Demo Contact",
+    school: "Demo School",
+    email: "staff@example.test",
+    adult: true,
+    contactPermission: true,
+  };
+  await response("/inquiry", "", { ...interest, adult: false }, 400);
+  await response("/inquiry", "", { ...interest, contactPermission: false }, 400);
+  assert.equal((await request("/inquiry", "", interest, "https://elsewhere.invalid")).status, 403);
+  await response("/inquiry", "", { ...interest, website: "trap" }, 202);
+  assert.equal((await response("/admin/leads", owner, {})).leads.length, 0);
+  await Promise.all(Array.from({ length: 5 }, () => response("/inquiry", "", interest, 202)));
+  const leadPage = await response("/admin/leads", owner, { email: "STAFF@example.test" });
+  assert.equal(leadPage.leads.length, 1);
+  const [lead] = leadPage.leads;
+  assert.equal(lead.school, interest.school);
+  assert.equal(lead.status, "new");
+  await response("/admin/leads/status", owner, { id: lead.id, status: "contacted" });
+  assert.equal(
+    (await response("/admin/leads", owner, { status: "contacted", kind: "school" })).leads.length,
+    1,
+  );
+  assert.equal((await response("/admin/leads", owner, { status: "new" })).leads.length, 0);
+  const [[rawLead]] = await pool.query(
+    "SELECT contact_hash,encrypted_fields,consent_version FROM de_platform_leads",
+  );
+  assert(!Buffer.concat([rawLead.contact_hash, rawLead.encrypted_fields]).includes(interest.email));
+  assert.equal(rawLead.consent_version, "access-inquiry-v1");
   await response("/activate", "", { token: linkToken(ownerLink.url) }, 401);
   await response("/session", "", undefined, 401);
   const secret = "isolated-only-test-secret";
@@ -129,6 +161,8 @@ try {
   const staffA = await login(firstStaff.url),
     staffB = await login(secondStaff.url);
   await response("/admin", staffA, undefined, 403);
+  await response("/admin/leads", staffA, {}, 403);
+  await response("/admin/leads/status", staffA, { id: lead.id, status: "new" }, 403);
   await response("/roster", staffA, { rows: [{ name: "Sample", mobile: "9876500001" }] }, 400);
   await response(
     "/roster",
@@ -157,6 +191,7 @@ try {
   await response("/activate", "", { token: linkToken(studentLink.url) }, 401);
   const student = await login(replaced.url, "+919876500001");
   await response("/school", student, undefined, 403);
+  await response("/admin/leads", student, {}, 403);
   await response("/student", staffA, undefined, 403);
   await response("/student/marketing", student, { optedIn: true }, 403);
   await response("/student/report", student, undefined, 404);
